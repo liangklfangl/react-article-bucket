@@ -17,7 +17,47 @@
 #### 2.React开发中那些设计模式
 (1)使用this.props.children来处理组件的低耦合。此时，父组件可以访问和读取子组件。而我们以前直接将Navigator组件写入到Header组件的方式一方面使得测试不容易(当然，在测试中可以使用[shallow-rendering](https://facebook.github.io/react/docs/test-utils.html#shallow-rendering)的方式来解决)，另一方面我们的Header和Navigator将会强耦合，对于一些不需要Navigator的Header组件来说就无法实现复用
 
-(2)高阶组件可以很容易的实现逻辑的复用，对于一些重复的逻辑可以考虑使用[高阶组件](https://github.com/liangklfangl/high-order-reducer)来完成
+(2)高阶组件可以很容易的实现逻辑的复用，对于一些重复的逻辑可以考虑使用[高阶组件](https://github.com/liangklfangl/high-order-reducer)来完成。下面的例子就为我们的初始组件添加了一个title属性：
+
+```js
+var config = require('path/to/configuration');
+
+var enhanceComponent = (Component) =>
+  class Enhance extends React.Component {
+    render() {
+      return (
+        <Component
+          {...this.state}
+          {...this.props}
+          title={ config.appTitle }
+        \/>
+      )
+    }
+  };
+```
+而这一切对于我们的Component来说是透明的，它只需要知道会接受到一个`title属性`即可，至于如何获取到，从哪里获取到这是他不需要关系的。而且高阶组件中也可以使用this.state或者this.props，前者在Enhance中直接定义，而后者是通过enhanceComponent方法对组件进行包装后传递的pros属性。高阶组件有一点需要注意，如下面的例子：
+
+```js
+var OriginalComponent = () => <p>Hello world.<\/p>;
+class App extends React.Component {
+  render() {
+    return React.createElement(enhanceComponent(OriginalComponent));
+  }
+};
+```
+这段代码速度比较慢，每次都会清除OriginalComponent组件和其子组件的DOM和state状态，即完全重新渲染，因为enhanceComponent(OriginalComponent)每次都会给你返回一个不同的class，而根据React的component diff算法，组件本身的类型发生了改变，因此需要reRender。只要简单的修改如下:
+
+```js
+var OriginalComponent = () => <p>Hello world.<\/p>;
+var EnhancedComponent = enhanceComponent(OriginalComponent);
+
+class App extends React.Component {
+  render() {
+    return React.createElement(EnhancedComponent);
+  }
+};
+```
+此时render方法每次返回的都是同类型的EnhancedComponent。你可以查看[React的component diff](https://zhuanlan.zhihu.com/p/20346379?columnSlug=purerender)
 
 (3)我们写的大部分的模块和组件都会存在依赖关系，特别是当树形的组件树存在的时候，父子关系的依赖就会出现了。因此，项目成功的一个关键就是如何去管理这些依赖关系。此时你应该要考虑到一个广为人知的设计模式，也就是
 我们所说的:依赖注入。我们给出下面的例子：
@@ -363,3 +403,5 @@ User input
 [React.js in patterns](http://krasimirtsonev.com/blog/article/react-js-in-design-patterns)
 
 [react in patterns](https://github.com/krasimir/react-in-patterns/tree/master/patterns/higher-order-components)
+
+[Higher order components should be wrapped before render()](https://github.com/krasimir/react-in-patterns/issues/12)
