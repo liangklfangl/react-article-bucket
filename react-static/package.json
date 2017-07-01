@@ -1,0 +1,28 @@
+{
+  "name": "react-static-ajax",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "wcf --dev --devServer --htmlTemplate ./src/index.html"
+  },
+  "entry": {
+    "index": "./src/render-client.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liangklfangl/react-static-ajax.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/liangklfangl/react-static-ajax/issues"
+  },
+  "homepage": "https://github.com/liangklfangl/react-static-ajax#readme",
+  "dependencies": {
+    "react": "^15.5.4",
+    "react-dom": "^15.5.4",
+    "webpack": "^2.6.1"
+  }
+}
