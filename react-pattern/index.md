@@ -4,6 +4,7 @@
 ![](https://img.alicdn.com/tfs/TB1tsBQNVXXXXaGaXXXXXXXXXXX-1190-216.png)
 
 这是因为在最后一个定时器中是如下的代码:
+
 ```js
    setTimeout(() => {
       store.dispatch({
@@ -21,7 +22,6 @@
 
 ```js
 var config = require('path/to/configuration');
-
 var enhanceComponent = (Component) =>
   class Enhance extends React.Component {
     render() {
@@ -200,11 +200,9 @@ Title.contextTypes = {
 ```js
 // Title.jsx
 import wire from './wire';
-
 function Title(props) {
   return <h1>{ props.title }<\/h1>;
 }
-
 export default wire(Title, ['title'], function resolve(title) {
   return { title };
 });
@@ -220,7 +218,6 @@ export default function wire(Component, dependencies, mapper) {
     render() {
       var resolved = dependencies.map(this.context.get.bind(this.context));
       var props = mapper(...resolved);
-
       return React.createElement(Component, props);
     }
   }
@@ -236,7 +233,11 @@ Inject是一个高阶组件，他会访问context属性，然后获取哪些depe
 
 (4)单向数据交流
 
-单向数据流是React中一个很重要的概念。他的主流思想是：组件本身不修改他们接受到的props属性，他们仅仅是监听数据的变化，或者提供一个新的数据(用于更新数据)，但是他们不会直接更新store中的数据。而store中数据的更新是来自于另外一个机制，另外一个地方，而组件本身只会通过这个更新的数据来重新渲染而已。
+单向数据流是React中一个很重要的概念。他的`主流思想是`：组件本身不修改他们接受到的props属性，他们仅仅是监听数据的变化，或者提供一个新的数据(用于更新prop数据,如通过父组件传递的callback)，但是他们不会直接更新props数据，这种组件就是我们常说的pure组件。而store中数据的更新是来自于另外一个机制，另外一个地方，而组件本身只会通过这个更新的数据来重新渲染而已。下面是React[官网](https://facebook.github.io/react/docs/components-and-props.html)的一句话：
+
+*All React components must act like pure functions with respect to their props.*
+
+我们日常开发中常常使用的方式为：父组件将回调传递给子组件，而子组件通过调用该callback导致父组件(或者最顶级的组件)的state发生了变化，从而导致整个组件树重新渲染。其实我们常说的redux数据流管理也是同样的道理，即通过修改了最顶层的组件的state导致了组件树的重新渲染。
 
 下面给出Switcher的例子：
 
@@ -255,7 +256,6 @@ class Switcher extends React.Component {
     );
   }
 };
-
 // ... and we render it
 class App extends React.Component {
   render() {
@@ -352,7 +352,7 @@ class App extends React.Component {
   }
 };
 ```
-注意：此处我们使用了forceUpdate，但是我们不推荐这样做，具体的使用你可以参考[高阶组件重新渲染](https://github.com/krasimir/react-in-patterns/tree/master/patterns/higher-order-components)
+注意：此处我们使用了[forceUpdate](https://facebook.github.io/react/docs/react-component.html)，但是我们不推荐这样做，使用forceUpdate会使得当前组件直接跳过shouldComponentUpdate。但是所有的子组件的生命周期函数调用是正常的，包括shouldComponentUpdate，React只有在DOM更新的时候才会进行重新渲染。一种推荐的方式就是[通过state来维持一个key](https://stackoverflow.com/questions/30626030/can-you-force-a-react-component-to-rerender-without-calling-setstate)，每次key发生了变化，那么组件肯定会更新。
 
 此时我们的Switcher组件变得非常简单，我们不需要维持内部的状态了:
 
@@ -391,6 +391,54 @@ Switcher ---->
 User input
 </pre>
 正如你能看到的，我们的数据流是单向的，我们不需要同步系统的两个部分，即UI和store。单向数据流不仅仅用于React,他是一种有用的模式，该模式会使得你的应用本身变得非常易于维护。
+
+(5)在React组件的构造函数中调用bind方法
+
+以前我们定义组件的onClick时候通常采用下面的方法：
+
+```js
+class Switcher extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { name: 'React in patterns' };
+  }
+  render() {
+    return (
+     <button onClick={ this._handleButtonClick.bind(this) }>
+     //这里不能是onClick={ this._handleButtonClick }，因为此时无法在_handleButtonClick中访问this，所以要么在这里调用bind方法要么在constructor中调用bind
+      click me
+    <\/button>
+    );
+  }
+  _handleButtonClick() {
+    console.log(`Button is clicked inside ${ this.state.name }`);
+    // leads to
+    // Uncaught TypeError: Cannot read property 'state' of null
+  }
+};
+```
+这种情况下bind方法会不断调用，因为我们会多次渲染我们的button,即触发它的render方法(如组件更新)。所以，好的方法应该是将bind放到constructor方法中：
+
+```js
+class Switcher extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { name: 'React in patterns' };
+    this._buttonClick = this._handleButtonClick.bind(this);
+  }
+  render() {
+    return (
+      <button onClick={ this._buttonClick }>
+        click me
+      <\/button>
+    );
+  }
+  _handleButtonClick() {
+    console.log(`Button is clicked inside ${ this.state.name }`);
+  }
+};
+```
+
 
 
 
