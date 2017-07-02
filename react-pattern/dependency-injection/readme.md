@@ -140,3 +140,7 @@ export default wire(Title, ['config'], function (config) {
 
 (2)使用了context，当组件树嵌套过深的情况下可以防止中间层组件需要处理那些它不需要关心的属性。
 
+(3)如果需要子组件修改context从而最顶层组件重新渲染可以继续[查看这里](./index.md),他会为我们的Store注册事件，从而监听Store的变化，每次Store变化后都要求最顶层组件重新渲染，一个简单的方法就是forceUpdate
+
+(4)React官网本身不建议使用context，如果你想要不使用context而实现同样的功能，可以仔细阅读这里的[模块系统](https://github.com/liangklfang/react-in-patterns/tree/master/patterns/dependency-injection#dependency-injection-powered-by-an-ioc-container)
+

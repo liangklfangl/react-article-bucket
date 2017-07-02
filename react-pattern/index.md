@@ -50,7 +50,6 @@ class App extends React.Component {
 ```js
 var OriginalComponent = () => <p>Hello world.<\/p>;
 var EnhancedComponent = enhanceComponent(OriginalComponent);
-
 class App extends React.Component {
   render() {
     return React.createElement(EnhancedComponent);
@@ -230,6 +229,82 @@ export default function wire(Component, dependencies, mapper) {
 };
 ```
 Inject是一个高阶组件，他会访问context属性，然后获取哪些dependencies指定的属性。而我们的mapper方法会获取context数据，然后将它转化为组件的props.
+
+很显然我们依赖注入的方法是使用了react的context特性，react官方并不建议使用react的context属性。但是对于这种依赖注入的方式原理是很好理解的，那些想要从context中访问数据的组件来说只要简单的使用wire方法进行包装即可。wire方法内部通过contextTypes来指定需要访问的数据。
+
+当然，如果你想要使用context，那么你可以考虑使用模块系统。虽然，模块系统并不是为了React设计的，但是他也能实现同样的功能。我们知道，典型的模块系统有一个缓存机制，这在nodejs的文档中有明确的说明：
+
+<pre>
+  (1)当模块首次被加载的时候会被缓存，也就是说每次调用require('foo')都会得到完全相同的对象，只要这个模块对应于同一个文件。
+  (2)多次调用require('foo');不会导致模块代码被多次执行,这是一个很重要的特性。利用这个特性，我们将会返回一个"部分完整"的对象(引用)，从而允许那些过渡的依赖被加载，即使这些过渡的依赖存在循环引用的关系。
+</pre>
+
+那么上面说的这些为什么能够处理我们的依赖注入呢？其实，每次我们导出一个对象的时候我们导出的其实是一个`单例对象`，其他的模块使用这个模块的时候，引入的对象也是同一个对象。这样的话，我们可以先注册我们的依赖，然后在其他文件中直接引入这个依赖。如下面的例子：
+
+```js
+var dependencies = {};
+export function register(key, dependency) {
+  dependencies[key] = dependency;
+}
+//fetch方法从全局变量dependencies获取数据
+export function fetch(key) {
+  if (dependencies[key]) return dependencies[key];
+  throw new Error(`"${ key } is not registered as dependency.`);
+}
+export function wire(Component, deps, mapper) {
+  return class Injector extends React.Component {
+    constructor(props) {
+      super(props);
+      this._resolvedDependencies = mapper(...deps.map(fetch));
+    }
+    render() {
+      return (
+        <Component
+          {...this.state}
+          {...this.props}
+          {...this._resolvedDependencies}
+        />
+      );
+    }
+  };
+}
+```
+我们将依赖保存到`全局变量dependencies`(是我们模块的全局变量，而不是应用级别的全局变量)。同时，我们导出两个register和fetch方法来写和读取入口，就像实现对一个简单对象的getter/setter一样。然后，我们有一个wire函数，该函数接受到我们的React组件，然后返回一个高阶组件。在这个组件的构造函数中，我们会解析依赖，然后在后续对组件渲染的时候作为props传递给组件。我们看看如何使用上面这个方法：
+
+```js
+// app.jsx
+import Header from './Header.jsx';
+import { register } from './di.jsx';
+//从模块加载register方法，其他方法都不加载，这种加载称之为“编译时加载”,也就是说ES6在编译时就能够完成模块编译，效率要比commonJS更高。此时，我们模块中的全局变量也会被引入
+register('my-awesome-title', 'React in patterns');
+//通过上面的方法在模块的全局变量dependencies中注册了一个属性
+class App extends React.Component {
+  render() {
+    return <Header />;
+  }
+};
+// -----------------------------------
+// Header.jsx
+import Title from './Title.jsx';
+export default function Header() {
+  return (
+    <header>
+      <Title />
+    <\/header>
+  );
+}
+// -----------------------------------
+// Title.jsx
+import { wire } from './di.jsx';
+var Title = function(props) {
+  return <h1>{ props.title }<\/h1>;
+};
+export default wire(Title, ['my-awesome-title'], title => ({ title }));
+```
+这个例子就是使用了模块系统来取代我们的React提供的context特性。其实际的做法就是引入了一个单独的文件可以对我们的应用的数据进行操作，并将数据经过处理后作为props传递给我们的组件进行渲染。当然，如果你需要让子组件可以通过register方法操作应用数据从而导致组件树进行更新，你依然需要对上面的register方法进行修改!
+
+上面提供了context和事件系统的方式来实现依赖注入，你也可以考虑使用[inversifyJS](https://github.com/krasimir/react-in-patterns/tree/master/patterns/dependency-injection#injecting-with-the-help-of-a-build-process)，此处不再赘述。
+
 
 (4)单向数据交流
 

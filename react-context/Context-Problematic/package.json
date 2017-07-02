@@ -1,0 +1,27 @@
+{
+  "name": "react-context-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liangklfangl/react-context-demo.git"
+  },
+  "entry": {
+    "index": "./App.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/liangklfangl/react-context-demo/issues"
+  },
+  "homepage": "https://github.com/liangklfangl/react-context-demo#readme",
+  "dependencies": {
+    "react": "^15.6.1",
+    "react-dom": "^15.6.1",
+    "webpack": "^3.0.0"
+  }
+}
