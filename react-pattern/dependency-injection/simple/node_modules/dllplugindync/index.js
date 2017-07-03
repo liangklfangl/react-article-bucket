@@ -1,0 +1,48 @@
+const webpack= require("webpack");
+const resolve =require("resolve") ;
+const path = require("path");
+//no import in case of babel present
+/**
+ * [isAbsolutePath description]
+ * @param  {[type]}  filename [description]
+ * @return {Boolean}          [description]
+ */
+function isRelativePath(filename){
+  return filename.indexOf(".")===0;
+}
+/**
+ * [resolveConfigFile the filepath is relative to process.cwd]
+ * @param  {[type]} filename [description]
+ * @return {[type]}          [filepath]
+ */
+function resolveConfigFile(filename){
+  let result;
+  try{
+    result = isRelativePath(filename) ? resolve.sync(filename,{
+      basedir : process.cwd()
+    }) : resolve.sync("./"+filename,{
+      basedir : process.cwd()
+    });
+  }catch(e){
+    console.log('File resolve failed!');
+  }
+
+  return result;
+}
+
+ function DllPluginDync(options){
+    // webpack.DllReferencePlugin.call(this, options);
+    this.options=options;
+}
+
+DllPluginDync.prototype.apply = function(compiler) {
+   const filePath = resolveConfigFile(this.options.manifest);
+  if(!filePath){
+    throw new Error('manifest json file is not found, program exit!');
+  }
+    this.options.manifest = require(filePath);
+    //call DllReferencePlugin
+    webpack.DllReferencePlugin.prototype.apply.call(this, compiler);
+};
+
+module.exports = DllPluginDync;

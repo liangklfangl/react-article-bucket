@@ -1,0 +1,14 @@
+{
+  "name": "dependency-injection",
+  "version": "1.0.0",
+  "description": "",
+  "main": "config.js",
+  "scripts": {
+    "dev" :"wcf --dev --devServer --htmlTemplate ./index.html "
+  },
+  "entry":{
+    "index":"./app.jsx"
+  },
+  "author": "",
+  "license": "ISC"
+}

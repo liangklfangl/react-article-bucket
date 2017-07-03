@@ -1,0 +1,12 @@
+html{
+	background-color:red;
+	display:flex;
+}
+
+.header{
+	color: red;
+}
+
+.footer{
+	color:blue;
+}

@@ -514,6 +514,64 @@ class Switcher extends React.Component {
 };
 ```
 
+#### 3.React性能优化
+##### 3.1 Stateless Component
+
+ (1)对于Stateless组件来说，顾名思义，其不会维持自己的State状态，组件的展示只是与props相关，只有props发生了改变，不管其值有没有发生变化，该组件`都会重新渲染`。比如下面的例子:
+
+```js
+class ChangeName extends React.Component{
+    state ={
+     name:'liangklfangl'
+    }
+    changeName = ()=>{
+       this.setState({name:'liangklfangl'});
+    }
+    render(){
+      return (
+       <div>
+        <HelloComponent name={this.state.name}\/>
+        <button onClick={this.changeName}\/>
+      <\/div>
+    )
+    }
+  }
+  function HelloComponent(props, /* context */) {
+   console.log('HelloComponent');
+     return <div>Hello {props.name}<\/div>
+  }
+      ReactDOM.render(
+        <ChangeName/>,
+        document.getElementById('example')
+      );
+```
+此时当你点击按钮的时候，虽然我们的HelloComponent的name的值依然是"liangklfangl"，但是我们的HelloComponent也会被重新渲染一次。
+
+(2)无状态组件中没有this，所以其函数不需要bind绑定。在无状态组件中不要使用其他函数，只要props发生了变化，其没有SCU(shouldComponentUpdate)，所以都会更新，因此会在函数内部不断创建新的函数，从而浪费内存空间。比如下面的例子:
+
+```js
+import React from "react";
+const HelloWorld = ({name}) =>{
+  const sayHi = (event)=>{
+    alert(`Hi ${name}`);
+  }
+  return (
+    <div>
+     <a href="#" onClick={sayHi}>Say Hi<\/a>
+    <\/div>)
+}
+```
+上面的例子在无状态组件HelloWorld中定义了一个函数，那么当我们的HelloWorld组件每次被重新渲染的时候都会重新实例化sayHi函数，从而导致内存浪费。一个好的解决方案是:`将这些函数放到无状态组件之外，通过传递属性值的方式来实现，这将给性能带来很大提升`。
+
+
+
+
+
+  
+##### 3.2 React.PureComponent
+
+##### 3.3 Stateless Component vs React.PureComponent
+
 
 
 
@@ -528,3 +586,7 @@ class Switcher extends React.Component {
 [react in patterns](https://github.com/krasimir/react-in-patterns/tree/master/patterns/higher-order-components)
 
 [Higher order components should be wrapped before render()](https://github.com/krasimir/react-in-patterns/issues/12)
+
+[无状态组件(Stateless Component) 与高阶组件](http://www.jianshu.com/p/63569386befc)
+
+[九个你忽略的React 无状态组件的优势](http://www.zcfy.cc/article/1980)
