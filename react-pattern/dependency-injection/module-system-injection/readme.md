@@ -1,7 +1,7 @@
 ### 模块中的全局变量Store
 ```js
 import React from 'react';
-//其中下面的dependencies对象扮演的就是我们的Store对象
+//其中下面的dependencies对象扮演就是我们的Store对象
 var dependencies = {};
 //注册一个key
 export function register(key, dependency) {

@@ -16,7 +16,7 @@
 import React from 'react';
 /**
  * [wire description]
- * @param  {[type]} Component    我们的组件Component的class
+ * @param  {[]} Component    我们的组件Component的class
  * @param  {[type]} dependencies 在context中那些属性是要被作为props传递到我们的最终的组件中的
  * @param  {[type]} mapper       对我们要传入到组件的属性进行进一步的处理
  * @return {[type]}              [description]
@@ -138,9 +138,8 @@ export default wire(Title, ['config'], function (config) {
 
 (1)高阶组件中声明了contextTypes，只要经过wire方法包装的组件都是可以获取到context中的值的。这样可以避免contextTypes需要在每一个组件中都声明一次
 
-(2)使用了context，当组件树嵌套过深的情况下可以防止中间层组件需要处理那些它不需要关心的属性。
+(2)当前例子使用了context，当组件树嵌套过深的情况下可以防止中间层组件需要处理那些它不需要关心的属性。而需要访问context中数据的组件只要指定contextType就可以了
 
-(3)如果需要子组件修改context从而最顶层组件重新渲染可以继续[查看这里](./index.md),他会为我们的Store注册事件，从而监听Store的变化，每次Store变化后都要求最顶层组件重新渲染，一个简单的方法就是forceUpdate
+(3)如果需要子组件修改context从而最顶层组件重新渲染可以[在这里查看完整代码实例](../context-injection/readme.md),他会为我们的Store注册事件，从而监听Store的变化，每次Store变化后都要求最顶层组件重新渲染，一个简单的方法就是forceUpdate
 
-(4)React官网本身不建议使用context，如果你想要不使用context而实现同样的功能，可以仔细阅读这里的[模块系统](https://github.com/liangklfang/react-in-patterns/tree/master/patterns/dependency-injection#dependency-injection-powered-by-an-ioc-container)。demo代码可以[点击这里](../module-system-injection/readme.md)
-
+(4)React官网本身不建议使用context，如果你想要不使用context而实现同样的功能，可以仔细阅读这里的模块系统。我也写了一个完整的[demo实例](../module-system-injection)。你可以直接运行查看效果。
