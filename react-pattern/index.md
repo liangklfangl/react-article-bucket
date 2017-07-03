@@ -516,7 +516,6 @@ class Switcher extends React.Component {
 
 #### 3.React性能优化
 ##### 3.1 Stateless Component
-
  (1)对于Stateless组件来说，顾名思义，其不会维持自己的State状态，组件的展示只是与props相关，只有props发生了改变，不管其值有没有发生变化，该组件`都会重新渲染`。比如下面的例子:
 
 ```js
@@ -536,6 +535,7 @@ class ChangeName extends React.Component{
     )
     }
   }
+  //组件的第二个参数是context
   function HelloComponent(props, /* context */) {
    console.log('HelloComponent');
      return <div>Hello {props.name}<\/div>
@@ -563,15 +563,84 @@ const HelloWorld = ({name}) =>{
 ```
 上面的例子在无状态组件HelloWorld中定义了一个函数，那么当我们的HelloWorld组件每次被重新渲染的时候都会重新实例化sayHi函数，从而导致内存浪费。一个好的解决方案是:`将这些函数放到无状态组件之外，通过传递属性值的方式来实现，这将给性能带来很大提升`。
 
+(3)React组件仅仅是一个无状态函数，React在渲染的时候也省掉了将“组件类”实例化的过程，这也是为什么组件没有this的原因。无状态组件没有实现组件的生命周期方法，例如 componentDidMount, componentWillUnmount等。他只是单纯的根据props来展示UI，如果要它根据窗口大小来做出响应，可以引入`容器组件`来处理；同时，我们的React无状态组件是不包含ref的，因为在 React 调用到无状态组件的方法之前，是没有一个实例化的过程的，因此也就没有所谓的 "ref"
 
-
-
-
-  
 ##### 3.2 React.PureComponent
+React.PureComponent的出现并不是说我们的组件不会维持它自己的state，而是由于React官方为了简化开发者对于`state和props是否发生变化的判断`，而为我们自动提供了SCU方法，从而当state和props变化以后才会更新，否则不会更新组件。这样可以有效的减少组件重新渲染的次数，提升性能。你可以[查看这个例子](../react-context/Context-Problemmatic/readme.md)，该例子展示了由于React.PureComponent的state和props没有发生变化，从而导致其自身以及所有的子组件都不会被重新渲染。这是React.PureComponent和context同时存在导致的潜在问题。
+
+但是，React.PureComponent有一个`潜在的问题`，也就是他对于props和state是否发生变化的比较是通过浅复制来完成的，这对于组件是否需要更新的判断可能会存在问题。因为引用数据，比如数组或者对象，如果引用没有变化，那么组件是不会重新渲染的。比如下面的例子:
+
+```js
+handleClick() {
+  let {items} = this.state
+  items.push('new-item')
+  this.setState({ items })
+}
+
+render() {
+  return (
+    <div>
+      <button onClick={this.handleClick} \/>
+      //如果ItemList是React.PureComponent组件，那么点击按钮组件不会更新
+      <ItemList items={this.state.items} \/>
+    <\/div>
+  )
+}
+```
+
+此时我们应该使用数组的concat而不是push，从而创建一个新的对象，这样组件才会正常更新。比如下面的例子:
+
+```js
+handleClick() {
+  this.setState(prevState => ({
+    words: prevState.items.concat(['new-item'])
+  }));
+}
+```
+
+我们再给出一个经常遇到的代码示例:
+
+```js
+class App extends React.Component{
+  constructor(props) {
+      super(props)
+      this.update = this.update.bind(this)
+  }
+  update(e) {
+      this.props.update(e.target.value)
+  }
+  render() {
+      return <MyInput onChange={this.update} \/>
+   }
+}
+```
+如果我们的MyInput是纯组件，那么我们必须采用在constructor中bind的方式，而不是采用如下的形式，因为后者每次都会产生一个新的函数,比如我们的App组件如要重新渲染，此时我们的MyInput组件的onChange函数将会是一个新的函数实例。那么如果MyInput是一个React.PureComponent，那么他的效果就无法正常发挥出来，`因为每次props都会发生变化，从而重新渲染`。
+
+```js
+class App extends React.Component{
+  constructor(props) {
+      super(props)
+  }
+  update(e) {
+      this.props.update(e.target.value)
+  }
+  render() {
+      return <MyInput onChange={()=>this.update()} \/>
+  }
+}
+```
+
+同时，请谨记：纯组件忽略重新渲染时(SCU返回false)，[不仅会影响它本身，而且会影响它的所有子元素](../react-context/Context-Problematic/readme.md)。所以，使用React.PureComponent的最佳情况就是展示组件，它既没有子组件，也没有依赖应用的全局状态。而这一切都基于下面的事实:
+
+<pre>
+  在JSX中，任何包含子元素(child elements)的组件， shallowEqual检查总会返回false。
+</pre>
+
+这也就是说：如果我们的React.PureComponent本身包含子组件(注意：我们的button,div等不是组件，组件必须是继承于React.Component或者React.PureComponent等自己声明的类或者函数)，那么其shallowEqual总是返回false，那么组件总是更新。这样并不能通过使用React.PureComponent来减少组件重新渲染的次数。因此，纯组件仅仅适用于展示组件而不是容器组件。
+
 
 ##### 3.3 Stateless Component vs React.PureComponent
-
+通过上面的分析，你应该知道Stateless Component是没有state只有props的，没有ref，没有组件实例也就是没有this，没有组件的其他声明周期方法，他是一个pure函数。而React.PureComponent只是React官方给我们自动添加了SCU方法而已，他有state，有生命周期，有ref等其他无状态组件没有的行为。但是必须注意，React.PureComponent对于SCU的判断是基于浅复制的，浅复制的，浅复制的!!!!!
 
 
 
@@ -590,3 +659,7 @@ const HelloWorld = ({name}) =>{
 [无状态组件(Stateless Component) 与高阶组件](http://www.jianshu.com/p/63569386befc)
 
 [九个你忽略的React 无状态组件的优势](http://www.zcfy.cc/article/1980)
+
+[无状态组件(Stateless Component) 与高阶组件](http://www.jianshu.com/p/63569386befc)
+
+[在React.js中使用PureComponent的重要性和使用方式](http://www.open-open.com/lib/view/1484466792204)
