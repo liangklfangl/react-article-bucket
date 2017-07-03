@@ -90,10 +90,12 @@ function* gen(x){
   var y = yield x + 2;
   return y;
 }
-
 var g = gen(1);
-g.next() // { value: 3, done: false }
-g.next(2) // { value: 2, done: true }
+g.next() 
+// { value: 3, done: false }
+g.next(2) 
+// { value: 2, done: true }
+// 这里的g.next(2)相当于向我们的generator函数传入值，作为上一个yield的返回值，所以得到的结果为2
 ```
 
 通过调用next方法获取到的value代表函数体向外输出的数据，而调用next方法传入的参数本身代表向Generator传入数据。
@@ -502,6 +504,168 @@ function spawn(genF) {
 }
 ```
 
+### 6.promise函数深入理解
+
+每一个promise对象都会提供一个then方法或者是catch方法：
+
+```js
+somePromise().then(function () {
+    // I'm inside a then() function!
+});
+```
+在then方法内部，我们可以做三件事：
+
+1. return 一个promise对象 
+
+2. return 一个同步的值或者是 undefined 
+
+3.同步的 throw 一个错误
+
+理解这三种情况之后，你就会理解promise了。
+
+#### 6.1 返回另一个promise对象
+
+在有关promise的相关文章中，这种写法很常见，就像上文提到的构成promise链的一段代码：
+
+```js
+getUserByName('nolan').then(function (user) {
+    return getUserAccountById(user.id);
+}).then(funcxtion (userAccount) {
+});
+```
+这段代码里面的return非常关键，没有这个return的话，getUserAccountById只是一个普通的被别的函数调用的函数。下一个回调函数会接收到undefined而不是userAccount
+
+#### 6.2 返回一个同步的值或者是 undefined
+返回一个 undefined 大多数情况下是错误的，但是返回一个同步的值确实是一个将同步代码转化成promise风格代码的好方法。举个例子，现在在内存中有users。我们可以：
+
+```js
+getUserByName('nolan').then(fcuntion (user) {
+    if (inMemoryCache[user.id]) {
+        return inMemoryCache[user.id]; 
+         // returning a synchronous value!
+    }
+    return inMemoryCache[user.id]; 
+    // returning a promise
+}).then(function (userAccount) {
+    // I got a user account
+})
+```
+第二个回调函数并不关心userAccount是通过同步的方式得到的还是异步的方式得到的，而第一个回调函数既可以返回同步的值又可以返回异步的值。不幸的是，如果不显式调用return语句的话，javaScript里的函数会返回 undefined 。这也就意味着在你想返回一些值的时候，不显式调用return会产生一些副作用。
+
+因此，我们要养成了一个个人习惯就是在`then方法内部永远显式的调用return或者throw`
+
+#### 6.3 抛出一个同步的错误
+说到throw，这又体现了promise的功能强大。在用户退出的情况下，我们的代码中会采用抛出异常的方式进行处理：
+
+```js
+getUserByName('nolan').then(function (user) {
+  if (user.isLoggedOut()) {
+    throw new Error('user logged out!'); // throwing a synchronous error!
+  }
+  if (inMemoryCache[user.id]) {
+    return inMemoryCache[user.id];       // returning a synchronous value!
+  }
+  return getUserAccountById(user.id);    // returning a promise!
+}).then(function (userAccount) {
+  // I got a user account!
+}).catch(function (err) {
+  // Boo, I got an error!
+});
+```
+如果用户已经登出的话， catch() 会收到一个同步的错误，如果有promise对象的状态变为rejected的话，它也会收到一个异步的错误。 catch() 的回调函数不用关心错误是异步的还是同步的。
+
+在使用promise的时候抛出异常在开发阶段很有用，它能帮助我们定位代码中的错误。比方说，在then函数内部调用 JSON.parse（） ，如果JSON对象不合法的话，可能会抛出异常，在回调函数中，这个异常会被吞噬，但是在使用promise之后，我们就可以捕获到这个异常了。更多关于promise的内容请查看[谈谈使用promise时候的一些反模式](http://www.tuicool.com/articles/FvyQ3a)
+
+下面是摘抄自这个文章的几个例子，弄懂了这几个例子有助于深入的理解Promise。
+
+例子1
+
+```js
+doSomething().then(function () {
+  return doSomethingElse();
+  //undefined
+}).then(finalHandler);
+//finalHandler会接受到前面then指定的函数的返回值，因为它明确的return了，注意return不可少
+```
+答案如下：我们的then方法中没有形参接受到doSomething返回的值，所以为undefined
+
+<pre>
+doSomething
+|-----------------|
+                  doSomethingElse(undefined) 
+                  |------------------|
+                                     finalHandler(resultOfDoSomethingElse)
+                                     |------------------|
+</pre>
+
+例子2
+
+```js
+doSomething().then(function () {
+  doSomethingElse();
+}).then(finalHandler);
+```
+答案如下:finalHandler也会接受到undefined，因为前面的then中的函数没有明确的return值
+
+<pre>
+doSomething
+|-----------------|
+                  doSomethingElse(undefined)
+                  |------------------|
+                  finalHandler(undefined)
+                  |------------------|
+</pre>
+
+例子3
+
+```js
+doSomething().then(doSomethingElse())
+//doSomethingElse()返回了Promise的情况比较特殊，finalHandler接受到doSomething的值
+  .then(finalHandler);
+```
+答案如下：因为我们的then方法中的doSomethingElse()返回的是一个Promise对象，即typeof doSomethingElse()为"object"，所以finalHandler会接收到doSomething返回的值。
+
+<pre>
+doSomething
+|-----------------|
+doSomethingElse(undefined)
+|---------------------------------|
+                  finalHandler(resultOfDoSomething)
+                  |------------------|
+</pre>
+
+比如下面的例子依然输出的为"qinliang"：
+
+```js
+var f=function(result){console.log(result);}
+Promise.resolve("qinliang").then(f);
+```
+和下面的代码输出结果完全相同:
+
+```js
+Promise.resolve('qinliang').then(function(result){console.log(result);})
+```
+其实他们的then方法传入函数签名完全一致。
+
+例子4
+
+```js
+doSomething().then(doSomethingElse)
+//doSomethingElse会接受到doSomething()的结果
+  .then(finalHandler);
+//finalHandler会接受到doSomethingElse的结果
+```
+答案如下：我们的doSomethingElse只是一个`函数句柄(如const doSomething=function(){})`，通过调用这个函数句柄doSomethingElse()会得到我们的Promise对象。
+
+<pre>
+doSomething
+|-----------------|
+                  doSomethingElse(resultOfDoSomething)
+                  |------------------|
+                                     finalHandler(resultOfDoSomethingElse)
+                                     |------------------|
+</pre>
+需要说明的是，在上述的例子中，我都假设 doSomething() 和 doSomethingElse() `返回(注意是返回了，即return的情况下，而不是第一个例子的方式)`一个promise对象，这些promise对象都代表了一个异步操作，这样的操作会在当前event loop之外结束，比如说有关IndexedDB，network的操作，或者是使用 setTimeout 。这里给出 JSBin 上的示例。
 
 
 参考资料：
@@ -519,3 +683,7 @@ function spawn(genF) {
 [co库](https://github.com/tj/co)
 
 [node-thunkify库](https://github.com/tj/node-thunkify)
+
+[谈谈使用promise时候的一些反模式](http://www.tuicool.com/articles/FvyQ3a)
+
+[关于Promise：你可能不知道的6件事](http://www.tuicool.com/articles/6fqQ3aB)
