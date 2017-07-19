@@ -160,3 +160,5 @@ ReactDOM.render(<PropsDebug school="DUT"/>,document.getElementById('react-conten
 参考资料:
 
 [深入理解 React 高阶组件](https://zhuanlan.zhihu.com/p/24776678?group_id=802649040843051008)
+
+[react-hoc-examples](https://github.com/franleplant/react-hoc-examples)
