@@ -14,7 +14,31 @@ export default class MyComponent {
 
 #### 3.DropTarget参数
 ##### 3.1 type
-该参数是必须的。可以是string或者es6的symbol类型或者是一个函数返回该组件的一个props。我们的DropTarget只会对指定的`相同类型`的DragSource作出反应。
+该参数是必须的。可以是string或者es6的symbol类型或者是`一个函数返回该组件的一个props`。我们的DropTarget只会对指定的`相同类型`的DragSource作出反应。下面是第一个参数是函数的例子:
+
+```js
+//在我们的DropTarget接受到drop事件以后我们调用onDrop方法并传入我们的当前的DropTarget
+const dustbinTarget = {
+  drop(props, monitor) {
+    props.onDrop(monitor.getItem());
+  },
+};
+ //(3)我们的DropTarget第一个参数是一个函数，而且这个函数返回的是我们的component的一个props属性
+ //这里的accepts也是一个数组字符串表示该DropTarget可以处理的放置类型{ accepts: [ItemTypes.FOOD], lastDroppedItem: null }
+ // <Dustbin
+ //      accepts={accepts}
+ //      lastDroppedItem={lastDroppedItem}
+ //      onDrop={item => this.handleDrop(index, item)}
+ //      key={index}
+ //    />,
+@DropTarget(props => props.accepts, dustbinTarget, (connect, monitor) => ({
+  connectDropTarget: connect.dropTarget(),
+  isOver: monitor.isOver(),
+  canDrop: monitor.canDrop(),
+}))
+```
+具体你可以[参考这里的例子](./mutipleTarget)，这里的第一个参数是一个数组，表示该DropTarget可以`处理多种类型`的DragSource的drop事件。
+
 
 ##### 3.2 spec
 该参数是必须的。他是一个js对象，该对象上允许注册有限的方法。他描述了`DrapTarget如何处理drag和drop事件`。
@@ -29,6 +53,32 @@ export default class MyComponent {
 
 - drop(props, monitor, component):
    可选方法。当一个指定类型的元素被放置到该元素中触发。你可以返回undefinde或者一个js对象。如果你返回一个js对象，他会作为drop方法的返回值。此时DragSource可以通过在`endDrag`方法中通过`monitor.getDropResult()`来获取。这当你需要判断是哪一个DropTarget接受到drop事件从而做出不同的处理的时候特别有用。如果你有多个嵌套的DropTarget，你可以通过`monitor.didDrop()`和`monitor.getDropResult()`来判断嵌套的DropTarget是否已经对drop事件进行了处理。这两个方法以及DragSource的`endDrag`方法通常用于触发Flux的action。如果`canDrop()`方法返回了false，那么这个方法不会触发。
+   这里给出一个例子：
+
+```js
+const boxTarget = {
+  drop(props, monitor, component) {
+    const hasDroppedOnChild = monitor.didDrop();
+    //判断是否已经被内层的DropTarget处理了
+    if (hasDroppedOnChild && !props.greedy) {
+      return;
+    }
+    //设置我们的DropTarget的state值
+    component.setState({
+      hasDropped: true,
+      hasDroppedOnChild,
+    });
+  },
+};
+
+//(1)实例化我们的Dustbin的时候采用方式<Dustbin greedy></Dustbin>
+@DropTarget(ItemTypes.BOX, boxTarget, (connect, monitor) => ({
+  connectDropTarget: connect.dropTarget(),
+  isOver: monitor.isOver(),
+  isOverCurrent: monitor.isOver({ shallow: true }),
+}))
+```
+
 
 - hover(props, monitor, component)
    可选的方法。当一个元素在组件中hover的时候触发。你可以通过`monitor.isOver({ shallow: true })`得出当前的hover是发生在该target上还是嵌套的DropTarget上。这个方法在`canDrop`返回false的情况下也会调用。
@@ -40,7 +90,46 @@ export default class MyComponent {
 
 #### 4.每一个方法的具体参数含义
  - props
-   你的组件的当前的props
+   你的组件的当前的props，即通过`DropTarget`处理的组件的props。比如我们的组件是如下的类型：
+
+```js
+<Dustbin allowedDropEffect="any" name="liangklfangl"/>
+<Dustbin allowedDropEffect="copy" name="liangklfang2"/>
+<Dustbin allowedDropEffect="move" name="liangklfang1" />
+```
+那么在drop方法中获取到的props就是如下的内容:
+
+```js
+{
+  allowedDropEffect:"any",
+  name:"liangklfangl"
+}
+```
+很显然我们的drop方法中获取到的props是不包含通过`@DropTarget`进行装饰而产生的props的:
+
+```js
+@DropTarget(ItemTypes.BOX, boxTarget, (connect, monitor) => ({
+  connectDropTarget: connect.dropTarget(),
+  //(2)你可以通过`monitor.isOver({ shallow: true })`得出当前的hover是发生在该target上还是嵌套的DropTarget上
+  isOver: monitor.isOver(),
+  //(3)判断当前的DropTarget是否可以接受元素的drop。如果你总是接受drop，那么你可以不指定这个方法。这个方法当你需要依赖于`props`或者`monitor.getItem`来判断是否允许drop的时候有用
+  canDrop: monitor.canDrop(),
+}))
+```
+即不包含我们的isOver,connectDropTarget,canDrop的。当然你可以通过如下的方式对我们的props进行筛选：
+
+```js
+const boxTarget = {
+  drop({allowedDropEffect}) {
+    return {
+      name: `${allowedDropEffect} Dustbin`,
+      allowedDropEffect,
+    };
+  },
+};
+```
+即只需要关注我们的`allowedDropEffect`这个props就可以了。
+
  - monitor
    他是一个`DropTargetMonitor`实例对象。可以通过这个方法来判断当前拖拽的状态，例如当前拖拽的元素以及元素的种类，当前以及初始的坐标和偏移以及它是否已经被放下等。
  - component

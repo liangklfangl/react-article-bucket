@@ -1,0 +1,24 @@
+{
+  "name": "dragsource",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "entry": {
+    "index": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react-dnd-html5-backend": "^2.4.1",
+    "react-dom": "^15.6.1"
+  },
+  "devDependencies": {
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-react": "^6.24.1",
+    "babel-preset-stage-0": "^6.24.1"
+  }
+}

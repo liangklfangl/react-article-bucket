@@ -1,0 +1,26 @@
+{
+  "name": "tutorial-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wcf --dev --devServer --htmlTemplate ./index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "entry": {
+    "index": "./index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-preset-react": "^6.24.1"
+  },
+  "dependencies": {
+    "prop-types": "^15.5.10",
+    "react": "^15.6.1",
+    "react-dnd": "^2.4.0",
+    "react-dnd-html5-backend": "^2.4.1",
+    "react-dom": "^15.6.1",
+    "webpack": "^3.3.0"
+  }
+}
