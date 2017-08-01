@@ -6,7 +6,7 @@
 
 [React+antd项目实战](./antd/warning.md)
 
-[异步编程](./async-programing.md)
+[异步编程](./async-programing/readme.md)
 
 [babel与decorator](./babel/decorator/readme.md)
 
