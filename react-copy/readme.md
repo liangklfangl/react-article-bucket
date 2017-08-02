@@ -53,7 +53,7 @@ const Component = React.createClass({
   }
 }
 ```
-盗用别人的一个例子只是为了说明，如果是引用类型的时候不管是浅层次的拷贝，还是压根不拷贝都是很可能产生副作用的。所以上面的代码我们经常会做一次深拷贝，一方面是为了保持state的不可变特性，还有另一方面就是为了使得SCU(shouldComponentUpdate)能够正常判断，而不是两次nextProps或者nextState指向同一个引用。
+盗用别人的一个例子只是为了说明，如果是引用类型的时候不管是浅层次的拷贝，还是压根不拷贝都是很可能产生副作用的。所以上面的代码我们经常会做一次深拷贝，一方面是为了保持state的不可变特性，还有另一方面就是为了使得SCU(shouldComponentUpdate)能够正常判断，而不是两次nextProps或者nextState指向同一个引用。这也是为什么react官方建议将state设置为不可变的原因。
 
 ```js
 import '_' from 'lodash';
@@ -74,8 +74,75 @@ const Component = React.createClass({
 }
 ```
 
+### React中引用类型导致组件不更新
+首先看下面的例子：
+```js
+  class Parent extends React.Component{
+   state = {
+     school:{
+       location:"Dalian",
+       name :"DLUT"
+     }
+   }
+   onClick =()=>{
+    this.setState({school:{location:"HUNan",name:"湖南大学"}});
+    // const newSchool = this.state.school;
+    // newSchool.location = "HUNan";
+    // this.setState({school:newSchool});
+   }
+   render(){
+       return (
+         <div>
+        <Child school={this.state.school}/>
+        <button onClick={this.onClick}>点击我改变state</button>
+      </div>
+     )
+   }
+  }
+  class Child extends React.Component{
+    shouldComponentUpdate(nextProps,nextState,nextContext){
+      return true;
+    }
+     render(){
+       return (
+         <div>
+        学校名称:{this.props.school.name}
+      学校位置:{this.props.school.location}
+       <\/div>
+     )
+   }
+  }
+      ReactDOM.render(
+        <Parent/>,
+        document.getElementById('example')
+      );
+```
+我们通过this.state.school将上层组件的一个引用传入到子组件中，于是子组件就可以拿到这个上层组件的引用了。当我们点击按钮修改state的时候，即调用下面的逻辑：
 
+```js
+this.setState({school:{location:"HUNan",name:"湖南大学"}});
+```
+如果你在Child组件的SCU方法中做如下判断，那么判断的结果就是false:
 
+```js
+ console.log('this.props.school===nextProps.school',this.props.school===nextProps.school);
+```
+原因在于，我们其实是采用了一个新的对象来`替换原来的this.state.school中的对象，所以导致this.state.school的引用已经发生变化了`。所以下面组件接受到的this.props.school和nextProps.school`并不是指向同一个引用`，因此上面返回了false。
+
+但是如果你将上面setState用下面几句代码替代，问题就会出现了
+
+```js
+ const newSchool = this.state.school;
+  newSchool.location = "HUNan";
+  this.setState({school:newSchool});
+ //其实newSchool和this.state.school指向的是同一个引用(即指针)，因此导致下层组件接受到的this.props.school依然是同一个引用。即，此时我们的变量newSchool保存的是引用而不是一个对象，不过其引用的值指向的是该对象
+```
+此时我们的下面的判断就会得到true:
+
+```js
+ console.log('this.props.school===nextProps.school',this.props.school===nextProps.school);
+```
+原因很简单：我们在父组件Parent中，首先获取到this.state.school的引用(`newSchool=this.state.school就相当于我们的newSchool指向了this.state.school，然后this.state.school指向具体的对象,因为我们newSchool本身拿到的就是一个指针`)，然后通过newSchool.location对this.state.school.location进行了修改,根据上面的说明，我们的this.state.school和newSchool其实指向的是同一个引用对象，因此当你通过setState来修改state的状态的时候，我们的`this.state.school其实并没有发生改变`，更加精确的说：this.state.school虽然引用的值发生改变了，但是其引用本身没有发生变化，所以传入到子组件Child中的school还是和原来的school指向的同一个对象。解决方法就是很简单：当你在setState的时候做一次深度拷贝，或者在SCU中通过深度比较来处理。
 
 
 
@@ -84,3 +151,7 @@ const Component = React.createClass({
 [如何有效地提高react渲染效率--深复制，浅复制，immutable原理](http://blog.csdn.net/u010977147/article/details/61195784)
 
 [Immutable 详解及 React 中实践](https://github.com/camsong/blog/issues/3)
+
+[react组件性能优化探索实践](http://www.imweb.io/topic/577512fe732b4107576230b9)
+
+[正式学习 React（三）番外篇 reactjs性能优化之shouldComponentUpdate](http://www.cnblogs.com/huenchao/p/6096254.html)

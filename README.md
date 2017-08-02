@@ -31,3 +31,5 @@
 [React的static方法](./react-static/index.md)
 
 [Redux相关](./redux/source/README.md)
+
+[React浅层次拷贝](./react-copy/readme.md)
