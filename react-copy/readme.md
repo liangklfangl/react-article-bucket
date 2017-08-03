@@ -142,8 +142,59 @@ this.setState({school:{location:"HUNan",name:"湖南大学"}});
 ```js
  console.log('this.props.school===nextProps.school',this.props.school===nextProps.school);
 ```
-原因很简单：我们在父组件Parent中，首先获取到this.state.school的引用(`newSchool=this.state.school就相当于我们的newSchool指向了this.state.school，然后this.state.school指向具体的对象,因为我们newSchool本身拿到的就是一个指针`)，然后通过newSchool.location对this.state.school.location进行了修改,根据上面的说明，我们的this.state.school和newSchool其实指向的是同一个引用对象，因此当你通过setState来修改state的状态的时候，我们的`this.state.school其实并没有发生改变`，更加精确的说：this.state.school虽然引用的值发生改变了，但是其引用本身没有发生变化，所以传入到子组件Child中的school还是和原来的school指向的同一个对象。解决方法就是很简单：当你在setState的时候做一次深度拷贝，或者在SCU中通过深度比较来处理。
+原因很简单：在父组件中通过newSchool保存了一个`指针`，这个指针和this.state.school这个指针指向的对象是完全相同的。当你通过this.setState({school:newSchool})重置this.state.school的值的时候，其实你将school设置的内存地址newSchool和当前的this.state.schoo的内存地址是完全一样的，所以导致this.props.school和nextProps.school的内存地址是完全一样的。通过这个例子你要明白：this.props.school和nextProps.school的内存地址完全一样(newSchool只是this.state.school`指针的一个copy`)是导致组件不会重新渲染的罪魁祸首。你可以通过深度拷贝或者immutable(如果对象改变，那么会得到一个不一样的引用，而没有变化的部分结构依然可以共享)来完成组件重新渲染。同时，你也要注意到，通过下面这种方式来改变state组件是会重新渲染的，因为地址已经发生改变:
 
+```js
+this.setState({school:{location:"HUNan",name:"湖南大学"}});
+```
+
+### immutable.js的简单例子
+
+```js
+   var map1 = Immutable.Map({a:1, b:2, c:3,school:{
+        location:"DaLian",
+        name :"DLUT"
+     }});
+   var map2 = map1.set('b', 50);
+    //(1)我这里仅仅设置了b的值，那么其他的值都会共享
+    console.log('引用相等',map1===map2);
+    //(2)immutable.js中每次返回的引用都是不一样的，此处返回false
+    console.log('school的引用没有变化',map2.school===map1.school);
+    //(3)immutable.js中没有变化的对象将会共享，所以此处返回true
+    var map3 = {a:1,b:2,c:3}
+    var map4 = map3;
+    //(4)map4拿到的是map3的指针，所以一个变化后另外一个也会变化，但是变化的是值，引用本身是不变化的，所以map3===map4返回true
+    map4.c =4;
+    console.log('map3===map4',map3===map4);
+```
+因此在immutable.js中你常常会看到这样的SCU：
+
+```js
+import { is } from 'immutable';
+shouldComponentUpdate: (nextProps = {}, nextState = {}) => {
+  const thisProps = this.props || {}, thisState = this.state || {};
+  if (Object.keys(thisProps).length !== Object.keys(nextProps).length ||
+      Object.keys(thisState).length !== Object.keys(nextState).length) {
+    return true;
+  }
+  for (const key in nextProps) {
+    if (!is(thisProps[key], nextProps[key])) {
+      return true;
+    }
+  }
+  for (const key in nextState) {
+    if (thisState[key] !== nextState[key] || !is(thisState[key], nextState[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+```
+其主要通过immutable.js的is方法来判断数据是否发生变化，Immutable.js提供了简洁高效的判断数据是否变化的方法，只需 === 和 is比较就能知道`是否需要执行render()`，而这个操作几乎0成本，所以可以极大提高性能。所以如果我们有如下的组件树:
+
+![](https://camo.githubusercontent.com/85bcf6a09c811f9e68b729557726504ac008d18e/687474703a2f2f696d672e616c6963646e2e636f6d2f7470732f69332f54423156696e704b58585858585841587058585a5f4f644e4658582d3731352d3332342e706e67)
+
+而且我们的`props`是从最顶层组件往下传递的，那么对于整个组件树中的组件不会`都要求重新渲染`。而渲染的只会是绿色的部分，因为只有这部分的数据发生改变，按照immutable.js的实现，只有在`变化的节点以及父节点的引用`会发生变化，从而要求重新渲染。
 
 
 参考文献:

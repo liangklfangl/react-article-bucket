@@ -9,3 +9,16 @@ this.setState({},()=>{
 })
 ```
 
+
+### 为table中每一个row都指定一个key
+Warning: Each record in table should have a unique `key` prop,or set `rowKey` to an unique primary key.
+
+解决方法如下:
+
+```js
+ <Table columns={this.columns}
+       rowKey="id"
+ />
+```
+表明使用数据的id作为每一行的key,即作为rowKey
+
