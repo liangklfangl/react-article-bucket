@@ -365,3 +365,5 @@ changeSchool=()=>{
 [正式学习 React（三）番外篇 reactjs性能优化之shouldComponentUpdate](http://www.cnblogs.com/huenchao/p/6096254.html)
 
 [immutability-helper](https://github.com/kolodny/immutability-helper)
+
+[Immutable as React state](https://github.com/facebook/immutable-js/wiki/Immutable-as-React-state)

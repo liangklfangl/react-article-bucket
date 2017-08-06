@@ -64,8 +64,33 @@ render(text, record, index) {
 }
 ```
 
+#### 2.弹窗使用componentDidMount替代componentWillReceiveProps
+对于弹窗来说，使用componentDidMount比componentWillReceiveProps要好的多。所以当存在一种情况,即编辑和添加一条记录`共用弹窗`的情况下，我们就会遇到两者选择的问题。但是对于两者来说，不管是添加还是编辑可以通过一个字段来决定，比如data,在编辑的时候data为该条记录的值，而添加的时候data为null。这个data可以作为props传入到弹窗组件中，进而在弹窗组件中通过this.props.data来对该条记录处理。就像我开头说的，即可以通过componentWillReceiveProps也可以通过componentDidMount来处理，但是在componentWillReceiveProps中要复杂的多：
 
+- setState调用的时候我们的componentWillReceiveProps也会被调用，所以在弹窗内部如果存在维护state的情况下就显得比较尴尬，因为每次setState被调用该方法都会触发
 
+- componentWillReceiveProps每次收到的nextProps都是打开弹窗的值，即该条记录的值，而不会随着setState调用而发生改变。而为了导致每次的值的改变我们就会使用this.state来维护，而这就会陷入第一种情况的问题
+
+基于以上两种原因，我们一般会使用componentDidMount来取代componentWillReceiveProps，而取代的方式就是给弹窗一个key，而这个key每次的都是变化的，所以自然而然想到了visibile，即弹窗的可见性：
+
+```js
+  <Popup visible={this.state.popupVisible} key={this.state.popupVisible}>
+  <\/Popup>
+```
+这样，每次打开弹窗和关闭弹窗都会是一个完全不同的`弹窗对象`，所以你可以安心的在`componentDidMount`中处理逻辑。比如，编辑的时候给弹窗传入该条记录作为this.props而添加的时候传入data=null。此处我需要给你看看使用antd的Table的时候是如何的:
+
+```js
+{
+    title: '操作',
+    key: 'action',
+    render: (item,record,index) => (
+      <div>
+        <a onClick={() => this.edit(item)}>编辑</a>
+     </div>
+    ),
+  }
+```
+`虽然Table中的dataSource中并没有action这一行`，但是我们依然可以为该行实例化一个`编辑`操作，而render方法中会传入该条记录本身，以及该记录的index。
 
 
 

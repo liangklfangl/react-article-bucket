@@ -33,3 +33,14 @@
 [Redux相关](./redux/source/README.md)
 
 [React浅层次拷贝](./react-copy/readme.md)
+
+[React的setState与immutable.js](./react-copy/readme.md)
+
+### 运行说明
+对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:
+
+```js
+npm install webpackcc -g
+npm install 
+npm run dev
+```

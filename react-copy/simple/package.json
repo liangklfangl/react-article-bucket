@@ -1,0 +1,15 @@
+{
+  "name": "simple",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "entry":{
+    "index" :"./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+     "dev" :"wcf --dev --devServer --htmlTemplate ./index.html"
+  },
+  "author": "",
+  "license": "ISC"
+}
