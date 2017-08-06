@@ -1,6 +1,6 @@
-### React中浅层次拷贝的问题
+### 1 React中浅层次拷贝的问题
 
-#### 例子1
+#### 1.1 例子1
 我们给出下面的事实：
 
 ```js
@@ -32,7 +32,7 @@ onChange = (relation)=>{
 
 解答：不可以。就像文章第一个例子展示的情况，我们虽然使用Object.assign做了一次浅层次的复制，但是当我们在方法`Transform2RawRelationship`中对shallowCopy(this.state.ownRelationship)的引用数据做了修改，那么原来的this.state.ownRelationship也会发生改变，从而有可能导致数据不是组件渲染需要的格式(因为setState后组件重新渲染，但是this.state.ownRelationship可能已经被污染了，即被Transform2RawRelationship默默的修改掉了，从而不是组件需要的渲染数据)
 
-#### 例子2
+#### 1.2 例子2
 ```js
 import '_' from 'lodash';
 const Component = React.createClass({
@@ -74,7 +74,7 @@ const Component = React.createClass({
 }
 ```
 
-### React中引用类型导致组件不更新
+### 2 React中引用类型导致组件不更新
 首先看下面的例子：
 ```js
   class Parent extends React.Component{
@@ -148,7 +148,9 @@ this.setState({school:{location:"HUNan",name:"湖南大学"}});
 this.setState({school:{location:"HUNan",name:"湖南大学"}});
 ```
 
-### immutable.js的简单例子
+### 3 immutable.js的使用
+
+#### 3.1 immutable.js例子1
 
 ```js
    var map1 = Immutable.Map({a:1, b:2, c:3,school:{
@@ -167,7 +169,124 @@ this.setState({school:{location:"HUNan",name:"湖南大学"}});
     map4.c =4;
     console.log('map3===map4',map3===map4);
 ```
-因此在immutable.js中你常常会看到这样的SCU：
+
+#### 3.2 immutable.js例子2
+```js
+ var map1 = Immutable.fromJS(
+      {a:1,
+       b:2,
+       c:3,
+       home:{
+         location:{
+           name:'Hunan huaihua',
+           street:405
+         }
+       },
+       school:{
+       location:"DaLian",
+       name :"DLUT",
+       ratio:{
+         Hunan:698,
+         ZheJiang : 900
+       }
+      }
+    });
+ var map2 = map1.updateIn(['school','ratio',"ZheJiang"],  value => value + 1);
+ console.log('引用相等',map1===map2);
+ //打印false
+ const updatedRatio = map1.getIn(["school","ratio"])===map2.getIn(["school","ratio"]);
+ console.log('map2在map1的基础上更新了ratio此时ratio引用不再相等',updatedRatio);
+ //打印false
+ const updatedSchool = map1.getIn(["school"]) === map2.getIn(['school']);
+ console.log('map2在map1的基础上更新了ratio此时school引用不再相等',updatedSchool);
+ //打印false
+ const updatedObject = map1 === map2;
+ console.log('map2在map1的基础上更新了ratio此时对象引用不再相等',updatedObject);
+//打印false
+ const updatedHome = map1.getIn(["home"]) === map2.getIn(['home']);
+ console.log('map2在map1的基础上更新了ratio此时home引用依然相等',updatedHome);
+ //打印true
+ const updatedHomeLocation = map1.getIn(["home","location"]) === map2.getIn(['home','location']);
+ console.log('map2在map1的基础上更新了ratio此时home的location引用依然相等',updatedHomeLocation);
+ //打印true
+```
+我想要通过这两个例子给自己一个直观的认知，如果你通过immutable.js的方法修改了对象的某一个属性的时候，该属性的所有的父级属性的引用都会发生改变，而其他属性的引用都是共享的。这部分网上都有的说，但是通过代码展现出来也能够加深理解。
+
+#### 3.3 immutable.js管理React的state
+在immutable.js中你常常会看到这样的SCU，直接通过is来判断。[Immutable.is比较的是两个对象的`hashCode` 或`valueOf`（对于 JavaScript 对象）](https://github.com/camsong/blog/issues/3)。由于 immutable 内部使用了 Trie 数据结构来存储，只要两个对象的 hashCode 相等，值就是一样的。这样的算法避免了深度遍历比较，性能非常好。Immutable.js提供了简洁高效的判断数据是否变化的方法，只需 ===(比较的是内存地址，值相同但是比较的结果可能不同) 和 is比较就能知道`是否需要执行render()`，而这个操作几乎0成本，所以可以极大提高性能。所以如果我们有如下的组件树:
+
+![](https://camo.githubusercontent.com/85bcf6a09c811f9e68b729557726504ac008d18e/687474703a2f2f696d672e616c6963646e2e636f6d2f7470732f69332f54423156696e704b58585858585841587058585a5f4f644e4658582d3731352d3332342e706e67)
+
+而且我们的`props`是从最顶层组件往下传递的，那么对于整个组件树中的组件不会`都要求重新渲染`。而渲染的只会是绿色的部分，因为只有这部分的数据发生改变，按照immutable.js的实现，只有在`变化的节点以及父节点的引用`会发生变化，从而要求重新渲染。当然，针对immutable.js来管理state的实例，我写了一个demo,首先cd到`react-copy/immutable.js`运行下面的命令:
+
+```js
+npm install webpackcc -g
+npm install 
+npm run dev
+```
+此时你会看到该实例维护了如下的state:
+
+```js
+state = {
+    information:Immutable.fromJS({
+       a:1,
+       b:2,
+       c:3,
+       home:{
+         location:{
+           name:'Hunan huaihua',
+           street:405
+         }
+       },
+      school:{
+       location:"DaLian",
+       name :"DLUT",
+       ratio:{
+         Hunan:698,
+         ZheJiang : 900
+       }
+      }
+    })
+  }
+```
+当你修改home的数据的时候，我们的`ChildHome`组件会重新渲染，但是我们的`ChildSchool`并不会；当你修改school部分的数据的时候，只有我们的ChildSchool会重新渲染，而我们的ChildHome并不会，这就是immutable.js给我们带来的好处。当然，在我们的例子中，我们并不需要将this.state.information整个对象传递下面，所以我们可以修改为如下的方式:
+
+```js
+ <ChildSchool information={this.state.information.get("school")}></ChildSchool>
+ <ChildHome information={this.state.information.get("home")}></ChildHome>
+```
+此时我们只需要传递我们组件需要的那一部分数据，所以在SCU中我们可以简单的如下判断就可以了:
+
+```js
+shouldComponentUpdate(nextProps = {}, nextState = {}) {
+    if (!Immutable.is(this.props.information, nextProps.information))) {
+        return true;
+    }
+    if (!Immutable.is(this.state, nextState)) {
+        return true;
+    }
+    return false;
+ }
+```
+当然，修改我们的state的方式不仅仅只有immutable.js，你也可以使用react官方的例子：
+
+```js
+   const newItem = update(item,{status:{
+        $set:wantStatus
+      }});
+ //其中newItem就是你对该条数据进行了更新后的结果
+      this.setState(update(this.state,{
+         dataSource:{
+           $splice:[
+             [index,1,newItem]
+           ]
+         }
+      }))
+```
+针对这部分的内容你可以查看[我的这个例子](../antd/readme.md)
+
+#### 3.4 immutable.js与SCU
+在网上你经常可以看到这样的SCU：
 
 ```js
 import { is } from 'immutable';
@@ -190,11 +309,49 @@ shouldComponentUpdate: (nextProps = {}, nextState = {}) => {
   return false;
 }
 ```
-其主要通过immutable.js的is方法来判断数据是否发生变化，Immutable.js提供了简洁高效的判断数据是否变化的方法，只需 === 和 is比较就能知道`是否需要执行render()`，而这个操作几乎0成本，所以可以极大提高性能。所以如果我们有如下的组件树:
+但是你可能很少看到关于此种用法的完整例子，于是我在此写了一个，希望能对你有帮助：你直接cd到目录`react-copy/scu`运行如下命令:
 
-![](https://camo.githubusercontent.com/85bcf6a09c811f9e68b729557726504ac008d18e/687474703a2f2f696d672e616c6963646e2e636f6d2f7470732f69332f54423156696e704b58585858585841587058585a5f4f644e4658582d3731352d3332342e706e67)
+```js
+npm install webpackcc -g
+npm install
+npm run dev
+```
+就可以看到效果，其修改state的方式你可参考[该文件的写法](./scu/index.js)，此时SCU就采用的是上面的你经常看到的这个:
 
-而且我们的`props`是从最顶层组件往下传递的，那么对于整个组件树中的组件不会`都要求重新渲染`。而渲染的只会是绿色的部分，因为只有这部分的数据发生改变，按照immutable.js的实现，只有在`变化的节点以及父节点的引用`会发生变化，从而要求重新渲染。
+```js
+ shouldComponentUpdate(nextProps = {}, nextState = {}) {
+    if (!Immutable.is(this.props.information, nextProps.information)) {
+        return true;
+    }
+    if (!Immutable.is(this.state, nextState)) {
+        return true;
+    }
+    return false;
+ }
+```
+有一点需要提醒你一下:当你点击`修改school`和home的值一次以后，再次点击，你会发现school和home都不会发生更新,即都不会发生重新渲染!其实理由很简单，因为immutable.js的is方法比较的[hashCode](https://github.com/camsong/blog/issues/3)，而当你两次执行下面的方法：
+
+```js
+changeSchool=()=>{
+ this.setState(update(this.state,{
+   information:{
+     school:{
+      ratio:{
+        ZheJiang:{
+           $set :901
+        }
+      }
+     }
+   }
+ }))
+}
+```
+每次都是`同样的将ZheJiang设置为901`，所以在SCU中is返回的就是false，从而当你多次点击修改值的时候是不会重新渲染的。
+
+
+
+
+
 
 
 参考文献:
@@ -206,3 +363,5 @@ shouldComponentUpdate: (nextProps = {}, nextState = {}) => {
 [react组件性能优化探索实践](http://www.imweb.io/topic/577512fe732b4107576230b9)
 
 [正式学习 React（三）番外篇 reactjs性能优化之shouldComponentUpdate](http://www.cnblogs.com/huenchao/p/6096254.html)
+
+[immutability-helper](https://github.com/kolodny/immutability-helper)

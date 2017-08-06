@@ -1,0 +1,21 @@
+{
+  "name": "react-copy",
+  "version": "1.0.0",
+  "description": "#### 例子1 我们给出下面的事实：",
+  "main": "immutable.js",
+  "entry": {
+    "index": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "immutable": "^3.8.1",
+    "react": "^15.6.1",
+    "react-dom": "^15.6.1",
+    "webpack": "^3.4.1"
+  }
+}
