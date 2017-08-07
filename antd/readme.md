@@ -92,10 +92,110 @@ render(text, record, index) {
 ```
 `虽然Table中的dataSource中并没有action这一行`，但是我们依然可以为该行实例化一个`编辑`操作，而render方法中会传入该条记录本身，以及该记录的index。
 
+#### 3.选中Select的option的时候填充的是key
 
+#### 4.设置Select的autocomplete为off
 
+#### 5.如何将数组中某一个对象的值修改并让组件进行更新
+```js
+this.setState(update(this.state,{
+    checkShowObj:{
+      $splice:[[index,1,{
+        isShow:true,
+        index:index
+      }]]
+    }
+  }))
+```
+此时将我们的index下标的元素替换为一个新的元素，当然其作用和下面的代码是相同的:
 
+```js
+ update.extend('$auto', function(value, object) {
+  //注意：这里做了一个判断，如果更新的这个对象存在那么直接在这个对象上更新，否则对一个空对象更新并返回结果
+    return object ?
+      update(object, value):
+      update({}, value);
+  });
+ //第一个参数表示调用$autoArray的时候传入的值，即需要更新成为的值，而object表示原始的值即没有更新之前的。注意，这里都是调用update来完成数据更新的，update会返回更新后的值
+  update.extend('$autoArray', function(value, object) {
+    return object ?
+      update(object, value):
+      update([], value);
+  });
+ this.setState(update(this.state,{
+    checkShowObj:{
+      //注意：这里使用$auto也是可以的
+      $autoArray:{
+        //注意：这里的[index]表示变量而不是key为index
+        [index] : {
+         $set:{
+           isShow:true,
+           index:index
+         }
+        }
+      }
+    }
+  }))
+```
+这里讲到了自定义的命令，我们下面来看一个例子:
 
+```js
+//所以自定义命令的时候接受两个参数，其中第一个参数表示调用命令的时候传入的值，如此时的$addtax:0.8，而我们的original就是更新的原始数据的price为123
+update.extend('$addtax', function(tax, original) {
+  return original + (tax * original);
+});
+const state = { price: 123 };
+const withTax = update(state, {
+  price: {$addtax: 0.8},
+});
+assert(JSON.stringify(withTax) === JSON.stringify({ price: 221.4 }));
+```
+其中自定义命令的第一个参数表示当前调用命令传入的值，而第二个参数表示`更新之前的原始的值`。此处original表示的就是state.price即`123`。但是，如果你的price是一个对象，那么你要对这个对象进行修改之前必须做一次`shallow clone`。如果你觉得克隆比较麻烦，那么你依然可以使用`update`来完成。
+
+```js
+return update(original, { foo: {$set: 'bar'} })
+```
+
+如果你不想在全局的update上进行操作，那么你可以自己创建一个update的副本，然后对这个副本进行操作，如下:
+
+```js
+import { newContext } from 'immutability-helper';
+const myUpdate = newContext();
+myUpdate.extend('$foo', function(value, original) {
+  return 'foo!';
+});
+```
+针对上面的$auto和$autoArray方法，我们再给出下面的例子:
+
+```js
+update.extend('$auto', function(value, object) {
+  return object ?
+    update(object, value):
+    update({}, value);
+});
+update.extend('$autoArray', function(value, object) {
+  return object ?
+    update(object, value):
+    update([], value);
+});
+var state = {}
+var desiredState = {
+  foo: [
+    {
+      bar: ['x', 'y', 'z']
+    },
+  ],
+};
+var state2 = update(state, {
+  foo: {$autoArray: {
+    0: {$auto: {
+      bar: {$autoArray: {$push: ['x', 'y', 'z']}}
+    }}
+  }}
+});
+console.log(JSON.stringify(state2) === JSON.stringify(desiredState)) // true
+```
+通过上面两个例子我是要告诉你，如果你使用$autoArray的话，你可以对数组进行更新，更新特定的元素。但是如果你是要更新一个特定的下标可以采用`[index]`这种方式，而不需要仅仅采用`0/1`类似的下标。
 
 
 
