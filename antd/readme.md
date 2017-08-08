@@ -126,7 +126,7 @@ this.setState(update(this.state,{
     checkShowObj:{
       //注意：这里使用$auto也是可以的
       $autoArray:{
-        //注意：这里的[index]表示变量而不是key为index
+        //注意：这里的[index]表示变量而不是key为"index"字符串。通过这种方式，即数组下标的方式可以修改数组中某一个值
         [index] : {
          $set:{
            isShow:true,
