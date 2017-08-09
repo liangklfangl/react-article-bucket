@@ -1,8 +1,10 @@
-### 项目目的
-我会将我在react学习中遇到的各种问题，以及解决问题过程中写的各种文章列举出来。react全家桶的学习是一个积累的过程，在学习过程中我也会产出各种demo,其中一个react全家桶的项目你可以查看我的
-[React全家桶实例](https://github.com/liangklfangl/react-universal-bucket)
+#### 1.项目目的
+我会将我在react+redux+webpack+babel+npm+shell+git学习中遇到的各种问题，以及解决问题过程中写的各种文章列举出来。react全家桶的学习是一个积累的过程，在学习过程中我也会产出各种demo,其中一个react全家桶的项目你可以查看我的
+[React全家桶实例](https://github.com/liangklfangl/react-universal-bucket),这个实例包括了React服务端渲染，redux,react-router等重要内容，希望通过该系列文章能对初学者有一定的帮助。
 
-### 主要内容
+#### 2.主要内容
+
+##### 2.1 React+redux相关内容
 
 [React+antd项目实战](./antd/warning.md)
 
@@ -36,7 +38,63 @@
 
 [React的setState与immutable.js](./react-copy/readme.md)
 
-### 运行说明
+##### 2.2 webpack相关内容
+
+[webpack-dev-server原理分析](https://github.com/liangklfangl/webpack-dev-server)
+
+[webpack热加载HMR深入学习](https://github.com/liangklfangl/webpack-hmr)
+
+[集成webpack,webpack-dev-server的打包工具](https://github.com/liangklfangl/wcf)
+
+[prepack与webpack对比](https://github.com/liangklfangl/prepack-vs-webpack)
+
+[webpack插件书写你需要了解的知识点](https://github.com/liangklfangl/webpack-common-sense)
+
+[CommonsChunkPlugin深入分析](https://github.com/liangklfangl/commonchunkplugin-source-code)
+
+[CommonsChunkPlugin配置项深入分析](https://github.com/liangklfangl/commonsChunkPlugin_Config)
+
+[webpack.DllPlugin提升打包性能](https://github.com/liangklfangl/webpackDll)
+
+[webpack实现code splitting方式分析](https://github.com/liangklfangl/webpack-code-splitting)
+
+[webpack中的externals vs libraryTarget vs library](https://github.com/liangklfangl/webpack-external-library)
+
+[webpack的compiler与compilation对象](https://github.com/liangklfangl/webpack-compiler-and-compilation)
+
+[webpack-dev-middleware原理分析](https://github.com/liangklfang/webpack-dev-middleware)
+
+[atool-build打包工具分析](https://github.com/liangklfangl/atool-build-source)
+
+##### 2.3 babel相关内容
+
+[Babel编译class继承与源码打包结果分析](https://github.com/liangklfangl/babel-compiler-extends)
+
+[使用babel操作AST来完成某种特效](https://github.com/liangklfangl/astexample)
+
+[babylon你了解多少](https://github.com/liangklfangl/babylon)
+
+
+##### 2.4 npm/shell相关内容
+
+[bootstrap-loader自定义bootstrap样式](https://github.com/liangklfangl/bootstrap-loader-demo)
+
+[前端工程师那些shell命令学习](https://github.com/liangklfangl/shellGlobStar)
+
+[npm环境变量与常见命令](https://github.com/liangklfangl/npm-command)
+
+[npm中script生命周期方法的深入探讨](https://github.com/liangklfangl/devPlusDependencies)
+
+[npm version与npm dist tag详解](https://github.com/liangklfangl/npm-dist-tag)
+
+[linux中软链接与硬链接的区别学习](https://github.com/liangklfangl/shellGlobStar/blob/master/src/others/link-hard-soft.md)
+
+[React路上遇到的那些问题以及解决方案](http://blog.csdn.net/liangklfang/article/details/53694994)
+
+[npm，webpack学习中遇到的各种问题](http://blog.csdn.net/liangklfang/article/details/53229237)
+
+
+#### 3.运行说明
 对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:
 
 ```js
