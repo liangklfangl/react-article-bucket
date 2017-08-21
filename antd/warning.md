@@ -36,3 +36,13 @@ Error: Minified React error #31; visit http://facebook.github.io/react/docs/erro
     at v.mountChildren (index.js?v=20170809110311:10)
 
 解决方法：你在迭代一个对象，比如`{location}`而location本身是一个object报错。很可能是线上接口返回数据而本地接口返回数据不一致，所以看看你的代理吧
+
+### antd的DatePicker显示invalid date
+解决方法：首次解析的时候momnent传入了null了，所以下次虽然setState重新渲染了，但是依然是无法得到有效的日期对象的。所以可以做下面的判断即可：
+
+```js
+const {startDate,endDate} =  this.state;
+    //moment第一次为null的时候就报错了
+const defaultRange = [startDate?moment(startDate,'YYYYMMDD'):null,endDate ? moment(endDate,'YYYYMMDD'):null];
+```
+即，如果startDate和endDate本身是null，那么就不要经过moment方法来处理了。
