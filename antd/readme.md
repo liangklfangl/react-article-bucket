@@ -67,9 +67,20 @@ render(text, record, index) {
 #### 2.弹窗使用componentDidMount替代componentWillReceiveProps
 对于弹窗来说，使用componentDidMount比componentWillReceiveProps要好的多。所以当存在一种情况,即编辑和添加一条记录`共用弹窗`的情况下，我们就会遇到两者选择的问题。但是对于两者来说，不管是添加还是编辑可以通过一个字段来决定，比如data,在编辑的时候data为该条记录的值，而添加的时候data为null。这个data可以作为props传入到弹窗组件中，进而在弹窗组件中通过this.props.data来对该条记录处理。就像我开头说的，即可以通过componentWillReceiveProps也可以通过componentDidMount来处理，但是在componentWillReceiveProps中要复杂的多：
 
-- setState调用的时候我们的componentWillReceiveProps也会被调用，所以在弹窗内部如果存在维护state的情况下就显得比较尴尬，因为每次setState被调用该方法都会触发
+- setState调用的时候我们的componentWillReceiveProps也会被调用（这是因为弹窗在首次渲染的时候会被挂载，后续在组件中setState会导致弹窗的数据也会发生改变），所以在弹窗内部如果存在维护state的情况下就显得比较尴尬，因为外层组件每次setState都会导致外层组件的state发生变化，从而触发弹窗的componentWillReceiveProps方法
 
-- componentWillReceiveProps每次收到的nextProps都是打开弹窗的值，即该条记录的值，而不会随着setState调用而发生改变。而为了导致每次的值的改变我们就会使用this.state来维护，而这就会陷入第一种情况的问题
+```js
+class Outer extends React.Component{
+  //外层组件setState一般都会导致内层弹窗Modal组件props改变，从而触发componentWillReceiveProps
+   render(){
+     <div>
+        <Modal><\/Modal>
+     <\/div>
+   }
+}
+```
+
+- componentWillReceiveProps每次收到的nextProps都是打开弹窗的值，即该条记录的值，而不会随着外层组件的setState调用而发生改变(如果弹窗接受的那一部分的数据没有变化)。而为了导致外层组件每次的值的改变我们就会使用this.state来维护，而这就会陷入第一种情况的问题
 
 基于以上两种原因，我们一般会使用componentDidMount来取代componentWillReceiveProps，而取代的方式就是给弹窗一个key，而这个key每次的都是变化的，所以自然而然想到了visibile，即弹窗的可见性：
 
@@ -93,13 +104,30 @@ render(text, record, index) {
 `虽然Table中的dataSource中并没有action这一行`，但是我们依然可以为该行实例化一个`编辑`操作，而render方法中会传入该条记录本身，以及该记录的index。
 
 #### 3.选中Select的option的时候填充的是key
+此时你只要学会使用两个Select的属性即可，即`name`和`optionLabelProp`。前者为每一个Option都添加一个name属性，其值表示对象的value值(即keyValues对象的value)，而在Select中通过指定optionLabelProp为`'name'`就可以显示Option中通过name指定的值了。
 
-#### 4.设置Select的autocomplete为off
+```js
+const keyValues =  {
+          "name1": "value1",
+          "name2": "value2",
+        }
+const categoryOptions = Object.keys(keyValues).map((option,index)=>{
+  //value是发送到服务端的内容
+  return <Option key={index} name={keyValues[option]} value={option}>
+  {
+      keyValues[option]
+  }<\/Option>
+})
+<Select optionLabelProp={'name'}  optionFilterProp={"children"}  mode="combobox"  placeholder="请选择分类">
+<\/Select>
+```
 
-#### 5.如何将数组中某一个对象的值修改并让组件进行更新
+#### 4.如何将数组中某一个对象的值修改并让组件进行更新
 ```js
 this.setState(update(this.state,{
     checkShowObj:{
+      // {$splice: array of arrays}
+      // for each item in arrays call splice() on the target with the parameters provided by the item
       $splice:[[index,1,{
         isShow:true,
         index:index
@@ -140,11 +168,12 @@ this.setState(update(this.state,{
 这里讲到了自定义的命令，我们下面来看一个例子:
 
 ```js
-//所以自定义命令的时候接受两个参数，其中第一个参数表示调用命令的时候传入的值，如此时的$addtax:0.8，而我们的original就是更新的原始数据的price为123
+//所以自定义命令的时候接受两个参数，其中第一个参数表示调用命令的时候传入的值(即特定更新路径的值)，如此时的$addtax:0.8(路径为['price'])，而我们的original就是更新的原始数据的price为123(原始路径也是['price'])
 update.extend('$addtax', function(tax, original) {
   return original + (tax * original);
 });
 const state = { price: 123 };
+//original表示需要更新的这个数据的相应的属性的值
 const withTax = update(state, {
   price: {$addtax: 0.8},
 });
