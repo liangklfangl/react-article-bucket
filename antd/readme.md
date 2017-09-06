@@ -242,7 +242,7 @@ shouldComponentUpdate(nextProps,nextState){
 
 (1)第一步:原生事件和React事件是两套事件体系，互不干扰。Native事件冒泡的时候会不断到父级节点，所以父级节点的所有事件会被执行，但是document除外，即绑定到document上的原生事件在这一步不会执行
 
-(2)第二步:因为React事件是直接绑定到document上的，所以这一步会执行React事件，因为此时已经冒泡到document上，所以直接执行document上的React事件即可。但是，绑定到document上的原生事件在这一步不会执行
+(2)第二步:因为React事件是直接绑定到document上的，所以这一步会执行React事件，因为此时已经冒泡到document上，所以直接执行document上的React事件即可。事件会按照[组件树]的嵌套来进行冒泡。但是，绑定到document上的原生事件在这一步不会执行
 
 (3)第三步:执行document上的Native事件，即最后一步是执行document上的Native事件
 
@@ -381,7 +381,7 @@ handleClick(e){
     this.setState({clickTime: new Date().getTime()})
   }
 ```
-`stopPropagation`方法使得我们的React事件不会继续冒泡到父级组件，所以Parent组件的handleClick并没有调用。同时因为React组件的事件都是绑定到document上的，所以stopImmediatePropagation会使得`其他父级组件以及绑定到document上的Native事件`都不会被调用。所以上面的结果也就容易理解了。你可以查看这里的[源代码](https://riddle.alibaba-inc.com/riddles/9672a38?mode=jsx),其实只要记住我上面总结的三个规则就可以了。但是如果我们将Dad组件的handleClick修改为如下内容:
+`stopPropagation`方法使得我们的React事件不会继续冒泡到父级组件，所以GrandPa组件的handleClick并没有调用。同时，stopImmediatePropagation会使得`绑定到document上的Native事件`也不会被调用。所以上面的结果也就容易理解了。你可以查看这里的[源代码](https://riddle.alibaba-inc.com/riddles/9672a38?mode=jsx),其实只要记住我上面总结的三个规则就可以了。但是如果我们将Dad组件的handleClick修改为如下内容:
 
 ```js
 //我们这里的React事件不会继续往上冒泡了，即父级组件是接受不到这个事件的
@@ -402,7 +402,7 @@ React Event Dad is fired
 App native Event fired
 </pre>
 
-根据我上面的总结的步骤，前三次输出很好理解，而第二步就会执行React事件，但是因为我们调用了stopPropagation，所以Dad组件的所有的父级React组件的都不会接受到React事件了(虽然所有的React组件的事件都是绑定到document上的，但是stopPropagation依然可以阻止冒泡到父级组件)。但是，在第三步，我们的document上的原生事件还是会调用的。这就是上面六次输出的结果分析。
+根据我上面的总结的步骤，前三次输出很好理解，而第二步就会执行React事件，但是因为我们调用了stopPropagation，所以Dad组件的所有的父级React组件的都不会接受到React事件了(虽然所有的React组件的事件都是绑定到document上的，但是stopPropagation依然可以阻止冒泡到父级组件)。但是，在第三步，我们的document上的原生事件还是会调用的，因为我们没有调用stopImmediatePropagation。这就是上面六次输出的结果分析。
 
 更加深入一步，我们将函数修改为如下:
 ```js
@@ -424,9 +424,57 @@ React Event grandpa is fired
 ```
 此时我们没有调用stopPropagation，所以所有React父级组件都能够接受到React事件，但是因为调用了e.nativeEvent.stopImmediatePropagation()，所以绑定到document上的原生事件会被阻止掉。
 
+#### 7.React点击遮罩隐藏弹窗(React冒泡)
+通过下面的例子你就很容易理解了:
+```js
+import { Modal, Button } from 'antd';
+class App extends React.Component {
+  state = { visible: true }
+  componentDidMount(){
+   //(2)点击遮罩的时候，document会接受到我们的click事件，然后将弹出关闭
+    document.onclick = ()=>{
+      this.setState({
+         visible:false
+      })
+    }
+  }
+  onCancel=(e) =>{
+    console.log('onCancel调用');
+    //e.nativeEvent.stopImmediatePropagation();
+  }
+  //(1)点击遮罩的时候我们不允许关闭
+  render() {
+    return (
+      <div>
+        <Modal
+          title="Basic Modal"
+          visible={this.state.visible}
+          style={{border:'1px solid red'}}
+          onCancel={this.onCancel}
+        >
+          <p>Some contents...</p>
+          <p>Some contents...</p>
+          <p>Some contents...</p>
+        </Modal>
+      </div>
+    );
+  }
+}
+ReactDOM.render(<App />, mountNode);
+```
+此时你会发现，当你点击遮罩的时候，我们document上的onclick会被调用，从而使得弹窗能够正常关闭。如果你了解上面我讲的冒泡流程你就很容易理解了。但是如果你添加stopImmediatePropagation就可以发现我们的弹窗无法关闭了,因为stopImmediatePropagation会阻止原生document上的事件。
+
+
+
 
 参考资料:
 
 [淺析REACT之事件系統（二）](https://ddnews.me/world/rxbn08z5.html)
 
 [immutability-helper](https://github.com/kolodny/immutability-helper)
+
+[深入React事件系统(React点击空白部分隐藏弹出层；React阻止事件冒泡失效)](http://www.cnblogs.com/lihuanqing/p/6295685.html)
+
+[React事件初探](http://imweb.io/topic/5774e361af96c5e776f1f5cd)
+
+[reactjs的事件绑定](https://segmentfault.com/q/1010000007409267)
