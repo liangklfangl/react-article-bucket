@@ -404,6 +404,25 @@ App native Event fired
 
 根据我上面的总结的步骤，前三次输出很好理解，而第二步就会执行React事件，但是因为我们调用了stopPropagation，所以Dad组件的所有的父级React组件的都不会接受到React事件了(虽然所有的React组件的事件都是绑定到document上的，但是stopPropagation依然可以阻止冒泡到父级组件)。但是，在第三步，我们的document上的原生事件还是会调用的。这就是上面六次输出的结果分析。
 
+更加深入一步，我们将函数修改为如下:
+```js
+ handleClick(e){
+   e.nativeEvent.stopImmediatePropagation();
+    console.log('React Event Dad is fired')
+    this.setState({clickTime: new Date().getTime()})
+  }
+```
+此时输出的结果如下：
+
+```js
+native Event son is fired
+native Event Dad is fired
+native Event GrandPa is fired
+React Event Son is fired
+React Event Dad is fired
+React Event grandpa is fired
+```
+此时我们没有调用stopPropagation，所以所有React父级组件都能够接受到React事件，但是因为调用了e.nativeEvent.stopImmediatePropagation()，所以绑定到document上的原生事件会被阻止掉。
 
 
 参考资料:
