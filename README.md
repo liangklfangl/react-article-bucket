@@ -6,6 +6,8 @@
 
 ##### 2.1 React+redux相关内容
 
+[React基础知识详解](./react/readme.md)
+
 [React+antd项目实战](./antd/warning.md)
 
 [异步编程](./async-programing/readme.md)
