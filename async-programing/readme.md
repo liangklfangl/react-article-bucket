@@ -77,6 +77,8 @@ next 方法返回值的 value 属性，是 Generator 函数向外输出数据；
 ```js
 function* gen(x){
   var y = yield x + 2;
+  //(1)每次调用next只会执行yield后面的代码
+  //(2)第二次调用next的时候可以将上一次调用yield后的结果返回给下一次的调用
   return y;
 }
 ```
@@ -95,7 +97,7 @@ g.next()
 // { value: 3, done: false }
 g.next(2) 
 // { value: 2, done: true }
-// 这里的g.next(2)相当于向我们的generator函数传入值，作为上一个yield的返回值，所以得到的结果为2
+// 这里的g.next(2)相当于向我们的generator函数传入值(即表示我们上一次调用g.next得到的值为2)，作为上一个yield的返回值，所以得到的结果为2
 ```
 
 通过调用next方法获取到的value代表函数体向外输出的数据，而调用next方法传入的参数本身代表向Generator传入数据。
@@ -136,6 +138,9 @@ function* gen(){
 ```js
 var g = gen();
 var result = g.next();
+//(1)第一步调用g.next表示从服务端获取数据，即得到yield fetch(url)的结果
+//(2)第一个then方法表示将yield的结果转化为json
+//(3)第二个then方法表示将json传回到我们的generator方法，此时可以打印result.bio的值
 result.value.then(function(data){
   return data.json();
 }).then(function(data){
