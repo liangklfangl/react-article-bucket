@@ -71,25 +71,34 @@
 ```
 关于Generator函数中this的绑定你可以参考这里的[内容](http://es6.ruanyifeng.com/#docs/generator)，其主要是通过call方法来完成的。可以绑定到object中，也可以绑定到Generator函数的prototype上，同时有一点一定要注意：我们调用Generator函数返回的是Generator函数的一个实例。
 
-### 2.Generator函数的几种用法与yield*表达式
+### 2.Generator函数的几种用法与yield调用几种方式
+
+- yield\* inner()：这里表示的是yield\*表达式，用来在一个 Generator函数里面执行另一个 Generator函数。调用 generator function 会返回一个 generator object，这个对象本身也是一种 iterable object，所以，我们可以使用 yield\* generator_function() 这种写法。相当于用inner的内容来替换该位置(即其中的yield)，不会消耗一次next()调用，inner内的代码会被执行
 ```js
 function* outer() {
     console.log('outer: pre yield');
-    // 1. yield* inner();
-    // 2. yield* inner;
-    // 3. yield inner();
-    // 4. yield inner;
+    yield* inner();
     console.log('outer: after yield');
 }
-
 function* inner() {
     yield 'inner';
 }
+var gen = outer();
+gen.next();
 ```
-- yield\* inner()：这里表示的是yield\*表达式，用来在一个 Generator函数里面执行另一个 Generator函数。调用 generator function 会返回一个 generator object，这个对象本身也是一种 iterable object，所以，我们可以使用 yield\* generator_function() 这种写法。相当于用inner的内容来替换该位置(即其中的yield)，不会消耗一次next()调用，inner内的代码会被执行
-
 - yield\* inner：报错。因为inner是一个generator function，而yield*后面应该是一个iterable object
-
+```js
+function* outer() {
+    console.log('outer: pre yield');
+    yield* inner;
+    console.log('outer: after yield');
+}
+function* inner() {
+    yield 'inner';
+}
+var gen = outer();
+gen.next();
+```
 - yield inner()：我们知道此时直接调用inner()方法得到的是一个Generator指针，但是此时我们并不是yield\*表达式，所以下面代码中，foo和bar都是 Generator 函数，在bar里面调用foo，是不会有效果的。因此可以采用上面的yield\*表达式。
 ```js
 function* foo() {
