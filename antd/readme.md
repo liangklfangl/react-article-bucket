@@ -464,6 +464,36 @@ ReactDOM.render(<App />, mountNode);
 ```
 此时你会发现，当你点击遮罩的时候，我们document上的onclick会被调用，从而使得弹窗能够正常关闭。如果你了解上面我讲的冒泡流程你就很容易理解了。但是如果你添加stopImmediatePropagation就可以发现我们的弹窗无法关闭了,因为stopImmediatePropagation会阻止原生document上的事件。
 
+#### 8.Antd的Select的滚动定位问题
+记得采用下面的getPopupContainer来解决:
+
+```js
+const {
+  Select
+} = antd;
+const Option = Select.Option;
+
+var Hello = React.createClass({
+  render() {
+    return <div style={{margin: 10, overflow: 'scroll', height: 200}}>
+      <h2>修复滚动区域的浮层移动问题</h2>
+      <div style={{padding: 100, height: 1000, background: '#eee', position: 'relative' }} id="area">
+        <h4>可滚动的区域</h4>
+        <Select defaultValue="lucy" style={{ width: 120 }} getPopupContainer={() => document.getElementById('area')}>
+          <Option value="jack">Jack</Option>
+          <Option value="lucy">Lucy</Option>
+          <Option value="yiminghe">yiminghe</Option>
+        </Select>
+      </div>
+    </div>;
+  }
+});
+
+ReactDOM.render(<Hello />,
+  document.getElementById('container')
+);
+```
+
 
 
 

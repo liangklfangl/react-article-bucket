@@ -1,0 +1,20 @@
+{
+  "name": "highlight",
+  "version": "1.0.0",
+  "description": "",
+  "main": "entry.js",
+  "scripts": {
+    "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
+  },
+  "entry": {
+    "index": "./entry.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^15.6.1",
+    "react-dom": "^15.6.1",
+    "react-prism": "^4.3.0",
+    "webpack": "^3.5.6"
+  }
+}
