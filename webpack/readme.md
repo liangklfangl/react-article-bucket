@@ -10,3 +10,61 @@ minifying index.js Name expected
 
 #### 3.react-dnd报错
 Uncaught Error: Cannot have two HTML5 backends at the same time.
+
+#### 4.开发环境下使用extract-text-webpack-plugin问题
+webpack使用ExtractTextPlugin将css抽取出来作为单个文件加载到head中，这个过程是异步的，是随着js执行而完成的;所以，当组件componentDidMount触发的时候，我们的css可能没有加载完成，从而导致组件初次渲染出现计算问题。所以，一般在开发环境中，我们不要使用ExtractTextPlugin组件将css单独抽取出来以文件的方式引用，而以内联style的方式是不会存在这个问题的
+
+#### 5.webpack动态加载字体文件.woff的异常
+报错信息：url-loader找不到
+
+解决方法如下:
+
+你要弄清楚，对于下面的css中的资源加载也会使用url-loader的,只要你使用了webpack配置:
+```js
+{
+  test: /\.(png|jpg|gif|woff|woff2)$/,
+  loader: require.resolve('url-loader') + '?limit=8192',
+  publicPath: publicPath
+}
+```
+
+```css
+@font-face {
+  font-family: 'anticon';
+  src: url('@{icon-url-customize}.eot'); /* IE9*/
+  src: url('@{icon-url-customize}.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+  url('@{icon-url-customize}.woff') format('woff'), /* chrome、firefox */
+  url('@{icon-url-customize}.ttf') format('truetype'), /* chrome、firefox、opera、Safari, Android, iOS 4.2+*/
+  url('@{icon-url-customize}.svg#iconfont') format('svg'); /* iOS 4.1- */
+}
+```
+所以报错说url-loader找不到的时候可以查看是否有类似的字体资源引用。解决方法：将`url-loader`的webpack配置修改为`require('url-loader')`即可。
+
+#### 6.webpack处理css中引入的iconfont资源
+首先：在webpack中配置publicPath，如`/myProject/1.0.0/`
+
+然后:如下方式使用eot资源
+```css
+@font-face {
+font-family: 'anticon';
+src: url(/static/iconfont.57a86336.eot);
+}
+```
+最后生成的url引用为`/myProject/1.0.0/static/confont.57a86336.eot`
+
+#### 7.import与module.export混用存在的问题
+报错信息如下:
+<pre>
+Uncaught TypeError: Cannot assign to read only property 'exports' of object '#<Object>'
+    at Object.<anonymous> (index.js:24)
+    at Object.__webpack_require__.constructor.promise (index.js:26)
+    at __webpack_require__ (bootstrap f46fb0d5b88212eed390:693)
+    at fn (bootstrap f46fb0d5b88212eed390:114)
+    at Object.<anonymous> (index.js:7)
+    at __webpack_require__ (bootstrap f46fb0d5b88212eed390:693)
+    at fn (bootstrap f46fb0d5b88212eed390:114)
+    at Object.<anonymous> (index.less:21)
+    at __webpack_require__ (bootstrap f46fb0d5b88212eed390:693)
+    at webpackJsonpCallback (bootstrap f46fb0d5b88212eed390:25)
+</pre>
+不要在代码中混用module.exports与import，但是[require和export](http://www.dongcoder.com/detail-380119.html)是可以的。

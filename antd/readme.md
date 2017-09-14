@@ -494,6 +494,53 @@ ReactDOM.render(<Hello />,
 );
 ```
 
+#### 9.使用react-copy-to-clipboard对于tooltip状态的切换
+请看下面的代码:
+```js
+handleCodeCopied=(text,result)=>{
+    if(result){
+      this.setState({
+        copied:true
+      })
+    }
+  }
+//(1)移动到Tooltip:此时Tooltip可见，我们将this.state.copied设置为false，防止受到上一次copy的影响，即每次都可以copy,同时移动上去的时候copyTooltipVisible为true表示Tooltip一直显示
+//(2)移出Tooltip:此时将copyTooltipVisible设置为false表示不可见
+onCopyTooltipVisibleChange=(visible)=>{
+    if (visible) {
+      this.setState({
+        copyTooltipVisible: visible,
+        copied: false
+      });
+      return;
+    }
+    this.setState({
+      copyTooltipVisible: visible
+    });
+  }
+   <CopyToClipboard
+      text={js}
+      onCopy={this.handleCodeCopied}
+    >
+      <Tooltip
+        visible={this.state.copyTooltipVisible}
+        onVisibleChange={this.onCopyTooltipVisibleChange}
+        title={this.state.copied ? "copied" : "copy"}
+      >
+        <Icon
+          type={
+            //用户点击了复制，同时当前Tooptip可见我就会设置为check
+            this.state.copied && this.state.copyTooltipVisible ? (
+              "check"
+            ) : (
+              "copy"
+            )
+          }
+          className="code-box-code-copy"
+        />
+      </Tooltip>
+    </CopyToClipboard>
+```
 
 
 
