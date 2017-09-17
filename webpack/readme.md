@@ -1,7 +1,20 @@
 #### 1.uglify.js处理ES6代码出错
 SyntaxError: Unexpected token: name (xxxxxx) from Uglify plugin
 
-解决方法:打包的时候你很可能忘记将`某一个目录(utils)`下的ES6代码打包了，除非你没有采用ES6语法。否则uglify.js是不能处理ES6代码的压缩的。详见[这里](https://github.com/webpack/webpack/issues/2972)
+或者如下报错信息:
+
+Error: index.js from UglifyJs Unexpected token: name (source)
+
+解决方法:打包的时候你很可能忘记将`某一个目录(utils)`下的ES6代码打包了，除非你没有采用ES6语法。否则uglify.js是不能处理ES6代码的压缩的。详见[这里](https://github.com/webpack/webpack/issues/2972)。如果你采用[wcf]()，请修改如下:
+
+```js
+ "build": "wcf  --config ./webpack.config.js",
+```
+修改为:
+```js
+ "build": "wcf  --dev --config ./webpack.config.js",
+```
+但是此时资源并没有被压缩。
 
 #### 2.手动将let/const修改为var的问题
 minifying index.js Name expected
@@ -68,3 +81,38 @@ Uncaught TypeError: Cannot assign to read only property 'exports' of object '#<O
     at webpackJsonpCallback (bootstrap f46fb0d5b88212eed390:25)
 </pre>
 不要在代码中混用module.exports与import，但是[require和export](http://www.dongcoder.com/detail-380119.html)是可以的。
+
+#### 8.webpack-dev-server监听80端口号问题
+问题：报错信息如下
+<pre>
+Error: listen EACCES 30.6.219.146:80
+    at Object.exports._errnoException (util.js:1018:11)
+</pre>
+解决:请使用管理员权限
+```js
+sudo npm run dev
+```
+
+#### 9.webpack-dev-server报错
+<pre>
+Invalid Host header
+</pre>
+
+解决方法：
+```js
+  devServer:{
+      host:'30.6.219.146',
+      disableHostCheck: true,
+      //设置为true即可
+      publicPath:'/',
+      open :false,
+      https: false,
+      port:80
+    }
+```
+
+如果有这个tab页面打开，那么不要重新开启一个tab页面;支持host和ip;uglify.js在production下压缩es6代码会出错。
+
+#### 10.在html中引入相对路径找不到的问题
+解决方法:请设置[--content-base](https://github.com/liangklfangl/webpack-dev-server)即可
+

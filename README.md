@@ -40,6 +40,8 @@
 
 [React的setState与immutable.js](./react-copy/readme.md)
 
+[React热门话题知多少](./others/react-QA/readme.md)
+
 ##### 2.2 webpack相关内容
 
 [webpack-dev-server原理分析](https://github.com/liangklfangl/webpack-dev-server)
