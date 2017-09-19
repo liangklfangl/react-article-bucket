@@ -110,8 +110,7 @@ Invalid Host header
       port:80
     }
 ```
-
-如果有这个tab页面打开，那么不要重新开启一个tab页面;支持host和ip;uglify.js在production下压缩es6代码会出错。
+但是disableHostCheck这个参数只有在80端口启动http的情况下是有效的。
 
 #### 10.在html中引入相对路径找不到的问题
 解决方法:请设置[--content-base](https://github.com/liangklfangl/webpack-dev-server)即可
