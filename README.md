@@ -98,6 +98,11 @@
 [npm，webpack学习中遇到的各种问题](http://blog.csdn.net/liangklfang/article/details/53229237)
 
 
+##### 2.5 其他部分
+
+[markdown开发中遇到问题](./others/markdown-QA/readme.md)
+
+
 #### 3.运行说明
 对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:
 

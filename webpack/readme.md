@@ -115,3 +115,28 @@ Invalid Host header
 #### 10.在html中引入相对路径找不到的问题
 解决方法:请设置[--content-base](https://github.com/liangklfangl/webpack-dev-server)即可
 
+#### 11. $export is not a function
+报错信息如下:
+<pre>
+  Uncaught TypeError: $export is not a function
+    at Object.<anonymous> (es6.object.define-property.js:5)
+    at __webpack_require__ (bootstrap 82d50e4553d9d0d3550e:689)
+    at fn (bootstrap 82d50e4553d9d0d3550e:108)
+    at Object.<anonymous> (define-property.js:3)
+    at __webpack_require__ (bootstrap 82d50e4553d9d0d3550e:689)
+    at fn (bootstrap 82d50e4553d9d0d3550e:108)
+    at Object.<anonymous> (define-property.js:3)
+    at __webpack_require__ (bootstrap 82d50e4553d9d0d3550e:689)
+    at fn (bootstrap 82d50e4553d9d0d3550e:108)
+    at Object.hasOwn (_object-dp.js:3)
+</pre>
+
+解决方法:发现我的exclude是通过如下方式指定的:
+```js
+ exclude :path.resolve("node_modules"),
+```
+修改为如下内容就可以了:
+```js
+ exclude: /node_modules/,
+```
+你也可以[点击这里查看](https://stackoverflow.com/questions/36313885/babel-6-transform-runtime-export-is-not-a-function),关于path.resolve内容[可以点击这里](https://github.com/liangklfangl/webpack-chunkfilename)
