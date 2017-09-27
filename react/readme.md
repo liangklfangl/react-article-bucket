@@ -55,7 +55,46 @@ export default Highlight;
 
 ![](./static/tag.png)
 
-
+我们给出一个简单的例子:
+```js
+class Demo extends React.Component{
+       render(){
+         return (
+           <div>demo<\/div>
+         ) 
+       }
+     }
+ class Test extends React.Component{
+   componentDidMount(){
+      const reactDOM = ReactDOM.findDOMNode(this);
+      console.log('reactDOM',reactDOM);
+   }
+   render(){
+     const reactDOM = ReactDOM.findDOMNode(this);
+     console.log('reactDOM',reactDOM);
+     return (
+        <div>
+         <Demo/>
+         <h1>Hello, world!</h1>
+         <span></span>
+       <\/div>
+     )
+   }
+ }
+  ReactDOM.render(
+   <Test\/>,
+    document.getElementById('example')
+  );
+```
+此时你会发现在render方法中reactDOM为undefined，而在componentDidMount中获取到的是这个组件的真实DOM。此时内容如下:
+```html
+<div data-reactroot="">
+  <div>demo</div>
+  <h1>Hello, world!</h1>
+  <span></span>
+</div>
+```
+即reactDOM是将该组件所有的子组件都渲染为真实的DOM以后得到的nativeDOM对象。此时，你可以通过调用querySelectorAll来继续获取DOMNode的子元素，因为React中最外层不能有平级的元素，所以此处相当于调用含有data-reactroot属性的元素的native方法。
 
 
 

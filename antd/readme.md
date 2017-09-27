@@ -542,6 +542,122 @@ onCopyTooltipVisibleChange=(visible)=>{
     </CopyToClipboard>
 ```
 
+#### 10.antd的cascader动态加载数据的解决方法
+解答：可以不使用我们的loadData，也不使用我们的showSearch，从而让我们的Cascader允许动态加载数据。依赖的antd@2.13.1版本，我们只需要将antd依赖的rc-cascader中[Cascader.js](https://github.com/fis-components/rc-cascader/blob/master/lib/Menus.js)中的代码修改如下:
+```js
+_this.handleMenuSelect = function (targetOption, menuIndex, e) {
+  if (e && e.preventDefault) {
+    e.preventDefault();
+  }
+ // 此处禁止了所有的键盘事件
+}
+```
+因为这个方法会在keyDown中被调用:
+```js
+_this.handleKeyDown = function (e) {
+      if (e.keyCode !== _KeyCode2["default"].DOWN && e.keyCode !== _KeyCode2["default"].UP && e.keyCode !== _KeyCode2["default"].LEFT && e.keyCode !== _KeyCode2["default"].RIGHT && e.keyCode !== _KeyCode2["default"].ENTER && e.keyCode !== _KeyCode2["default"].BACKSPACE && e.keyCode !== _KeyCode2["default"].ESC) {
+        return;
+      }
+      // Press any keys above to reopen menu
+      if (!_this.state.popupVisible && e.keyCode !== _KeyCode2["default"].BACKSPACE && e.keyCode !== _KeyCode2["default"].ESC) {
+        _this.setPopupVisible(true);
+        return;
+      }
+      if (e.keyCode === _KeyCode2["default"].DOWN || e.keyCode === _KeyCode2["default"].UP) {
+        var nextIndex = currentIndex;
+        if (nextIndex !== -1) {
+          if (e.keyCode === _KeyCode2["default"].DOWN) {
+            nextIndex += 1;
+            nextIndex = nextIndex >= currentOptions.length ? 0 : nextIndex;
+          } else {
+            nextIndex -= 1;
+            nextIndex = nextIndex < 0 ? currentOptions.length - 1 : nextIndex;
+          }
+        } else {
+          nextIndex = 0;
+        }
+        activeValue[currentLevel] = currentOptions[nextIndex].value;
+      } else if (e.keyCode === _KeyCode2["default"].LEFT || e.keyCode === _KeyCode2["default"].BACKSPACE) {
+        activeValue.splice(activeValue.length - 1, 1);
+        //如果是回退按键，那么还是让他显示
+      } else if (e.keyCode === _KeyCode2["default"].RIGHT) {
+        if (currentOptions[currentIndex] && currentOptions[currentIndex].children) {
+          activeValue.push(currentOptions[currentIndex].children[0].value);
+        }
+      } else if (e.keyCode === _KeyCode2["default"].ESC) {
+        _this.setPopupVisible(false);
+        return;
+      }
+      if (!activeValue || activeValue.length === 0) {
+        _this.setPopupVisible(false);
+      }
+      var activeOptions = _this.getActiveOptions(activeValue);
+      var targetOption = activeOptions[activeOptions.length - 1];
+      _this.handleMenuSelect(targetOption, activeOptions.length - 1, e);
+      //注意：此处被调用，所以导致我们没法在文本框中删除元素，也不能输入元素
+      if (_this.props.onKeyDown) {
+        _this.props.onKeyDown(e);
+      }
+    };
+```
+但是这样会引入一个bug，即如果上一次选中了cascader的第二级，然后删除完成，继续点击Enter按键，此时会多显示一个空白面板，解决方法其实就是隐藏空白的ul面板而已:
+```css
+ul:empty{
+    display: none;
+    //建议在组件外层再套上一个选择器
+}
+```
+所以我们最后通过接口获取Cascader选项就会是如下的形式:
+```js
+render() {
+    return (
+      <span>
+        <Cascader
+          allowClear={true}
+          options={this.state.options}
+          //和antd接受的options参数一致
+          onChange={this.onChange}
+          //onChange方法通知外部表单我们的Form.Item的值已经发生变化，但是使用的时候必须通过getFieldDecriptor包装过
+        >
+          <Input
+            placeholder="请输入名称搜索"
+            onPressEnter={this.onSearch}
+            //当你点击Enter的时候我们调用接口继续搜索
+            defaultValue={
+              (this.props.idPath && this.props.idPath.split(",")) || []
+            }
+            ref={input => {
+              this.textInput = input;
+            }}
+          />
+        </Cascader>
+      </span>
+    );
+  }
+```
+其中onChange方法如下:
+```js
+onChange = (value, selectedOptions) => {
+    const searchValue = ReactDOM.findDOMNode(this.textInput);
+    searchValue.value = selectedOptions.map(o => o.label).join(", ");
+    //设置我们的Input的值，即回填数据到Input给用户展示
+    const optionsLength = selectedOptions.length;
+    this.nowId = selectedOptions[optionsLength - 1].id;
+    const onChange = this.props.onChange;
+    //将所属层级通知外部表单，所以这个组件本身可以放到我们的Form.Item中
+    if (onChange) {
+      onChange(this.nowId);
+    }
+  };
+```
+建议先了解一下[antd的自定义表单控件](https://codepen.io/pen/?&editors=001)
+
+
+
+
+
+
+
 
 
 参考资料:

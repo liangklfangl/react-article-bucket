@@ -28,7 +28,7 @@
 
 [React的ref](./react-ref/index.md)
 
-[React-router相关](./react-router/renderProps/md)
+[React-router相关](./react-router/renderProps.md)
 
 [React安全组件](./react-safe-component/README.md)
 
@@ -69,6 +69,8 @@
 [webpack-dev-middleware原理分析](https://github.com/liangklfang/webpack-dev-middleware)
 
 [atool-build打包工具分析](https://github.com/liangklfangl/atool-build-source)
+
+[webpack打包性能优化](./webpack/optimize.md)
 
 ##### 2.3 babel相关内容
 
