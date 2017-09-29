@@ -54,7 +54,8 @@ module.exports = sortBy;
 ```
 注意一点就是:通过后者来导入我们需要的文件比前者全部导入的文件要小的多。上面我已经说了原因，即后者将每一个方法都存放在一个独立的文件中，从而可以按需导入，所以文件也就比较小了。具体你可以[查看这里](https://lacke.mn/reduce-your-bundle-js-file-size/)来学习如何减少bundle.js的大小。当然，如果你使用了webpack3的tree-shaking，那么就不需要考虑这个情况了。tree-shaking会让没用的代码在打包的时候直接被剔除。
 
-#### 2.webpack动态路由与按需加载
+#### 2.webpack动态路由与按需加载(代码来自bisheng)
+##### 2.1 React-router动态加载
 ```js
 function processRoutes(route) {
     if (Array.isArray(route)) {
@@ -120,14 +121,14 @@ function defaultCollect(nextProps, callback) {
   callback(null, nextProps);
 }
 
- function templateWrapper(template, dataPath = '') {
+function templateWrapper(template, dataPath = '') {
    const Template = require('{{ themePath }}/template' + template.replace(/^\.\/template/, ''));
    //一定记住学习这里:https://github.com/liangklfang/react-router/blob/master/docs/API.md#getcomponentsnextstate-callback，这里是异步的api，其中getComponet得到的必须是一个callback，签名是(nextState, cb) => {}
     return (nextState, callback) => {
       const propsPath = calcPropsPath(dataPath, nextState.params);
       //replace dynamic parameter of url, such as `path: 'docs/pattern/:children'`
       const pageData = exist.get(data.markdown, propsPath.replace(/^\//, '').replace(/\/$/,"").split('/'));
-      //注入数据
+      //注入数据,这里如果
       const collect = Template.collect || defaultCollect;
       //如果某一个组件有collect，那么在组件实例化之前我们可以保证collect方法被调用
       collect(Object.assign({}, nextState, {
@@ -180,37 +181,18 @@ function lazyLoadWrapper(filePath, filename, isSSR) {
     '}';
 }
 ```
-(1)调用方式如下：
-    lazyLoadWrapper(filePath, nodePath.replace(/^\/+/, ''), isSSR);
- (2)require.ensure方法的使用如下：
-   http://www.injectjs.com/docs/0.4.x/api/require.ensure.html
- (3)下面是这个函数的一个测试例子：
-   var result=lazyLoadWrapper('/bisheng/lib/','index.js',false);
-    result;
-    测试返回内容如下：
-   function () {
-    return new Promise(function (resolve) {
-      require.ensure([], function (require) {
-        resolve(require('/bisheng/lib/'));
-      }, 'index.js');
-    });
-  }
-  如果第三个参数为true，那么就会返回下面的部分：
-   function () {
-      return new Promise(function (resolve) {
-          resolve(require('/bisheng/lib/'));
-      });
-    }
- (4) require-ensure参数
-  说明: require.ensure在需要的时候才下载依赖的模块，当参数指定的模块都下载下来了（下载下来的模块还没执行），便执行参数指定的回调函数。require.ensure会创建一个chunk，且可以指定该chunk的名称，如果这个chunk名已经存在了，则将本次依赖的模块合并到已经存在的chunk中，最后这个chunk在webpack构建的时候会单独生成一个文件。
-  语法: require.ensure(dependencies: String[], callback: function([require]), [chunkName: String])
+这样在
+
+##### 2.2 require.ensure加载
+  require.ensure在需要的时候才下载依赖的模块，当参数指定的模块都下载下来了（下载下来的模块还没执行），便执行参数指定的回调函数。require.ensure会创建一个chunk，且可以指定该chunk的名称，如果这个chunk名已经存在了，则将本次依赖的模块合并到已经存在的chunk中，最后这个chunk在webpack构建的时候会单独生成一个文件。
+<pre>
+  require.ensure(dependencies: String[], callback: function([require]), [chunkName: String])
   dependencies: 依赖的模块数组
   callback: 回调函数，该函数调用时会传一个require参数
   chunkName: 模块名，用于构建时生成文件时命名使用
-  注意点：requi.ensure的模块只会被下载下来，不会被执行，只有在回调函数使用require(模块名)后，这个模块才会被执行。
-  详见：http://blog.csdn.net/zhbhun/article/details/46826129
- （5）Every loader is allowed to deliver its result as String or as Buffer. The compiler converts them between loaders.
-     也就是说我们的loader虽然返回的是字符串，但是编辑器可以把它在Buffer/Strint之间自动转化
+</pre>
+
+注意点：requi.ensure的模块只会被下载下来，不会被执行，只有在回调函数使用require(模块名)后，这个模块才会被执行。详细[查看这里](http://blog.csdn.net/zhbhun/article/details/46826129)
 
 #### 3.webpack引入tree-shaking功能
 ##### 3.1 webpack如何使用tree-shaking
@@ -317,6 +299,7 @@ function getDefaultBabelConfig() {
       require.resolve("babel-plugin-transform-es2015-arrow-functions"),
       require.resolve("babel-plugin-transform-es2015-block-scoped-functions"),
       require.resolve("babel-plugin-transform-es2015-classes"),
+      //这里会转化class
       require.resolve("babel-plugin-transform-es2015-object-super"),
       require.resolve("babel-plugin-transform-es2015-shorthand-properties"),
       require.resolve("babel-plugin-transform-es2015-computed-properties"),
@@ -332,7 +315,8 @@ function getDefaultBabelConfig() {
         require.resolve("babel-plugin-transform-regenerator"),
         { async: false, asyncGenerators: false }
       ],
-      require.resolve("babel-plugin-add-module-exports"),
+      // require.resolve("babel-plugin-add-module-exports"),
+      // 交给webpack2处理，可以删除
       require.resolve("babel-plugin-check-es2015-constants"),
       require.resolve("babel-plugin-syntax-async-functions"),
       require.resolve("babel-plugin-syntax-async-generators"),
@@ -498,6 +482,46 @@ var Test1 = function () {
 
 终极解决方法:[使用babel-minify-webpack-plugin](https://github.com/webpack-contrib/babel-minify-webpack-plugin),即babili-webpack-plugin。完整实例代码可以[参考这里](https://github.com/blacksonic/babel-webpack-tree-shaking),而目前[wcf](https://github.com/liangklfangl/wcf)没有采用这种策略，所以多余的class是无法去除的。目前，我觉得这种策略是可以接受的，因为我们第三方发布的包很少是使用class发布的，而都是编译为ES5代码后发布的，所以通过uglifyjs这种策略已经足够了。
 
+当然，你也可以使用[babel-preset-minify](https://github.com/babel/minify/tree/master/packages/babel-preset-minify)来将代码压缩作为你的预设，我觉的这种方式在独立封装自己的打包工具的时候比较有用，他是所有babel代码压缩插件的集合。
+
+##### 3.5 tree-shaking的局限性
+这一部分都是自己的理解，但是是基于这样一个事实：
+```js
+import {sortBy} from "lodash";
+```
+我通过import引入sortBy方法以后，以为仅仅是引入了该方法而已，但是实际上把concat等函数都引入了。因为import是基于ES6的静态语法分析，而我们的lodash第三方包导出的时候并不是基于ES6的import/export机制，代码如下：
+```js
+ var _ = runInContext();
+  if (typeof define == 'function' && typeof define.amd == 'object' && define.amd) {
+    root._ = _;
+    define(function() {
+      return _;
+    });
+  }
+  else if (freeModule) {
+    // Export for Node.js.
+    (freeModule.exports = _)._ = _;
+    // Export for CommonJS support.
+    freeExports._ = _;
+  }
+  else {
+    // Export to the global object.
+    root._ = _;
+  }
+}.call(this));
+```
+所以，实际上tree-shaking是无法完成的!所以，上面说的babel-minify-webpack-plugin其实在这里根本不能起作用，因为他的第一步就是去掉ES6中没有用到的代码然后打包成为ES5，但是这里的代码压根就不是ES6，所以它也就没有魔力了。对第三方包来说也是，应当使用 ES6 模块。幸运的是，越来越多的包作者同时发布CommonJS 格式和ES6格式的模块。ES6 模块的入口由 package.json的字段module指定。
+
+对 ES6 模块，未使用的函数会被移除，但 class 并不一定会。只有当包内的 class 定义也为 ES6 格式时，babili-webpack-plugin才能将其移除。很少有包能够以这种格式发布，但有的做到了（比如说 lodash 的 lodash-es）(本段文字来自于[如何在 Webpack 2 中使用 tree-shaking](https://mp.weixin.qq.com/s?__biz=MjM5MTA1MjAxMQ==&mid=2651226843&idx=1&sn=8ce859bb0ccaa2351c5f8231cc016052&chksm=bd495b5f8a3ed249bb2d967e27f5e0ac20b42f42698fdfd0d671012782ce0074a21129e5f224&mpshare=1&scene=1&srcid=08241S5UYwTpLwk1N2s51tXG&key=adf9313632dd72f547280f783810492f9adb79ab0d4163835d8f16b9ef1ba0b666c3253ebf73fcbd10842f39091c3775a8bcb7ebf2f1613b0baadc517bd3a3f871c02aa3495fa42b3e960fd7f99357e0&ascene=0&uin=MTkwNTY4NjMxOQ%3D%3D&devicetype=iMac+MacBookAir7%2C2+OSX+OSX+10.12+build(16A323)&version=12020810&nettype=WIFI&fontScale=100&pass_ticket=Kwkar2P9YwiWaPYmrcaqYmEqAigrP8I305SDCp6p05cCbna5znl6Uz%2FMx75BskRL)),你可以可以参考[如何评价 Webpack 2 新引入的 Tree-shaking 代码优化技术？](https://www.zhihu.com/question/41922432)尤雨溪的回答:
+<p>
+ES6的模块设计虽然使得灵活性不如 CommonJS的require，但却保证了 ES6 modules 的依赖关系是确定 (deterministic) 的，和运行时的状态无关，从而也就保证了 ES6 modules 是可以进行可靠的静态分析的。对于主要在服务端运行的 Node 来说，所有的代码都在本地，按需动态 require 即可，但对于要下发到客户端的 web 代码而言，要做到高效的按需使用，不能等到代码执行了才知道模块的依赖，必须要从模块的静态分析入手。这是 ES6 modules 在设计时的一个重要考量，也是为什么没有直接采用 CommonJS。
+</p>
+
+所以，我们在引入一个lodash模块的时候应该使用下面的模式:
+```js
+import sortBy from 'lodash/sortBy';
+```
+
 
 #### webpack打包去掉deprecated的babel插件
 <pre>
@@ -510,11 +534,6 @@ require.resolve("babel-plugin-import"),
 ```
 
 
-
-
-
-
-
 [Reduce Your bundle.js File Size By Doing This One Thing](https://lacke.mn/reduce-your-bundle-js-file-size/)
 
 [lodash源码](https://github.com/lodash/lodash/blob/4.10.0/lodash.js)
@@ -524,3 +543,7 @@ require.resolve("babel-plugin-import"),
 [今天，你升级Webpack2了吗](http://www.aliued.com/?p=4060)
 
 [【第1035期】如何在 Webpack 2 中使用 tree-shaking](https://mp.weixin.qq.com/s?__biz=MjM5MTA1MjAxMQ==&mid=2651226843&idx=1&sn=8ce859bb0ccaa2351c5f8231cc016052&chksm=bd495b5f8a3ed249bb2d967e27f5e0ac20b42f42698fdfd0d671012782ce0074a21129e5f224&mpshare=1&scene=1&srcid=08241S5UYwTpLwk1N2s51tXG&key=adf9313632dd72f547280f783810492f9adb79ab0d4163835d8f16b9ef1ba0b666c3253ebf73fcbd10842f39091c3775a8bcb7ebf2f1613b0baadc517bd3a3f871c02aa3495fa42b3e960fd7f99357e0&ascene=0&uin=MTkwNTY4NjMxOQ%3D%3D&devicetype=iMac+MacBookAir7%2C2+OSX+OSX+10.12+build(16A323)&version=12020810&nettype=WIFI&fontScale=100&pass_ticket=Kwkar2P9YwiWaPYmrcaqYmEqAigrP8I305SDCp6p05cCbna5znl6Uz%2FMx75BskRL)
+
+[webpack2 的 tree-shaking 好用吗？](http://www.imweb.io/topic/58666d57b3ce6d8e3f9f99b0)
+
+[如何评价 Webpack 2 新引入的 Tree-shaking 代码优化技术？](https://www.zhihu.com/question/41922432)
