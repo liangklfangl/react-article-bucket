@@ -522,7 +522,6 @@ ES6的模块设计虽然使得灵活性不如 CommonJS的require，但却保证�
 import sortBy from 'lodash/sortBy';
 ```
 
-
 #### webpack打包去掉deprecated的babel插件
 <pre>
 UnsupportedFeatureWarning: System.register is not supported by webpack.
