@@ -54,8 +54,6 @@ module.exports = sortBy;
 ```
 注意一点就是:通过后者来导入我们需要的文件比前者全部导入的文件要小的多。上面我已经说了原因，即后者将每一个方法都存放在一个独立的文件中，从而可以按需导入，所以文件也就比较小了。具体你可以[查看这里](https://lacke.mn/reduce-your-bundle-js-file-size/)来学习如何减少bundle.js的大小。当然，如果你使用了webpack3的tree-shaking，那么就不需要考虑这个情况了。tree-shaking会让没用的代码在打包的时候直接被剔除。
 
-
-
 #### 2.webpack动态路由与按需加载
 ```js
 function processRoutes(route) {
@@ -169,6 +167,347 @@ function defaultCollect(nextProps, callback) {
 ```
 其中ReactRouter.Router的createElement允许配置一个函数，用于在实例化这个组件的时候调用。第一个参数表示组件本身，而第二个参数表示React-Router传入的参数,不知道的可以参考[React-router相关](../react-router/renderProps.md)
 
+```js
+function lazyLoadWrapper(filePath, filename, isSSR) {
+  // filePath===== /Users/qinliang.ql/Desktop/std-website/docs/spec/repetition.md
+  // filename===== docs/spec/repetition.md
+  return 'function () {\n' +
+    '  return new Promise(function (resolve) {\n' +
+    (isSSR ? '' : '    require.ensure([], function (require) {\n') +
+    `      resolve(require('${filePath}'));\n` +
+    (isSSR ? '' : `    }, '${filename}');\n`) +
+    '  });\n' +
+    '}';
+}
+```
+(1)调用方式如下：
+    lazyLoadWrapper(filePath, nodePath.replace(/^\/+/, ''), isSSR);
+ (2)require.ensure方法的使用如下：
+   http://www.injectjs.com/docs/0.4.x/api/require.ensure.html
+ (3)下面是这个函数的一个测试例子：
+   var result=lazyLoadWrapper('/bisheng/lib/','index.js',false);
+    result;
+    测试返回内容如下：
+   function () {
+    return new Promise(function (resolve) {
+      require.ensure([], function (require) {
+        resolve(require('/bisheng/lib/'));
+      }, 'index.js');
+    });
+  }
+  如果第三个参数为true，那么就会返回下面的部分：
+   function () {
+      return new Promise(function (resolve) {
+          resolve(require('/bisheng/lib/'));
+      });
+    }
+ (4) require-ensure参数
+  说明: require.ensure在需要的时候才下载依赖的模块，当参数指定的模块都下载下来了（下载下来的模块还没执行），便执行参数指定的回调函数。require.ensure会创建一个chunk，且可以指定该chunk的名称，如果这个chunk名已经存在了，则将本次依赖的模块合并到已经存在的chunk中，最后这个chunk在webpack构建的时候会单独生成一个文件。
+  语法: require.ensure(dependencies: String[], callback: function([require]), [chunkName: String])
+  dependencies: 依赖的模块数组
+  callback: 回调函数，该函数调用时会传一个require参数
+  chunkName: 模块名，用于构建时生成文件时命名使用
+  注意点：requi.ensure的模块只会被下载下来，不会被执行，只有在回调函数使用require(模块名)后，这个模块才会被执行。
+  详见：http://blog.csdn.net/zhbhun/article/details/46826129
+ （5）Every loader is allowed to deliver its result as String or as Buffer. The compiler converts them between loaders.
+     也就是说我们的loader虽然返回的是字符串，但是编辑器可以把它在Buffer/Strint之间自动转化
+
+#### 3.webpack引入tree-shaking功能
+##### 3.1 webpack如何使用tree-shaking
+为了让webpack2支持tree-shaking功能，我们需要对[wcf的babel配置进行修改](https://github.com/liangklfangl/wcf/blob/master/src/getBabelDefaultConfig.js)，其中修改最重要的一点就是去掉babel-preset-es2015，而采用plugin处理。在plugin中处理的时候还需要去掉下面的插件:
+```js
+require.resolve("babel-plugin-transform-es2015-modules-amd"),
+//转化为amd格式，define类型
+require.resolve("babel-plugin-transform-es2015-modules-commonjs"),
+//转化为commonjs规范，得到:exports.default = 42,export.name="罄天"
+require.resolve("babel-plugin-transform-es2015-modules-umd"),
+//umd规范
+```
+采用babel-plugin-transform-es2015-modules-commonjs以后，我们的代码:
+```js
+//imported.js
+export function foo() {
+    return 'foo';
+}
+export function bar() {
+    return 'bar';
+}
+//下面是index.js
+import {foo} from './imported';
+let elem = document.getElementById('output');
+elem.innerHTML = `Output: ${foo()}`;
+```
+会被webpack转化为如下的形式:
+```js
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.foo = foo;
+exports.bar = bar;
+//都转化为commonjs规范了
+function foo() {
+    return 'foo';
+}
+function bar() {
+    return 'bar';
+}
+/***/ }),
+/* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+var _imported = __webpack_require__(0);
+
+var elem = document.getElementById('output');
+elem.innerHTML = 'Output: ' + (0, _imported.foo)();
+/***/ })
+/******/ ]);
+```
+所以，我们没有用到的bar方法也被引入了。而如果引入babel-plugin-transform-es2015-modules-amd，我们的打包代码就会得到如下的内容:
+```js
+/******/ ([
+/* 0 */
+/***/ (function(module, exports, __webpack_require__) {
+var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;!(__WEBPACK_AMD_DEFINE_ARRAY__ = [exports], __WEBPACK_AMD_DEFINE_RESULT__ = function (exports) {
+    'use strict';
+    Object.defineProperty(exports, "__esModule", {
+        value: true
+    });
+    exports.foo = foo;
+    exports.bar = bar;
+    //我们的没有用到的bar方法也被导出了
+    function foo() {
+        return 'foo';
+    }
+    function bar() {
+        return 'bar';
+    }
+}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
+        __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+/***/ }),
+/* 1 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;!(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(0)], __WEBPACK_AMD_DEFINE_RESULT__ = function (_imported) {
+  'use strict';
+
+  var elem = document.getElementById('output');
+  elem.innerHTML = 'Output: ' + (0, _imported.foo)();
+}.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),
+        __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));
+/***/ })
+/******/ ]);
+```
+而如果引入babel-plugin-transform-es2015-modules-umd也会面临同样的问题，所以我们应该去掉上面三个插件，即不再使用`amd/cmd/umd`规范打包，而使用我们的ES6原生模块打包策略。让ES6模块不受 Babel 预设（preset）的影响。Webpack 认识 ES6 模块，只有当保留 ES6 模块语法时才能够应用 tree-shaking。如果将其转换为 CommonJS 语法，Webpack 不知道哪些代码是使用过的，哪些不是（就不能应用tree-shaking了）。最后，Webpack将把它们转换为 CommonJS语法。最终得到的babel默认配置就是如下的内容:
+```js
+function getDefaultBabelConfig() {
+  return {
+    cacheDirectory: tmpdir(),
+    //We must set!
+    presets: [
+      require.resolve('babel-preset-react'),
+      // require.resolve('babel-preset-es2015'),
+      //(1)这个必须去掉
+      require.resolve('babel-preset-stage-0'),
+    ],
+    plugins: [
+      require.resolve("babel-plugin-transform-es2015-template-literals"),
+      require.resolve("babel-plugin-transform-es2015-literals"),
+      require.resolve("babel-plugin-transform-es2015-function-name"),
+      require.resolve("babel-plugin-transform-es2015-arrow-functions"),
+      require.resolve("babel-plugin-transform-es2015-block-scoped-functions"),
+      require.resolve("babel-plugin-transform-es2015-classes"),
+      require.resolve("babel-plugin-transform-es2015-object-super"),
+      require.resolve("babel-plugin-transform-es2015-shorthand-properties"),
+      require.resolve("babel-plugin-transform-es2015-computed-properties"),
+      require.resolve("babel-plugin-transform-es2015-for-of"),
+      require.resolve("babel-plugin-transform-es2015-sticky-regex"),
+      require.resolve("babel-plugin-transform-es2015-unicode-regex"),
+      require.resolve("babel-plugin-syntax-object-rest-spread"),
+      require.resolve("babel-plugin-transform-es2015-parameters"),
+      require.resolve("babel-plugin-transform-es2015-destructuring"),
+      require.resolve("babel-plugin-transform-es2015-block-scoping"),
+      require.resolve("babel-plugin-transform-es2015-typeof-symbol"),
+      [
+        require.resolve("babel-plugin-transform-regenerator"),
+        { async: false, asyncGenerators: false }
+      ],
+      require.resolve("babel-plugin-add-module-exports"),
+      require.resolve("babel-plugin-check-es2015-constants"),
+      require.resolve("babel-plugin-syntax-async-functions"),
+      require.resolve("babel-plugin-syntax-async-generators"),
+      require.resolve("babel-plugin-syntax-class-constructor-call"),
+      require.resolve("babel-plugin-syntax-class-properties"),
+      require.resolve("babel-plugin-syntax-decorators"),
+      require.resolve("babel-plugin-syntax-do-expressions"),
+      require.resolve("babel-plugin-syntax-dynamic-import"),
+      require.resolve("babel-plugin-syntax-exponentiation-operator"),
+      require.resolve("babel-plugin-syntax-export-extensions"),
+      require.resolve("babel-plugin-syntax-flow"),
+      require.resolve("babel-plugin-syntax-function-bind"),
+      require.resolve("babel-plugin-syntax-jsx"),
+      require.resolve("babel-plugin-syntax-trailing-function-commas"),
+      require.resolve("babel-plugin-transform-async-generator-functions"),
+      require.resolve("babel-plugin-transform-async-to-generator"),
+      require.resolve("babel-plugin-transform-class-constructor-call"),
+      require.resolve("babel-plugin-transform-class-properties"),
+      require.resolve("babel-plugin-transform-decorators"),
+      require.resolve("babel-plugin-transform-decorators-legacy"),
+      require.resolve("babel-plugin-transform-do-expressions"),
+      require.resolve("babel-plugin-transform-es2015-duplicate-keys"),
+      require.resolve("babel-plugin-transform-es2015-spread"),
+      require.resolve("babel-plugin-transform-exponentiation-operator"),
+      require.resolve("babel-plugin-transform-export-extensions"),
+      // require.resolve("babel-plugin-transform-es2015-modules-amd"),
+      // require.resolve("babel-plugin-transform-es2015-modules-commonjs"),
+      // require.resolve("babel-plugin-transform-es2015-modules-umd"),
+      // (2)去掉这个
+      require.resolve("babel-plugin-transform-flow-strip-types"),
+      require.resolve("babel-plugin-transform-function-bind"),
+      require.resolve("babel-plugin-transform-object-assign"),
+      require.resolve("babel-plugin-transform-object-rest-spread"),
+      require.resolve("babel-plugin-transform-proto-to-assign"),
+      require.resolve("babel-plugin-transform-react-display-name"),
+      require.resolve("babel-plugin-transform-react-jsx"),
+      require.resolve("babel-plugin-transform-react-jsx-source"),
+      require.resolve("babel-plugin-transform-runtime"),
+      require.resolve("babel-plugin-transform-strict-mode"),
+    ]
+  };
+}
+```
+具体文件内容你可以点击[wcf](https://github.com/liangklfangl/wcf/blob/master/src/getBabelDefaultConfig.js)打包babel配置。当然你可以使用下面方式告诉babel预设不转换模块：
+```js
+{
+  "presets": [
+    ["env", {
+      "loose": true,
+      "modules": false
+    }]
+  ]
+}
+```
+这种方式要简单的多。但是，正如[如何在 Webpack 2 中使用 tree-shaking](https://mp.weixin.qq.com/s?__biz=MjM5MTA1MjAxMQ==&mid=2651226843&idx=1&sn=8ce859bb0ccaa2351c5f8231cc016052&chksm=bd495b5f8a3ed249bb2d967e27f5e0ac20b42f42698fdfd0d671012782ce0074a21129e5f224&mpshare=1&scene=1&srcid=08241S5UYwTpLwk1N2s51tXG&key=adf9313632dd72f547280f783810492f9adb79ab0d4163835d8f16b9ef1ba0b666c3253ebf73fcbd10842f39091c3775a8bcb7ebf2f1613b0baadc517bd3a3f871c02aa3495fa42b3e960fd7f99357e0&ascene=0&uin=MTkwNTY4NjMxOQ%3D%3D&devicetype=iMac+MacBookAir7%2C2+OSX+OSX+10.12+build(16A323)&version=12020810&nettype=WIFI&fontScale=100&pass_ticket=Kwkar2P9YwiWaPYmrcaqYmEqAigrP8I305SDCp6p05cCbna5znl6Uz%2FMx75BskRL)文章本身所说，这种方式会存在副作用，即无法移除多余的类声明。在使用ES6语法定义类时，类的成员函数会被添加到属性prototype，没有什么方法能完全避免这次赋值，所以webpack会`认为我们添加到prototype上方法的操作也是对类的一种使用，导致无法移除多余的类声明`,编译过程阻止了对类进行tree-shaking,它仅对函数起作用。UglifyJS 不能够分辨它仅仅是类声明，还是其它有副作用的操作 -- UglifyJS 不能做控制流分析。
+
+##### 3.2 webpack的tree-shaking标记 vs rollup标记区别
+<pre>
+移除未使用代码（Dead code elimination） vs 包含已使用代码（live code inclusion）
+</pre>
+Webpack 仅仅标记未使用的代码（而__不移除__），并且不将其导出到模块外。它拉取所有用到的代码，将剩余的（未使用的）代码留给像 UglifyJS 这类压缩代码的工具来移除。UglifyJS 读取打包结果，在压缩之前移除未使用的代码。而 Rollup 不同，它（的打包结果）只包含运行应用程序所__必需__的代码。打包完成后的输出并没有未使用的类和函数，压缩仅涉及实际使用的代码。
+
+##### 3.3 基于babel-minify-webpack-plugin(即babili-webpack-plugin)移除多余的类声明
+[babel-minify-webpack-plugin](https://github.com/webpack-contrib/babel-minify-webpack-plugin)能将ES6代码编译为ES5，移除未使用的类和函数，这就像UglifyJS 已经支持ES6一样。babel-minify会在编译前`删除未使用的代码`。在编译为 ES5 之前，很容易找到未使用的类，因此tree-shaking也可以用于类声明，而不再仅仅是函数。如果你去看babili-webpack-plugin的代码，你会看到下面两句:
+```js
+import { transform } from 'babel-core';
+import babelPresetMinify from 'babel-preset-minify';
+```
+首先是就是[babel-preset-minify](https://github.com/babel/minify/blob/master/packages/babel-preset-minify/src/index.js),你可以看到他内部会调用如babel-plugin-minify-dead-code-elimination,babel-plugin-minify-type-constructors等来判断哪些代码没有被引用，进而可以在代码没有被编译为ES5之前把它移除掉或者压缩。而babel-core就是负责把处理后的ES6代码继续编译为ES5代码。
+
+所以，我们只需用babel-minify-webpack-plugin替换UglifyJS，然后删除babel-loader(该plugin自己会处理ES6代码，但是jsx处理需要自己添加preset) 即可。另一种方式是将[babel-preset-minify](https://github.com/babel/minify/tree/master/packages/babel-preset-minify)作为Babel的预设，仅使用 babel-loader（移除 UglifyJS插件,因为babel-preset-minify已经压缩完成）。推荐使用第一种（插件的方式），因为当编译器不是 Babel（比如 Typescript）时，它也能生效。
+```js
+module: {
+  rules: []
+},
+plugins: [
+  new BabiliPlugin()
+  //替代uglifyjs，它可以移除es6的多余类声明
+]
+```
+我们需要将 ES6+ 代码传给babel-minify，否则它不会移除（未使用的）类。所以，这种方式就要求所有的第三方包都必须有es6的代码发布，否则无法移除。
+
+##### 3.4 目前wcf没有引入babili-webpack-plugin
+这种情况下我们依然会对类的代码打包成为ES5，然后交给我们的uglifyjs处理,比如下面的例子：
+```js
+//imported.js
+export function foo() {
+    return 'foo';
+}
+export function bar() {
+    return 'bar';
+}
+export function ql(){
+  return 'ql'
+}
+export class Test{
+ toString(){
+   return 'test';
+ }
+}
+export class Test1{
+ toString(){
+   return 'test1';
+ }
+}
+//index.js
+import {foo} from './imported';
+let elem = document.getElementById('app');
+elem.innerHTML = `Output: ${foo()}`;
+```
+打包后的结果如下:
+```js
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+"use strict";
+/* harmony export (immutable) */ 
+__webpack_exports__["a"] = foo;
+/* unused harmony export bar */
+/* unused harmony export ql */
+/* unused harmony export Test */
+/* unused harmony export Test1 */
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_classCallCheck__ = __webpack_require__(8);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_classCallCheck___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_classCallCheck__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_createClass__ = __webpack_require__(9);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_createClass___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_createClass__);
+function foo() {
+  return 'foo';
+}
+function bar() {
+  return 'bar';
+}
+function ql() {
+  return 'ql';
+}
+var Test = function () {
+  function Test() {
+    __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_classCallCheck___default()(this, Test);
+  }
+  __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_createClass___default()(Test, [{
+    key: 'toString',
+    value: function toString() {
+      return 'test';
+    }
+  }]);
+
+  return Test;
+}();
+var Test1 = function () {
+  function Test1() {
+    __WEBPACK_IMPORTED_MODULE_0_babel_runtime_helpers_classCallCheck___default()(this, Test1);
+  }
+
+  __WEBPACK_IMPORTED_MODULE_1_babel_runtime_helpers_createClass___default()(Test1, [{
+    key: 'toString',
+    value: function toString() {
+      return 'test1';
+    }
+  }]);
+  return Test1;
+}();
+})
+```
+此时通过查看`harmony export`部分，我们知道webpack导出的仅仅是我们用到的foo模块而已，而其他的不管是多余的函数声明还是多余的类声明都是被标记为无用代码(`'unused'`)。我以为，通过这种方式打包，经过uglifyjs处理就会将类Test1,Test2的代码移除，其实事实并不是这样，经过uglifyjs处理后多余的函数是没有了，但是多余的类声明打包成的函数代码依然存在!依然存在!依然存在!
+
+终极解决方法:[使用babel-minify-webpack-plugin](https://github.com/webpack-contrib/babel-minify-webpack-plugin),即babili-webpack-plugin。完整实例代码可以[参考这里](https://github.com/blacksonic/babel-webpack-tree-shaking),而目前[wcf](https://github.com/liangklfangl/wcf)没有采用这种策略，所以多余的class是无法去除的。目前，我觉得这种策略是可以接受的，因为我们第三方发布的包很少是使用class发布的，而都是编译为ES5代码后发布的，所以通过uglifyjs这种策略已经足够了。
+
+
+#### webpack打包去掉deprecated的babel插件
+<pre>
+UnsupportedFeatureWarning: System.register is not supported by webpack.
+</pre>
+解决方法:
+```js
+require.resolve("babel-plugin-import"),
+//去掉这个babel插件
+```
 
 
 
@@ -181,3 +520,7 @@ function defaultCollect(nextProps, callback) {
 [lodash源码](https://github.com/lodash/lodash/blob/4.10.0/lodash.js)
 
 [REACT.JS 最佳实践(2016)](http://www.devstore.cn/essay/essayInfo/7663.html)
+
+[今天，你升级Webpack2了吗](http://www.aliued.com/?p=4060)
+
+[【第1035期】如何在 Webpack 2 中使用 tree-shaking](https://mp.weixin.qq.com/s?__biz=MjM5MTA1MjAxMQ==&mid=2651226843&idx=1&sn=8ce859bb0ccaa2351c5f8231cc016052&chksm=bd495b5f8a3ed249bb2d967e27f5e0ac20b42f42698fdfd0d671012782ce0074a21129e5f224&mpshare=1&scene=1&srcid=08241S5UYwTpLwk1N2s51tXG&key=adf9313632dd72f547280f783810492f9adb79ab0d4163835d8f16b9ef1ba0b666c3253ebf73fcbd10842f39091c3775a8bcb7ebf2f1613b0baadc517bd3a3f871c02aa3495fa42b3e960fd7f99357e0&ascene=0&uin=MTkwNTY4NjMxOQ%3D%3D&devicetype=iMac+MacBookAir7%2C2+OSX+OSX+10.12+build(16A323)&version=12020810&nettype=WIFI&fontScale=100&pass_ticket=Kwkar2P9YwiWaPYmrcaqYmEqAigrP8I305SDCp6p05cCbna5znl6Uz%2FMx75BskRL)

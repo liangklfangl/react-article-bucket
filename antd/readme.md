@@ -650,11 +650,101 @@ onChange = (value, selectedOptions) => {
     }
   };
 ```
-建议先了解一下[antd的自定义表单控件](https://codepen.io/pen/?&editors=001)
+建议先了解一下[antd的自定义表单控件](https://codepen.io/pen/?&editors=001)。有一点需要注意，如果你的自定义控件放到Form中表单提交的时候没有提交到服务端，那么很可能是因为你在你的控件外面又包裹了一个元素，即你的组件不是getFieldDecorator里面的唯一元素，如:
+```js
+<FormItem
+    validateStatus={passwordError ? 'error' : ''}
+    help={passwordError || ''}
+  >
+    {getFieldDecorator('password', {
+      rules: [{ required: true, message: 'Please input your Password!' }],
+    })(
+       <div>
+          <SearchCascade dataScene={getUrlParam("dataScene")} /> 
+       </div>
+    )}
+  </FormItem>
+```
+应该修改为如下内容,即去掉自定义控件外层的div包裹而将自定义控件作为唯一的一个子元素:
+```js
+<FormItem
+    validateStatus={passwordError ? 'error' : ''}
+    help={passwordError || ''}
+  >
+    {getFieldDecorator('password', {
+      rules: [{ required: true, message: 'Please input your Password!' }],
+    })(
+          <SearchCascade dataScene={getUrlParam("dataScene")} /> 
+    )}
+  </FormItem>
+```
 
+#### 11.模拟React的点击事件
+```js
+  fireKeyEvent=(el, evtType, keyCode)=>{
+    var doc = el.ownerDocument,
+        win = doc.defaultView || doc.parentWindow,
+        evtObj;
+    if(doc.createEvent){
+        if(win.KeyEvent) {
+            evtObj = doc.createEvent('KeyEvents');
+            evtObj.initKeyEvent( evtType, true, true, win, false, false, false, false, keyCode, 0 );
+        }
+        else {
+            evtObj = doc.createEvent('UIEvents');
+            Object.defineProperty(evtObj, 'keyCode', {
+                get : function() { return this.keyCodeVal; }
+            });
+            Object.defineProperty(evtObj, 'which', {
+                get : function() { return this.keyCodeVal; }
+            });
+            evtObj.initUIEvent( evtType, true, true, win, 1 );
+            evtObj.keyCodeVal = keyCode;
+            if (evtObj.keyCode !== keyCode) {
+                console.log("keyCode " + evtObj.keyCode + " 和 (" + evtObj.which + ") 不匹配");
+            }
+        }
+        el.dispatchEvent(evtObj);
+    }
+    else if(doc.createEventObject){
+        evtObj = doc.createEventObject();
+        evtObj.keyCode = keyCode;
+        el.fireEvent('on' + evtType, evtObj);
+    }
+}
+  ReactTestUtils.Simulate.click(node);
+  ReactTestUtils.Simulate.keyDown(node);
+  ReactTestUtils.Simulate.change(node);
+  ReactTestUtils.Simulate.focus(node);
+  //下面模拟js原生事件
+  this.fireKeyEvent(node, 'keydown', 13);
+  this.fireKeyEvent(node, 'keydown', 1);
+```
 
+#### 12.Form.Item在同一行显示说明文字
+解决：其实很简单的代码如下:
+```js
+const formLayout = {
+  labelCol: {
+    span: 6
+  },
+  wrapperCol: {
+    span: 18
+  }
+};
+  <FormItem {...formLayout} label="业务场景">
+        {getFieldDecorator("name", {
+          initialValue: '罄天',
+          rules: [{ required: true, message: "请输入名字" }]
+        })(
+          <Select style={{width:'300px'}} onChange={this.businessChange}>{businessScene}</Select>
+        )}
+         <span className="text-red" style={{marginLeft:'20px'}}>如果不选，则表示你是罄天本人哦</span>
+    </FormItem>
+```
+很显然label占据了6列，而内容占据了18列，内容就是Select框的宽度。所以，如果你将Select定宽了，那么后面的文字就可以同行显示了。
 
-
+#### 13.多了一次ajax请求
 
 
 
