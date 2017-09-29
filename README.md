@@ -28,8 +28,6 @@
 
 [React的ref](./react-ref/index.md)
 
-[React-router相关](./react-router/renderProps.md)
-
 [React安全组件](./react-safe-component/README.md)
 
 [React的static方法](./react-static/index.md)
@@ -41,6 +39,14 @@
 [React的setState与immutable.js](./react-copy/readme.md)
 
 [React热门话题知多少](./others/react-QA/readme.md)
+
+##### 2.2 react-router相关
+
+[React-router的renderProps](./react-router/renderProps.md)
+
+[React-router的components与getComponents](./react-router/router-components/readme.md)
+
+[React-router常见问题](./react-router/router-components/practice.md)
 
 ##### 2.2 webpack相关内容
 
