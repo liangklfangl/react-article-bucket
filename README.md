@@ -46,7 +46,7 @@
 
 [React-router的components与getComponents](./react-router/router-components/readme.md)
 
-[React-router常见问题](./react-router/router-components/practice.md)
+[React-router常见问题](./react-router/practice.md)
 
 ##### 2.2 webpack相关内容
 
