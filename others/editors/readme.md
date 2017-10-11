@@ -54,7 +54,7 @@ ql   7713   0.0  0.0  2432804   1408 s000  R+   10:04下午   0:00.00 grep PID
         "**/dist/**": true
     }
 ```
-其中*watcherExclude*如果包含了node_modules，也会监听node_modules目录，然后比如自动美化代码等都会大量占用于对该文件夹的监听~~
+其中*watcherExclude*如果包含了node_modules，也会监听node_modules目录，然后比如自动美化代码等都会大量占用于对该文件夹的监听~~。更多shell命令使用请查看[前端工程师的shell命令集合](https://github.com/liangklfangl/shellGlobStar)
 
 
 
