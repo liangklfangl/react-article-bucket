@@ -153,6 +153,29 @@ gen.next();
 
 ![](./static/generator.png)
 
+### 3.不要写出下面的代码
+```js
+  hasChanceLottery() {
+    let hasChance = false,
+      error = false;
+    IO.getLotteryCount({}).then(
+      function(data) {
+        hasChance = true;
+      },
+      function() {
+        error = true;
+      }
+    );
+    return {
+      error: error,
+      hasChance: hasChance
+    };
+  },
+  if(hasChance()){
+    //blalala
+  }
+```
+样的代码是有大问题的，因为后面的return会*马上执行*，而此时promise还没有执行完毕，因为它是异常的。所以返回的hasChance和error永远是false
 
 
 
