@@ -1,5 +1,5 @@
 #### 1.React页面有多个id存在的问题
-问题：导致某一个特定id的元素仿佛被执行了多次。
+问题：导致某一个特定id的元素仿佛被执行了多次。比如下面的现象就是textarea被多次添加内容，导致非常奇怪的问题
 ```js
 //组件Component的名字为Demo
   autodivheight = () => {
@@ -96,3 +96,29 @@
 id={`textareaCode${this.props.index}`}
 ```
 这样整个页面中就不会存在id相同的组件了。
+
+#### 2.textarea使用如下方式不会更新数据
+问题：在react组件的render方法中，如果有如下代码:
+```js
+render(){
+   const variable ="blablabla";
+   <textarea
+  id={`textareaCode${this.props.index}`}
+  name="textareaCode"
+  style={{ width: "100%", display: "none" }}
+  defaultValue={variable}
+ \/>
+}
+```
+按道理说，每次组件重新渲染都会导致textarea里面的内容变化，但是实际上并不会。所以我们应该关注react中*受控组件*的概念:
+```js
+render(){
+   <textarea
+  id={`textareaCode${this.props.index}`}
+  name="textareaCode"
+  style={{ width: "100%", display: "none" }}
+  defaultValue={this.state.html}
+ \/>
+}
+```
+

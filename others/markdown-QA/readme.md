@@ -39,6 +39,17 @@ const walker = parsed.walker();
   });
 ```
 
+#### 4.替换掉字符串中的script标签
+很多情况下，我们有一个字符串，但是我们需要将里面的"<script/>"标签内容原样展示，这时候就需要对我们的标签进行转义，此时你可以参考我的[转义字符串中的script标签](https://github.com/liangklfangl/string.protype)。此时我们可以将转义后的字符串转化为markdown格式:
+```js
+  var toMarkdown = require("to-markdown");
+  var descriptionContent = encodeScript($(whenUse).nextUntil("h2").html());
+  //html片段并转义script标签
+  var readme = "<p>" + descriptionFirst.html() + "</p><h2>" + whenUse.html() + "</h2>" + descriptionContent;
+  toMarkdown(readme, { gfm: true });
+  //to-markdown将我们的html转化为markdown，此时我们转义后的script又回到了script标签了
+```
+此时[react-markdown](https://github.com/rexxars/react-markdown)就可以原样解析出来了。
 
 
 
