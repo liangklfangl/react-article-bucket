@@ -678,6 +678,73 @@ onChange = (value, selectedOptions) => {
     )}
   </FormItem>
 ```
+而且写自定义控件的时候还有一点要注意，那就是当你修改里面的元素的时候不管你自己有没有调用setState，Form本身都是会发生一次重新渲染的(即使你在Form里面包裹了一个textarea,当你在textarea中输入值的时候你也会发现Form所在的组件会发生重新渲染)。所以，如果你写了componentWillReceiveProps的时候你可能会莫名其妙的发现多了一次调用，特别是当有接口请求的时候。所以，一个好的方式就是通过修改componentWillReceiveProps来完成，如果两次的某一个props不同那么就不重新渲染，所以你可能会看到如下的组件:
+```js
+export default class CascaderSearch extends React.Component {
+  state = {
+    options: []
+  };
+  defaultValue =   this.props.idPath && this.props.idPath.split(",")|| [];
+  componentDidMount() {
+    IO.get(URL, {
+      dataScene: this.props.dataScene || "",
+    })
+      .then(response => {
+        const data = response.data;
+        this.setState({
+          options: data
+        });
+      })
+      .catch(e => {
+        console.log("失败", e);
+      });
+  }
+
+  componentWillReceiveProps(nextProps){
+    //(1)一定要有这一次判断,否则你可能会发生问题
+    if(nextProps.dataScene !== this.props.dataScene){
+      this.defaultValue = nextProps.idPath && nextProps.idPath.split(",")|| [];
+      IO.get("/tag/level/tree.htm", {
+        dataScene: nextProps.dataScene || "",
+      })
+        .then(response => {
+          const data = response.data;
+          this.setState({
+            options: data,
+          });
+        })
+        .catch(e => {
+          console.log("失败", e);
+        });
+    }
+  }
+  onChange = (value, selectedOptions) => {
+    this.defaultValue = selectedOptions.map(o => o.label);
+    const optionsLength = selectedOptions.length;
+    this.parentId = selectedOptions[optionsLength - 1].id;
+    const onChange = this.props.onChange;
+    //(2)将所属层级通知为外部表单
+    if (onChange) {
+      onChange(this.parentId);
+    }
+  };
+
+  render() {
+    const { options } = this.state;
+    return (
+      <Cascader
+        options={options}
+        value={this.defaultValue}
+        onChange={this.onChange}
+        showSearch
+        allowClear={true}
+        changeOnSelect
+      />
+    );
+  }
+}
+```
+
 
 #### 11.模拟React的点击事件
 ```js

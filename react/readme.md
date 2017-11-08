@@ -96,6 +96,49 @@ class Demo extends React.Component{
 ```
 即reactDOM是将该组件所有的子组件都渲染为真实的DOM以后得到的nativeDOM对象。此时，你可以通过调用querySelectorAll来继续获取DOMNode的子元素，因为React中最外层不能有平级的元素，所以此处相当于调用含有data-reactroot属性的元素的native方法。
 
+#### 2.在React的html字符串中添加组件
+假如我有如下的方法:
+```js
+  generateTableDOM=(data)=>{
+    let thead = `<tr>`;
+    let row = ``;
+    for(let j=0,len=data.length;j<len;j++){
+      thead += `<th>${data[j].profileValue}</th>`
+      row +=`<td align='center'><div>`;
+      //得到了一列数据
+      for(let i=0,length=data[j].children.length;i<length;i++){
+        row +=`<Tooltip><p title=${data[j].children[i].name+":"+data[j].children[i].value} alt=${data[j].children[i].name+":"+data[j].children[i].value}>${data[j].children[i].value}</p></Tooltip>`
+      }
+      row+="</div></td>";
+    }
+    thead +=`</tr>`;
+    //得到表头了
+    return `<table style='width:100%'><thead>${thead}</thead><tbody>${row}</tbody></table>`
+  }
+```
+很显然，我里面使用了Antd的Tooltip组件，而且这个组件是插入到html字符串中。那么当我以dangerlySetInnerHTML的方式插入到组件中，你会发现我们的Tooltip直接被浏览器解析为`"<tooltip>"`标签了，而因为html5中没有这个标签，所有可能会被解析为inline元素。那么我们如何处理呢?答案是通过React.createElement来完成。结果方法如下:
+```js
+generateTableDOM=(data)=>{
+  let thead = React.createElement('tr');
+  const thContainers = [];
+  const rowContainers = [];
+  let childContainers = [];
+  for(let j=0,len=data.length;j<len;j++){
+    thContainers.push(React.createElement('th',{},data[j].profileValue));
+    //得到了一列数据
+    for(let i=0,length=data[j].children.length;i<length;i++){
+      const tooltipDOM = React.createElement(Tooltip,{title:data[j].children[i].name+":"+data[j].children[i].value},<p>{data[j].children[i].value}</p>);
+      //此时是一个React元素
+      childContainers.push(tooltipDOM);      
+    }
+    rowContainers.push(React.createElement('td',{'name':'覃亮',style:{textAlign:'center'}},React.createElement('div',{},childContainers))); 
+    childContainers=[];
+  }
+  //得到表头了
+  return <table style={{width:'100%'}}><thead>{thContainers}</thead><tbody>{React.createElement('tr',{},rowContainers)}</tbody></table>
+}
+```
+很显然，我们最后返回的是React组件，而不再是我们的字符串。当然，你也可以通过[babel.transform](https://stackoverflow.com/questions/38965088/how-to-put-react-component-inside-html-string)来完成，我们这里不再演示。
 
 
 
