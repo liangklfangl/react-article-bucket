@@ -107,7 +107,191 @@ d. 进入下一轮循环。从上面这个过程可以看出，你脚本中注�
 #### 4.Node.js中的I/O操作指的是什么
 解答：I/O操作包括读写操作、输入输出(硬盘等)、请求响应(网络)等等。
 
+#### 5.Node.js中yield\*与yield的区别
+首先要注意:我们的return语句不会消耗一次*next调用*比如下面的例子:
+```js
+function* outer(){
+    yield 'begin';
+    var ret = yield* inner();
+    console.log(ret);
+    yield 'end';
+}
 
+function * inner(){
+    yield 'inner';
+    return 'return from inner';
+}
+var it = outer(),v;
+v = it.next().value;
+console.log(v);
+v = it.next().value;
+//这里是第二次调用next方法，返回`inner`
+console.log(v);
+v = it.next().value;
+//这里是第三次调用next方法，*inner这个generator函数直接返回了，而把这次next调用作用到了outer这个generator函数上
+console.log(v)
+```
+即第三次调用next方法，\*inner这个generator函数直接返回了，而把这次next调用作用到了outer这个generator函数上，从而"end"也被打印出来。打印的结果如下:
+<pre>
+begin
+inner
+return from inner
+end   
+</pre>
+
+下面讲解下yield和yield\*的不同,给出下面的例子:
+```js
+function* outer(){
+    yield 'begin';
+    yield inner();
+    //这里直接调用Generator函数相当于是返回一个Generator指针
+    yield 'end';
+}
+function* inner(){
+    yield 'inner';
+}
+var it = outer(),v;
+v= it.next().value;
+console.log(v);
+v= it.next().value;
+//此时第二次调用next方法直接得到调用inner()的返回值
+console.log(v);
+console.log(v.toString());
+v = it.next().value;
+console.log(v);
+```
+打印的结果如下:
+<pre>
+1.begin
+2.inner {[[GeneratorStatus]]: "suspended"}__proto__: Generator[[GeneratorStatus]]: "suspended"[[GeneratorFunction]]: ƒ* inner()[[GeneratorReceiver]]: Window[[GeneratorLocation]]: VM3678:8[[Scopes]]: Scopes[2]
+3.[object Generator]
+4.end   
+</pre>
+所以直接调用yield得到的是一个指向Generator函数的指针，是一个对象。这个*对象里面的yield是不会执行的，因为并没有调用他的next方法*!
+
+下面我们再给出通过co来运行Generator函数的例子:
+```js
+var co = require('co');
+co(function* (){
+    var a = yield Promise.resolve(1);
+    console.log(a);
+    //1.打印1
+    var b = yield later(10);
+    //2.resolve的时候传入的是10，yield后返回的是一个Promise
+    console.log(b);
+    var c = yield fn;
+    console.log(c);
+    //3.yield一个Generator函数,返回fn_1
+    var d = yield fn(5);
+    console.log(d);
+    //4.yield一个Generator函数调用的返回值，即指针。返回fn_5
+    var e = yield [
+        Promise.resolve('a'),
+        later('b'),
+        fn,
+        fn(5)
+    ];
+    console.log(e);
+     //5.yield后是一个数组，直接执行数组里面的每一个thunkify函数，[ 'a', 'b', 'fn_1', 'fn_5' ]
+    var f = yield{
+        'a':Promise.resolve('a'),
+        'b':later('b'),
+        'c':fn,
+        'd':fn(5)
+    };   
+console.log(f);
+  //5.yield后是一个对象，直接执行对象里面的每一个thunkify函数，{ a: 'a', b: 'b', c: 'fn_1', d: 'fn_5' }
+function* fn(n){
+    n = n || 1;
+    var a = yield later(n);
+    return 'fn_'+ a;
+}
+//co里面会将yield后的函数处理为如下内容
+  function later(n,t){
+        t = t || 1000;
+        return function(done){
+            setTimeout(function(){done(null,n)},t);
+        };
+    }
+}).catch(function(e){
+    console.error(e);
+});
+```
+上面的例子展示了，在[co](https://github.com/tj/co/blob/master/index.js)执行Generator函数遇到yield后，将会进行下面的处理:
+```js
+//将Object对象转化为Promise
+function objectToPromise(obj){
+  var results = new obj.constructor();
+  var keys = Object.keys(obj);
+  var promises = [];
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var promise = toPromise.call(this, obj[key]);
+    if (promise && isPromise(promise)) defer(promise, key);
+    else results[key] = obj[key];
+  }
+  return Promise.all(promises).then(function () {
+    return results;
+  });
+  function defer(promise, key) {
+    // predefine the key in the result
+    results[key] = undefined;
+    promises.push(promise.then(function (res) {
+      results[key] = res;
+    }));
+  }
+}
+//判断一个对象是否是promise就是看是否有then方法
+function isPromise(obj) {
+  return 'function' == typeof obj.then;
+}
+//将数组转化为promise处理
+function arrayToPromise(obj) {
+  return Promise.all(obj.map(toPromise, this));
+}
+//如果object.next是函数，同时throw也是函数那么就是Generator，比如调用Generator函数的返回值
+//var it = outer()这里的it返回true
+function isGenerator(obj) {
+  return 'function' == typeof obj.next && 'function' == typeof obj.throw;
+}
+/**
+ * Check if `obj` is a generator function.
+ * 比如上面的outer.constructor.name就是GeneratorFunction() { [native code] }
+ */
+function isGeneratorFunction(obj) {
+  var constructor = obj.constructor;
+  if (!constructor) return false;
+  //如果constructor.name或者displayName是GeneratorFunction返回true
+  if ('GeneratorFunction' === constructor.name || 'GeneratorFunction' === constructor.displayName) return true;
+  return isGenerator(constructor.prototype);
+}
+
+function toPromise(obj) {
+  if (!obj) return obj;
+  if (isPromise(obj)) return obj;
+  //5.如果是Promise，那么直接返回，不做处理，因为co能处理yield一个Promise的情况!
+  if (isGeneratorFunction(obj) || isGenerator(obj)) return co.call(this, obj);
+  //1.如果是Generator函数或者是指向Generator函数的指针，那么直接包裹该函数并执行
+  if ('function' == typeof obj) return thunkToPromise.call(this, obj);
+  //2.如果是函数，那么直接将这个函数包裹成为Promise，也就是thunkify处理后接受一个唯一的参数
+  //为function(err,res)这种nodejs常见的回调方式!
+  if (Array.isArray(obj)) return arrayToPromise.call(this, obj);
+  //3.如果是数组，那么数组里面的每一个元素都经过Promise.all处理
+  if (isObject(obj)) return objectToPromise.call(this, obj);
+  //4.如果是对象，那么对对象中的每一个value都进行Promise处理
+  return obj;
+}
+function thunkToPromise(fn) {
+    var ctx = this;
+    return new Promise(function (resolve, reject) {
+      fn.call(ctx, function (err, res) {
+        if (err) return reject(err);
+        if (arguments.length > 2) res = slice.call(arguments, 1);
+        resolve(res);
+      });
+    });
+  }
+```
 
 
 
@@ -121,3 +305,5 @@ d. 进入下一轮循环。从上面这个过程可以看出，你脚本中注�
 [Node.js 探秘：初识单线程的 Node.js](http://taobaofed.org/blog/2015/10/29/deep-into-node-1/)
 
 [同步，异步，阻塞，非阻塞等关系轻松理解 #40](https://github.com/calidion/calidion.github.io/issues/40)
+
+[nodejs之yield 和 yield\*](http://blog.csdn.net/qq_21816375/article/details/74820568)
