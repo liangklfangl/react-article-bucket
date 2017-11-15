@@ -46,3 +46,47 @@ const {startDate,endDate} =  this.state;
 const defaultRange = [startDate?moment(startDate,'YYYYMMDD'):null,endDate ? moment(endDate,'YYYYMMDD'):null];
 ```
 即，如果startDate和endDate本身是null，那么就不要经过moment方法来处理了。
+
+### Select的defaultValue类型不正确
+<pre>
+    warning.js:35 Warning: Failed prop type: Invalid prop `value` supplied to `Select`.
+    in Select (created by Select)
+    in Select (created by WhiteListForm)
+    in div (created by FormItem)
+    in div (created by Col)
+    in Col (created by FormItem)
+    in div (created by Row)
+    in Row (created by FormItem)
+    in FormItem (created by WhiteListForm)
+    in form (created by Form)
+    in Form (created by WhiteListForm)
+    in div (created by WhiteListForm)
+    in WhiteListForm (created by Unknown)
+    in Unknown (created by WhiteListForm)
+    in WhiteListForm (created by App)
+    in div (created by Dialog)
+    in div (created by Dialog)
+    in div (created by LazyRenderBox)
+    in LazyRenderBox (created by Dialog)
+    in AnimateChild (created by Animate)
+    in Animate (created by Dialog)
+    in div (created by Dialog)
+    in div (created by Dialog)
+    in Dialog
+</pre>
+比如下面就是将Number类型转化为string类型:
+```js
+  <FormItem
+      {...formItemLayout}
+      label='节目级别'
+      required={true}
+    >
+      {getFieldDecorator('priority', {
+        initialValue: whitelist.priority ? whitelist.priority+"" :""
+      })(
+          <Select>
+            {levelDOM}
+          </Select>
+      )}
+    <\/FormItem>
+```
