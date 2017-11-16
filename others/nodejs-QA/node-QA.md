@@ -141,7 +141,7 @@ Generator函数是协程在ES6的实现，最大特点就是可以交出函数�
 ##### (3)Event Loop
 主线程从"任务队列"中读取事件，这个过程是循环不断的，所以整个的这种运行机制又称为Event Loop（事件循环）。比如下图:
 
-![](./event.png)
+![](./images/event.png)
 
 上图中，主线程运行的时候，产生堆（heap）和栈（stack），栈中的代码*调用各种外部API*，它们在"任务队列"中加入各种事件（click，load，done）。只要栈中的代码执行完毕，主线程就会去读取"任务队列"，依次执行那些事件所对应的回调函数。
 执行栈中的代码（同步任务），总是在读取"任务队列"（异步任务）之前执行。请看下面这个例子。
@@ -510,7 +510,7 @@ setTimeout()和setInterval() 与浏览器中API是一致的，分别用于单次
 </pre>
 所以，异步和阻塞的主要区别是:异步是等待通知，比如libuv通知V8引擎;而我们的非阻塞是主动轮询的过程!回答原文请[点击这里](https://stackoverflow.com/questions/2625493/asynchronous-vs-non-blocking)
 
-![](./libuv.png)
+![](./images/libuv.png)
 
 <pre>
 1.异步I/O
