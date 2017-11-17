@@ -526,6 +526,8 @@ setTimeout()和setInterval() 与浏览器中API是一致的，分别用于单次
 var co = require('co');
 co(function*(){
  for(let i=0;i<100;i++){
+    //注意:在for循环里面查询没有问题，但是更新或者插入就会存在问题
+    //而且yield后的代码必须等到IO完成后才会执行，这是一定要注意的!
     var componentMap =  yield scope.app.mysql.get("table_name", {
          name:'xxx'
     });
