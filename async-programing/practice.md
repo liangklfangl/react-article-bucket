@@ -177,7 +177,31 @@ gen.next();
 ```
 样的代码是有大问题的，因为后面的return会*马上执行*，而此时promise还没有执行完毕，因为它是异常的。所以返回的hasChance和error永远是false
 
-
+### 4.在for循环里面写promise
+```js
+   entryKeys.forEach((key,index)=>{
+    outputFilename = self.generateOutputFilename(key);
+    compilationPromise = childCompiler.compileTemplate(entry[key],compiler.context, outputFilename, compilation)
+    .catch(function (err) {
+      compilation.errors.push(prettyError(err, compiler.context).toString());
+      return {
+        content: self.options.showErrors ? prettyError(err, compiler.context).toJsonHtml() : 'ERROR',
+        outputName: outputFilename
+      };
+    })
+    .then(function (compilationResult) {
+      isCompilationCached = compilationResult.hash && self.childCompilerHash === compilationResult.hash;
+     .outputName;
+       //注意点1:将结果放到数组中
+      self.options.childCompilationOutputNames.push(self.childCompilationOutputName);
+      //注意点2:将结果放到数组中
+      self.options.demoContents.push(compilationResult.content);
+      callback();
+      return compilationResult.content;
+    });
+   })
+```
+也就是说，在for循环里面写promise一般会把结果放到数组中，然后迭代数组即可获取到每一次for循环得到的完整的内容。这是因为在`任务队列`中，先进入的异步操作往往是先执行的。你可以[查看这里](../others/nodejs-QA/browser-QA.md)
 
 
 参考资料:
