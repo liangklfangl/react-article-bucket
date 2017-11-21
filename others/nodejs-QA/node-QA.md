@@ -592,6 +592,15 @@ co(function*(){
 ```
 此时会存在一个问题，当上一次insert/update还没有在多台数据库中同步，下一次for循环又去查询数据库的状态(多台数据库数据可能压根就没有同步)，此时会存在数据不同步的问题。解决的方法是在for循环中记录那些记录是需要更新的，那些记录是需要插入的，然后一次性全部更新！
 
+#### nodejs中如何写出同步的ajax请求
+```js
+  var request = require("sync-request");
+  const rawContent = request("GET", url,{}).getBody();
+```
+请查看[sync-request](https://github.com/ForbesLindesay/sync-request)组件的源码。其实他的原理如下:
+
+`child_process.spawnSync(command, [args], [options])`这个方法不会立即返回，直到子线程完全被关闭。当出现了timeout或者收到了`killSignal`信号，这个方法也不会立即退出直到子线程完全退出才行。也就是说，如果当前线程在处理`SIGTERM`信号，还没有正常退出，那么当前进程就会一直等待它退出完成。sync-request也可以用于[浏览器中](https://github.com/liangklfangl/sync-request#how-is-this-possible)，因为xhr本身就是支持同步执行的。但是，并不建议这么做，因为该方法会阻塞。
+
 
 参考资料:
 
