@@ -140,6 +140,57 @@ generateTableDOM=(data)=>{
 ```
 很显然，我们最后返回的是React组件，而不再是我们的字符串。当然，你也可以通过[babel.transform](https://stackoverflow.com/questions/38965088/how-to-put-react-component-inside-html-string)来完成，我们这里不再演示。
 
+#### 3.React的splice方法删除数据组件渲染问题
+比如有如下的代码:
+```js
+ const materials = this.state.materials.map((elem, index) => {
+      return (
+        <Row style={{ marginTop: "10px", marginLeft: "100px" }} key={index}>
+          <Col style={{ textAlign: "left", width: "100px", float: "left" }}>
+            <label style={{ fontSize: "14px" }}>{elem.sourceText} :</label>
+          </Col>
+          <Col span={10}>
+            <InputNumber style={{ marginLeft: "60%" }} defaultValue={elem.weight} onChange={(value)=>{this.resourceValueChange(index,value)}}/> %
+          </Col>
+          <Col span={2}>
+            <Icon type="minus-circle-o" style={{lineHeight: "28px"}} onClick={()=>{this.deleteResource(index)}}/>
+          </Col>
+        </Row>
+      );
+    });
+```
+而`this.state.materials`数据如下:
+```js
+  "taskMaterialList": [
+    {
+      "sourceText": "video",
+      "sourceValue": "www.baidu.com",
+      "weight": 0
+    },
+    {
+      "sourceText": "video",
+      "sourceValue": "www.baidu.com",
+      "weight": 20
+    },
+    {
+      "sourceText": "video",
+      "sourceValue": "www.baidu.com",
+      "weight": 30
+    }
+  ]
+```
+通过splice修改了数据，删除weight为20的元素。一开始产生的三个Row元素的key为[0,1,2]，而删除后我们的key为[0,1]，这样React会认为key为2的元素被删除了，而key为[0,1]的元素可以复用，从而产生每次都删除最后一个Row元素的效果。解决方法就是在Row中指定如下的key:
+```js
+const randomKeys = [];
+export function generateRandomKey() {
+  let key = Math.random().toString().substring(2);
+  while (randomKeys.includes(key)) {
+    key = Math.random().toString().substring(2);
+  }
+  return key;
+}
+```
+这样每一个Row元素都会被重新渲染，而React不会重用它!
 
 
 参考资料：

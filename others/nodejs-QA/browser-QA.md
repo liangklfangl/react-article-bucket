@@ -345,6 +345,7 @@ foo();
 
 
 #### 5.V8中的js代码是如何执行的？
+###### 5.1 V8引擎作用
 V8引擎一开始是为了提升在浏览中js的执行速度而设计的。为了提升速度，V8将js代码翻译为`机器码(是电脑的CPU可直接解读的数据,计算机可以直接执行，并且执行速度最快的代码)`，而`不是使用一个解析器`。和其他浏览器，如SpiderMonkey，Rhino (Mozilla)一样，通过实现JIT (Just-In-Time)编译器，它在js代码执行的过程中将它转化为机器码。而和其他浏览器不一样的地方是，V8不会产生`字节码(字节码是一种中间码，它比机器码更抽象，需要直译器转译后才能成为机器码的中间代码。字节码的典型应用为Java bytecode)`，或者其他的`中间码`。
 
 在V5.9之前V8使用了两个Compiler:
@@ -366,6 +367,37 @@ Profiler线程:告诉执行环境那个方法消耗了大量的时间，这样Cr
 
 当你的代码执行了一段时间，我们的`Profile线程`已经收集了足够多的数据,可以用于判断哪些方法应该被优化。此时，Crankshaft在一个新的线程中开始优化代码。它将JS的AST抽象语法树转化为更高级别的static single-assignment (SSA)，也被称为`Hydrogen`。同时对Hydrogen进行优化，很多类型的优化都是在此时完成的。
 
+###### 5.2 如何根据V8引擎来优化代码
+(1)内联代码
+
+第一个优化的点就是提前内联尽可能多的js代码。内联代码就是将调用函数的那一段代码使用函数本身内容来替换。这个简单的步骤将会使得下面的优化变得有意义:
+
+![](./images/inline.png)
+
+(2)理解Hidden Class原理
+
+如下图:
+
+![](./images/hidden.jpg)
+
+这是Java，它可以共享`Class info` ，很好理解因为Java 不是动态脚本，`运行时`不能为类对象添加属性。它的 Class info可以在指定内存地址保存固化。成员对象属性先访问到info 表，获取得到`属性对应值地址偏移后`，通过指针偏移得到属性值。而对于JS对象来说，它的对象压根就是通过哈希表存储，存上key和value完事，key被hash，value是值地址。比如下面的js代码:
+```js
+function Point(x, y) {
+ this.x = x;
+ this.y = y;
+}
+var p1 = new Point(10, 11);
+var p2 = new Point(12, 13);
+```
+在内存中存储后得到如下的内容:
+
+![](./images/js.jpg)
+
+Point的成员属性都是相同的，但是被分散存储了。每个对象取值都要`hash key`然后再找到其value。而[hash](https://lz5z.com/JavaScript-Object-Hash/)本身的速度较慢，因此才有了通过Hidden Class来提速的情况，因为Hidden Class本身是可以提速的，这样就不需要在访问每一个JS对象的对应的key的时候都做一次hash key!
+
+在 JavaScript中对象是以[Hash结构](https://baike.baidu.com/item/%E5%93%88%E5%B8%8C%E8%A1%A8/5981869?fr=aladdin&fromid=10027933&fromtitle=%E6%95%A3%E5%88%97%E8%A1%A8)存储的，用`<Key, Value>`键值对表示对象的属性，Key 的数据类型为字符串，Value 的数据类型是`结构体`，即对象是以 <String, Object> 类型的`HashMap` 结构存储的。
+
+
 参考资料:
 
 [Tasks, microtasks, queues and schedules](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/)
@@ -385,3 +417,5 @@ Profiler线程:告诉执行环境那个方法消耗了大量的时间，这样Cr
 [How JavaScript works: memory management + how to handle 4 common memory leaks](https://blog.sessionstack.com/how-javascript-works-memory-management-how-to-handle-4-common-memory-leaks-3f28b94cfbec)
 
 [机器码和字节码](https://www.cnblogs.com/qiumingcheng/p/5400265.html)
+
+[V8 Hidden Class](https://www.w3ctech.com/topic/660)
