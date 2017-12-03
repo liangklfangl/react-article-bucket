@@ -190,7 +190,292 @@ export function generateRandomKey() {
   return key;
 }
 ```
-这样每一个Row元素都会被重新渲染，而React不会重用它!
+这样每一个Row元素都会被重新渲染，而React不会重用它!上面使用的是自己产生独立key的方法，但是如果this.state.materials中有一个独立无二的属性标志该条记录的字段，那么使用它就可以了，比如ID！
+
+#### 4.React组件被渲染多次执行componentDidMount导致的问题
+比如我们有如下的代码:
+```js
+  <ExposeCrowd {...descriptorForm} key={"crowd_"+key}  exposureCrowd={exposureCrowd}/>
+```
+这里的key每次都是不同的，这样当上层组件变化导致该组件ExposeCrowd被渲染多次的时候就会存在问题。比如下面的代码:
+```js
+componentDidMount() {
+    IO.get("/rule/listByIds.json", { ids: this.props.exposureCrowd })
+      .then(res => {
+        if (res.success) {
+          const {data} = res;
+          console.log("lebel内容为:", res);
+          if (this._isMounted) {
+            const map = {};
+            for (let id in res.data) {
+              map[id] = res.data[id].ruleName;
+            }
+            //只有在组件没有被卸载的时候才能setState
+            this.setState({
+              selectedRuleMap: map
+            });
+          }
+        } else {
+          message.error('获取已选规则列表失败：' + res.message);
+        }
+      })
+      .catch(e => {
+        message.error('获取已选规则列表失败，请稍后尝试');
+      });
+  }
+```
+因为ExposeCrowd被渲染的时候key都是不同的，所以该组件一直都是调用componentDidMount方法。但是，如果渲染多次的时候，就会存在这种情况:第一次请求出去了，但是key被重新赋值了，相当于组件已经被卸载了，这时候请求回来再调用setState就会存在问题:
+<pre>
+warning.js:33 Warning: setState(...): Can only update a mounted or mounting component. This usually means you called setState() on an unmounted component. This is a no-op. Please check the code for the ExposeCrowd component.
+</pre>
+
+其中解决方法如下:
+```js
+  componentWillUnmount() {
+    this._isMounted = false;
+  }
+  componentDidMount() {
+    this._isMounted = true;
+    IO.get("/rule/listByIds.json", { ids: this.props.exposureCrowd })
+      .then(res => {
+        if (res.success) {
+          const {data} = res;
+          if (this._isMounted) {
+            const map = {};
+            for (let id in res.data) {
+              map[id] = res.data[id].ruleName;
+            }
+            //只有在组件没有被卸载的时候才能setState
+            this.setState({
+              selectedRuleMap: map
+            });
+          }
+        } else {
+          message.error('获取已选规则列表失败：' + res.message);
+        }
+      })
+      .catch(e => {
+        message.error('获取已选规则列表失败，请稍后尝试');
+      });
+  }
+```
+就是通过_isMounted来记录该组件是否已经被卸载了，如果卸载了就不再执行setState，导致出现这种问题。
+
+其实React官方网站提供了isMounted方法去避免在组件卸载后重新调用setState方法。因为在卸载的组件上调用setState方法意味着你的应用或者组件没有清理已经不需要的属性，这也意味着你的应用一直保存着对于这个卸载的组件的引用，这可能会出现内存泄露。可以使用如下的方法来解决:
+```js
+if (this.isMounted()) { // This is bad.
+  this.setState({...});
+}
+```
+这种方式虽然可以取消React的警告信息，但是不是好的方法，因为它并没有解决对于卸载组件的引用问题。因此，我们可以使用上面我的那个例子，使用_isMounted属性来达到效果。在componentDidMount中设置为true,而componentWillUnmount设置为false，通过这种方式来检测组件当前的状态。而且在ES6的class类型的组件中，我们的isMount方法已经被禁止使用了。原理请[点击这里](https://reactjs.org/blog/2015/12/16/ismounted-antipattern.html)。
+
+最后采用的是如下的[makeCancelable](https://github.com/facebook/react/issues/5465#issuecomment-157888325)方案:
+```js
+import React from "react";
+import ReactDOM from "react-dom";
+export default class Texst extends React.Component{
+ promise = new Promise((resolve,reject)=>{});
+ //默认Promise
+ makeCancelable = (promise) => {
+  let hasCanceled_ = false;
+  const wrappedPromise = new Promise((resolve, reject) => {
+    //（1）直接为原来的promise添加then方法
+    // promise.then(
+    //   val => hasCanceled_ ? reject({isCanceled: true}) : resolve(val),
+    //   error => hasCanceled_ ? reject({isCanceled: true}) : reject(error)
+    // );
+    // （2）上面这种模式如果success回调函数抛出了错误，那么第二个error函数是不能捕获到的
+    // https://www.tuicool.com/articles/6fqQ3aB
+    // promise.then((val) =>
+    //   hasCanceled_ ? reject({isCanceled: true}) : resolve(val)
+    // );
+    // promise.catch((error) =>
+    //   hasCanceled_ ? reject({isCanceled: true}) : reject(error)
+    // );
+    // One of the changes in node 6.6.0 is that all unhandled promise rejections result in a warning. The existing code from @vpontis had separate then and catch calls on the same base promise. Effectively, this creates two promises, one which only handles success, and one which only handles errors. That means that if there is an error, the first promise will be viewed by node as an unhandled promise rejection.
+    // （3）在nodejs中上面这种方案相当于创建了两个promise，一个处理success，一个处理error。当抛出错误后，第一个promise将会被看做是unhandled project rejection，从而抛出UnhandledPromiseRejectionWarning。
+     promise
+      .then((val) =>
+        hasCanceled_ ? reject({isCanceled: true}) : resolve(val)
+      )
+      .catch((error) =>
+        hasCanceled_ ? reject({isCanceled: true}) : reject(error)
+      );
+      // 这种方式
+  });
+  return {
+    promise: wrappedPromise,
+    cancel() {
+      hasCanceled_ = true;
+    },
+  };
+};
+
+/**
+ * 如果组件已经卸载就直接将hasCanceled_设置为true
+ * any callbacks should be canceled in componentWillUnmount, prior to unmounting.
+ * 任何的回调应该在componentWillUnmount中被取消，同时要早于组件被卸载!
+ */
+ componentWillUnmount(){
+   this.promise.cancel();
+ }
+  /**
+   *模拟ajax请求，我们在回调中不是立即setState，而是根据条件判断是否应该使用setState。而是在this.makeCancelable
+   *产生的回调then中进行判断
+   */
+  componentDidMount(){
+   this.promise = this.makeCancelable(new Promise((resolve,reject)=>{
+       setTimeout(()=>{
+        const random = Math.random();
+         if(random<0.7){
+           resolve('success!');
+          //模拟ajax请求成功了
+           // this.setState({
+           //   name:'覃亮'
+           // });
+         }else{
+           reject('reject!');
+          //模拟ajax请求成功了
+           // this.setState({
+           //   name:'Not found!'
+           // });
+         }
+       },0)
+    }))
+   //(1)如果成功，那么我setState，否则不做处理，打印组件已经被卸载。
+   //此时，我们知道组件并没有被卸载掉，所有可以直接setState
+    this.promise.promise.then(() => {
+      this.setState({
+        name:'覃亮'
+      });
+      console.log('resolved')
+    })
+    .catch((reason) => {
+      //如果reject就会进入这里的逻辑
+      //(2)此时我们知道组件已经被卸载，不再调用this.setState,因为this表示的组件已经被卸载掉了
+      //但是，componentDidMount中打印this还是可以获取到组件实例的。在componentWillUnmount组件将会被卸载，因为没有引用他的任何方法
+      //   this.setState({
+      //   name:'1'
+      // });
+      // console.log('this--------->',this);
+      console.log('组件已经被卸载，不能调用setState', reason.isCanceled)
+    });
+  }
+  render(){
+    console.log('render');
+    //后面的四次渲染因为是key变化，所以每次组件都是不一样的实例对象，总共执行5次
+    return <div>Texst内容</div>
+  }
+}
+//其中Promise可以是如下的类型
+///**
+//  * 对 fetch 过程的通用包装
+//  */
+// function fetchW(req, opt) {
+//   return fetch(req, opt).then(checkStatus).catch(function (err) {
+//     console.error('fetch failed', err); // eslint-disable-line
+//   }).then(parseJSON).then(function (data) {
+//     return data;
+//   });
+// }
+```
+代码请在react-QA目录下运行`npm run dev`。
+
+
+#### 5.[transform-class-properties](http://babeljs.io/docs/plugins/transform-class-properties)使得constructor方法在class属性后赋值调用
+```js
+ class Test extends React.Component{
+       constructor(props){
+        super(props);
+         this.name = "覃亮";
+         console.log('constructor被调用');
+       }
+       resourceCopy = console.log(this.props.getValue()|| [])
+}
+```
+此时，我们的class上的属性resourceCopy会在constructor方法之前被调用，但是他们同属于prototype chain上的属性。babel打包后的代码为:
+```js
+"use strict";
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+var Test = function (_React$Component) {
+  _inherits(Test, _React$Component);
+  //(1)继承React.Component
+  function Test(props) {
+    _classCallCheck(this, Test);
+  //(2)检查组件的this指向
+    var _this = _possibleConstructorReturn(this, (Test.__proto__ || Object.getPrototypeOf(Test)).call(this, props));
+  //(3)调用super方法
+    _this.resourceCopy = console.log(_this.props.getValue() || []);
+  //(4)class的property在super方法调用后，而super方法里面的this赋值之前被调用
+    _this.name = "覃亮";
+    console.log('constructor被调用');
+    return _this;
+  }
+  return Test;
+}(React.Component);
+```
+
+#### 6.Babel在打包class时先添加class property(属性和方法)然后添加constructor方法
+比如有下面的代码:
+```js
+ class Parent{}
+ class Test extends Parent{
+   constructor(props){
+     super(props);
+     this.name = "覃亮";
+     this.resourceCopy = this.getStatus();
+     console.log(this.resourceCopy);
+   }
+    getStatus=()=>{
+      return "已婚";
+    }
+ }
+new Test()
+```
+因为在super(props)后面代码执行之前,我们的class属性和方法(getStatus)已经被添加了，所以在super方法后面是可以调用class属性或者方法的。上面的代码编译后的结果为:
+```js
+"use strict";
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+var Parent = function Parent() {
+  _classCallCheck(this, Parent);
+};
+var Test = function (_Parent) {
+  _inherits(Test, _Parent);
+  function Test(props) {
+    _classCallCheck(this, Test);
+    var _this = _possibleConstructorReturn(this, (Test.__proto__ || Object.getPrototypeOf(Test)).call(this, props));
+    //(1)第一步执行super(props)
+    _this.getStatus = function () {
+      return "已婚";
+    };
+   //(2)添加class属性或者方法
+    _this.name = "覃亮";
+    _this.resourceCopy = _this.getStatus();
+    console.log(_this.resourceCopy);
+   //(3)执行super后的结果
+    return _this;
+  }
+  return Test;
+}(Parent);
+new Test();
+```
+从上面的代码顺序:
+```js
+ //(1)第一步执行super(props)
+    _this.getStatus = function () {
+      return "已婚";
+    };
+   //(2)添加class属性或者方法
+    _this.name = "覃亮";
+    _this.resourceCopy = _this.getStatus();
+    console.log(_this.resourceCopy);
+   //(3)执行super后的结果
+```
+知道，因为_this.getStatus()在调用之前已经被定义过了，所以代码是正常的。这也是Babel处理class属性和方法的原理!
 
 
 参考资料：
@@ -198,3 +483,7 @@ export function generateRandomKey() {
 [七、React.findDOMNode()](https://www.kancloud.cn/kancloud/react/67582)
 
 [React 集成 highlight](http://me.lizhooh.com/2017/09/01/React/React/React%20%E9%9B%86%E6%88%90%20highlight/)
+
+[React异步请求数据出现setState(...): Can only update a mounted or mounting component...](http://blog.csdn.net/dengdengda/article/details/77891912)
+
+[Deprecate `isMounted`](https://github.com/facebook/react/issues/5465#issuecomment-157888325)
