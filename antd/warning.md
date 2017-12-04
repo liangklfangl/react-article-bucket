@@ -186,3 +186,69 @@ this.props.resetFields(['pvUppper','uvUpper']);
 //比如修改了某一个属性需要重置其他的字段的使用用
 ```
 
+### getFieldDecorator包裹的Select元素动态产生Option的问题
+<pre>
+Warning: flattenChildren(...): Encountered two children with the same key, `.$undefined`. Child keys must be unique; when two children share a key, only the first child will be used.
+    in ul (created by DOMWrap)
+    in DOMWrap (created by Menu)
+    in Menu (created by DropdownMenu)
+    in div (created by DropdownMenu)
+    in DropdownMenu (created by SelectTrigger)
+    in LazyRenderBox (created by PopupInner)
+    in div (created by PopupInner)
+    in PopupInner (created by Popup)
+    in Align (created by Popup)
+    in AnimateChild (created by Animate)
+    in Animate (created by Popup)
+    in div (created by Popup)
+    in Popup
+</pre>
+因为必须有下面对data的修改:
+```js
+  onSelect = value => {
+    this.props.resetFields(['contentFilter']);
+    this.setState({
+      deliveryDimension: value,
+      data:[]
+    });
+  };
+  //其中render方法有如下代码
+ <Col span={10}>
+    {this.props.getFieldDecorator("contentFilter", {
+      initialValue: this.state.contentFilter
+    })(
+      <Select
+        mode="multiple"
+        optionFilterProp={"name"}
+        placeholder="请选择"
+        labelInValue={true}
+        onSearch={this.onSearch}
+        onSelect={this.onContentFilterSelect}
+        onDeselect={this.onDeselect}
+      >
+        {this.state.data.map((data, index) => {
+          //注意：这里必须默认有key否则都是undefined
+          const key =
+            this.state.deliveryDimension == 2
+              ? data.showLongId || "key2_"+index
+              : data.videoLongId || "key_"+index;
+             
+          const name =
+            this.state.deliveryDimension == 2
+              ? data.showName
+              : data.userName;
+          const value =
+            this.state.deliveryDimension == 2
+              ? data.showLongId + ""
+              : data.videoLongId + "";
+          return (
+            <Option key={key} name={name} value={value}>
+              {name}
+            </Option>
+          );
+        })}
+      </Select>
+    )}
+  </Col>
+```
+有可能的原因是:getFieldDecorator造成的问题
