@@ -113,19 +113,28 @@ ReactDOM.render(
      {data.positionTag}
 </Option>
 ```
-此时上传到上级组件的key就是我们需要的资源位id。下面是一个正常的设置:
+此时上传到上级组件的key就是我们需要的资源位id。下面是一个正常的设置(可以搜索，属性之间可能会干扰，下面的例子如果指定了mode='combox'会异常的):
 ```js
- <Select
-  mode="combobox"
-  optionFilterProp={'name'}
-  optionLabelProp={"name"}
-  //defaultActiveFirstOption={false}
- // showArrow={false}
-  onSelect={this.onSelect}
-  //必须是false
-  labelInValue={true}
-  onSearch={this.handleResourcePositionChange}
+  {this.props.getFieldDecorator("positionId", {
+      initialValue: defaultBasicInfo
+    })(
+    <Select
+      showSearch
+      onSelect={this.onSelect}
+      //必须是false
+      labelInValue={true}
+      onSearch={this.handleResourcePositionChange}
+    >
+      {this.state.options}
+    </Select>
+    )}
 >
+```
+在componentDidMount中所有的options已经被挂载完成，此时在defaultBasicInfo这个默认值中只要设置默认的key即可:
+```js
+const defaultBasicInfo = {
+      key:positionId+""
+    };
 ```
 
 ### antd的getFieldDecorator引入的问题
@@ -156,9 +165,39 @@ export function generateRandomKey() {
   <MaterialSelect {...descriptorForm} key={key} submitTaskData={this.props.submitTaskData} defaultTaskMaterialList={defaultTaskMaterialList}/>
 </Col>
 ```
-即通过外层传入一个新的函数submitTaskData，在componentDidMount和componentWillReceiveProps方法中调用该方法，而不是调用this.props.onChange(即不要在这两个方法中调用onChange)!还有一种方法:利用antd提供的getFieldDecorator，但是此时需要找出为什么组件会被多次渲染的原因!
+即通过外层传入一个新的函数submitTaskData，在componentDidMount和componentWillReceiveProps方法中调用该方法，而不是调用this.props.onChange(即不要在这两个方法中调用onChange)!总之:
 
+<pre>
+1.不要以为可以用getFieldDecorator给组件添加一个不同的key从而让他渲染，进而可以使得它重新渲染，此时你会发现所有提交的数据都是undefined。除非你手动调用onchange！
+2.不要以为可以给组件一个全新的key，进而使得它每次都走componentDidMount方法。这样initialValue这个Form.Item就会重新求值，进而得到一个新的渲染好的Form.Item。其实并不会，而且你会得到undefined!
+3.如果确实存在多次渲染走了ComponentWillReceiveProps使得initialValue或者defaultValue出现僵尸情况，那么`唯一的方法`就是通过给组件一个唯一的每次都不同的Key，然后在componentDidMount方法中调用我们自己的方法，比如submitTaskData将数据通知给上层组件(注意不是onChange方法)。
+4.如果仅仅是弹窗页面出现的僵尸问题可以通过resetFields方法清空。即在关闭弹窗的时候调用this.props.form.resetFields()清空数据
+5.简单的也可以通过三目运算符来卸载掉部分getFieldsDecorator装饰过的FormItem
+</pre>
 
+第一种情况为:
+```js
+  <Col span={14}>
+    {getFieldDecorator("exposureType", {
+      initialValue: !!exposureType
+    })(<SingleAll key={generateUniqueKey()} {...descriptorForm} />)}
+  </Col>
+```
+
+第二种情况:
+```js
+<Row className={styles.rowContainer}>
+    <Col span={20}>
+  // 全新的唯一的key要求重新渲染
+        <ExposeCrowd {...descriptorForm} key={"crowd_"+key}  exposureCrowd={exposureCrowd} submitCrowData={this.props.submitCrowData}/>
+    </Col>
+  </Row>
+ //ExposeCrowd组件的内容
+{this.props.getFieldDecorator("contentFilter", {
+    initialValue: this.state.contentFilter
+  })()
+}
+```
 ### antd组件可以通过自定义属性传递到回调函数
 比如下面的例子就使用了otherInfo来传递属性到Select的回调函数中:
 ```js
@@ -252,3 +291,57 @@ Warning: flattenChildren(...): Encountered two children with the same key, `.$un
   </Col>
 ```
 有可能的原因是:getFieldDecorator造成的问题
+
+### antd的defaultValue问题
+当defaultValue设置的时候，同时组件更新了多次，即调用了componentWillReceiveProps，此时defaultValue永远是第一次渲染的值，所以请使用value+onChange替换掉defaultValue的方式:
+```js
+ <InputNumber
+    onChange={this.frequencyChange}
+    value={
+      this.state.exposureFrequencyType.exposureFrequency
+    }
+    style={{ marginRight: "10px", marginLeft: "10px" }}
+  />次
+```
+如果使用了getFieldDecorator,那么可以使用下面的方式来完成
+
+### antd的二级表格无法滚动
+下面是expandRow的设置，必须设置了style和width才行，否则无法正常滚动。
+```js
+ constructor(props) {
+    super(props);
+    this.clientWidth = "1200px";
+  }
+  componentDidMount() {
+    this.clientWidth = document.body.clientWidth + 1000 + "px" || "1200px";
+    // 更新clientWidth,需要根据实际列的宽度进行调整
+  }
+ expandedRowRender = data => {
+    const { positionExposureList, taskName } = data;
+    const columns = [
+      {
+        title: "列1",
+        width: 100,
+        fixed: "left",
+        dataIndex: "id",
+        key: "id"
+      }
+    ];
+    return (
+      <Table
+        rowKey={"id"}
+        columns={columns}
+        style={{ width: "1200px" }}
+        scroll={{ x: this.clientWidth }}
+        dataSource={positionExposureList}
+        pagination={false}
+      />
+    );
+  };
+```
+下面是官方文档对于scroll.x的具体说明:
+<pre>
+1.若列头与内容不对齐或出现列重复，请指定列的宽度 width。
+2.建议指定 scroll.x 为大于表格宽度的固定值或百分比。注意，且非固定列宽度之和不要超过scroll.x。
+</pre>
+

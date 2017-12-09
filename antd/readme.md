@@ -334,13 +334,11 @@ class Son extends React.Component {
     this.state = {clickTime:0};
     this.handleClick=this.handleClick.bind(this);
   }
-  
   //React会接受到我们自己的事件
   handleClick(){
     console.log('React Event Son is fired');
     this.setState({clickTime: new Date().getTime()})
   }
-  
   componentDidMount(){
     //原生事件肯定不断往上冒泡
   document.getElementById('son').addEventListener('click',function(e){
@@ -811,7 +809,7 @@ const formLayout = {
 ```
 很显然label占据了6列，而内容占据了18列，内容就是Select框的宽度。所以，如果你将Select定宽了，那么后面的文字就可以同行显示了。
 
-#### 13.多了一次ajax请求
+
 
 
 

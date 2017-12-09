@@ -489,9 +489,34 @@ task(function *() {
   console.log(artist, songs);
 });
 ```
-对于这一类的代码，如果前面一个yield执行错误，那么后面的yield根本不会执行了!
+对于这一类的代码，如果前面一个yield执行错误，那么后面的yield根本不会执行了!这和以前遇到的回调地狱代码的执行逻辑完全一致!
 
-
+#### 问题4:在ES6的if..else定义同名变量的问题
+比如下面的代码:
+```js
+const condition = false;
+console.log('我的名字为:',myName);
+if(condition){
+  const myName = "罄天";
+}else{
+  const myName = "覃亮";
+}
+```
+其实我们这里定义了两个同名变量`myName`,为什么babel打包的时候没有报错呢?不是说一个作用域里面不能有定义的两个相同的const命名变量吗？难道在ES6中if..else创建了独立的作用域？其实不是的!我们看看下面打包后的代码:
+```js
+"use strict";
+var condition = false;
+console.log('我的名字为:', myName);
+if (condition) {
+  var _myName = "罄天";
+} else {
+  var _myName2 = "覃亮";
+}
+```
+我们看到const`没有变量类型声明提升`，所以第一个输出变量依然是myName。但是在if..else里面的同名变量被打包成为了不同的变量，所以运行打包后的代码将会报错。
+<pre>
+Uncaught ReferenceError: myName is not defined
+</pre>
 
 参考资料:
 
