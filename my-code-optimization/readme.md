@@ -31,3 +31,41 @@ keyMap;
 //   "key3": "value3"
 // }
 ```
+
+#### 2.去重对象数组变为map
+```js
+var arr = [{
+   component_name:'he',
+     name:'he'
+},{
+   component_name:'he1',
+     name:'he1'
+},
+{
+   component_name:'he2',
+     name:'he2'
+},
+{
+   component_name:'he2',
+     name:'he2'
+},
+{
+   component_name:'he3',
+     name:'he3'
+},
+{
+   component_name:'he3',
+     name:'he3'
+}];
+
+var uniqueMap = arr.reduce(function(pre,cur){
+//   表示已经存在了，那么我要删除它
+  if(pre[`${cur.component_name}`]){
+     return pre
+  }else{
+     pre[`${cur.component_name}`] = cur.name
+     return pre
+  }
+},{});
+```
+此时我们发现所有的数组元素通过`component_name`已经去重了!

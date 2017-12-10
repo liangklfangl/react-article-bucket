@@ -491,6 +491,118 @@ task(function *() {
 ```
 对于这一类的代码，如果前面一个yield执行错误，那么后面的yield根本不会执行了!这和以前遇到的回调地狱代码的执行逻辑完全一致!
 
+#### 3.5 yield与for循环
+很早的时候我就有一个疑问:"如果将yield的产生放在for循环里面，那么yield的顺序是否也能够保证顺序执行呢?"答案是:"能!"，下面是我给出的一个例子:
+```js
+import "babel-polyfill";
+const co = require('co');
+const outer = ['outer1','outer2','outer3'];
+const inner = ['inner1','inner2','inner3'];
+let counter = 1;
+function *update(){
+  for(let i=0;i<outer.length;i++){
+  for(let j=0;j<inner.length;j++){
+     console.log(counter);
+    counter++;
+    yield new Promise(function(resolve,reject){
+      setTimeout(function(){
+        console.log('resolve的值为',`${outer[i]}${inner[j]}`);
+        resolve(`${outer[i]}${inner[j]}`);
+      },Math.round(Math.random()*100));
+    })
+  }
+ }
+}
+co(update)
+```
+此时你会发现打印的顺序为:"outer1inner1","outer1inner2","outer1inner3","outer2inner1","outer2inner2","outer2inner3","outer3inner1","outer3inner2","outer3inner3"。而且你会发现，在我的例子中我的每一个Promise都会推迟一个随机的时间执行，这是为了模仿我们的网络请求的。结论告诉我们:浏览器的事件队列是顺序执行的，[先进入事件队列会在先执行](../others/nodejs-QA/browser-QA.md)。那么你可能会好奇对于这种双重for循环的Generator函数会被babel打包成为那种格式？请看下面打包后的代码:
+```js
+'use strict';
+require('babel-polyfill');
+var _marked = /*#__PURE__*/regeneratorRuntime.mark(update);
+var co = require('co');
+var outer = ['outer1', 'outer2', 'outer3'];
+var inner = ['inner1', 'inner2', 'inner3'];
+var counter = 1;
+function update() {
+  var _this = this;
+  var _loop, i;
+  return regeneratorRuntime.wrap(function update$(_context3) {
+    while (1) {
+      switch (_context3.prev = _context3.next) {
+        case 0:
+          _loop = /*#__PURE__*/regeneratorRuntime.mark(function _loop(i) {
+            var _loop2, j;
+            return regeneratorRuntime.wrap(function _loop$(_context2) {
+              while (1) {
+                switch (_context2.prev = _context2.next) {
+                  case 0:
+                    _loop2 = /*#__PURE__*/regeneratorRuntime.mark(function _loop2(j) {
+                      return regeneratorRuntime.wrap(function _loop2$(_context) {
+                        while (1) {
+                          switch (_context.prev = _context.next) {
+                            case 0:
+                              console.log(counter);
+                              counter++;
+                              _context.next = 4;
+                              // (3)延迟指定的时间模仿网络请求
+                              return new Promise(function (resolve, reject) {
+                                setTimeout(function () {
+                                  console.log('resolve的值为', '' + outer[i] + inner[j]);
+                                  resolve('' + outer[i] + inner[j]);
+                                }, Math.round(Math.random() * 100));
+                              });
+                            case 4:
+                            case 'end':
+                              return _context.stop();
+                          }
+                        }
+                      }, _loop2, _this);
+                    });
+                    j = 0;
+                  case 2:
+                    if (!(j < inner.length)) {
+                      _context2.next = 7;
+                      break;
+                    }
+                    return _context2.delegateYield(_loop2(j), 't0', 4);
+                  case 4:
+                    j++;
+                    _context2.next = 2;
+                    break;
+
+                  case 7:
+                  //第二层循环_context2停止
+                  case 'end':
+                    return _context2.stop();
+                }
+              }
+            }, _loop, _this);
+          });
+          i = 0;
+        //(2)如果外层循环还没有结束，那么走外层的循环_loop(i),否则退出外层的循环，直接停止Gernerator
+        case 2:
+          if (!(i < outer.length)) {
+            _context3.next = 7;
+            break;
+          }
+          return _context3.delegateYield(_loop(i), 't0', 4);
+        case 4:
+          i++;
+          _context3.next = 2;
+          break;
+        // (3)直接走外层的stop结束循环,外层为_context3
+        case 7:
+        case 'end':
+          return _context3.stop();
+      }
+    }
+  }, _marked, this);
+}
+co(update);
+```
+也就是告诉我们外层的Generator函数执行完毕后才会退出，而内部会根据每次循环yield单独的case语句!而且出现了多重循环的时候出现了\_context3,\_context2,\_context等多个控制循环case的变量。
+
 #### 问题4:在ES6的if..else定义同名变量的问题
 比如下面的代码:
 ```js
