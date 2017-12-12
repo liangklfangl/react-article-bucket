@@ -116,6 +116,9 @@
 
 [egg常见问题](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/egg-QA.md)
 
+[js基础知识详解](./js-native/foundamental-QA.md)
+
+
 #### 3.运行说明
 对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:
 

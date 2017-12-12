@@ -13,7 +13,7 @@ while(true){
 
 举个例子，用户代理有一个处理鼠标和键盘事件的任务队列。用户代理可以给这个队列比其他队列多3/4的执行时间，以确保交互的响应而不让其他任务队列饿死（starving），并且不会乱序处理任何一个任务队列的事件。
 
-`每个事件循环`都有一个进入microtask检查点（performing a microtask checkpoint）的flag标志，这个标志初始为false。它被用来组织反复调用‘进入microtask检查点’的算法。总结一下，一个事件循环里有很多个任务队列（task queues）来自不同任务源，每一个任务队列里的任务是严格按照先进先出的顺序执行的，但是不同任务队列的任务的执行顺序是不确定的。按我的理解就是，浏览器会自己调度不同任务队列。网上很多文章会提到macrotask这个概念，其实就是指代了标准里阐述的task。
+`每个事件循环`都有一个进入[microtask](https://www.w3.org/TR/html5/webappapis.html#microtask)检查点（performing a microtask checkpoint）的flag标志，这个标志初始为false。它被用来组织反复调用‘进入microtask检查点’的算法。总结一下，一个事件循环里有很多个任务队列（task queues）来自不同任务源，每一个任务队列里的任务是严格按照先进先出的顺序执行的，但是不同任务队列的任务的执行顺序是不确定的。按我的理解就是，浏览器会自己调度不同任务队列。网上很多文章会提到macrotask这个概念，其实就是指代了标准里阐述的task。
 
 标准同时还提到了microtask的概念，也就是微任务。看一下标准阐述的事件循环的进程模型：
 <pre>
@@ -408,7 +408,15 @@ JavaScript Binding如何工作？
 
 #### 7.什么是浏览器的Web API?
 ##### 7.1 Web API以及相关概念?
-客户端的Web API是为了扩展Web浏览器的功能或者其他的HTTP客户端设计的编程接口。常见的Web API一开始都是通过浏览器内置扩展程序实现的，而现在更加倾向于使用JS binding来完成。[Mozilla组织](https://en.wikipedia.org/wiki/Mozilla_Foundation)定义了他们自己的WebAPI标准，目的是使用HTML5形式的应用来替换原生的手机应用。Google也开发了他们自己的Native Client去替换不安全的这种浏览器内置的插件形式，转而采用安全的原生的sandboxed的扩展程序或者应用。这些WebAPI包括常见的DOM, AJAX, setTimeout[等等](https://blog.sessionstack.com/how-does-javascript-actually-work-part-1-b0bacc073cf),这些WebAPI并不是JS引擎提供的，而是宿主环境，例如浏览器提供的，这一点一定要注意!比如下面的例子:
+客户端的Web API是为了扩展Web浏览器的功能或者其他的HTTP客户端设计的编程接口。常见的Web API一开始都是通过浏览器内置扩展程序实现的，而现在更加倾向于使用JS binding来完成。[Mozilla组织](https://en.wikipedia.org/wiki/Mozilla_Foundation)定义了他们自己的WebAPI标准，目的是使用HTML5形式的应用来替换原生的手机应用。Google也开发了他们自己的Native Client去替换不安全的这种浏览器内置的插件形式，转而采用安全的原生的sandboxed的扩展程序或者应用。这些WebAPI包括常见的DOM, AJAX, setTimeout[等等](https://blog.sessionstack.com/how-does-javascript-actually-work-part-1-b0bacc073cf),这些WebAPI并不是JS引擎提供的，而是宿主环境，例如`浏览器`提供的，这一点一定要注意!那么我们下面给出一个比较[简短的定义](https://medium.com/@gaurav.pandvia/understanding-javascript-function-executions-tasks-event-loop-call-stack-more-part-1-5683dea1f5ec):
+
+<pre>
+Browser Web APIs:浏览器创建的C++实现的线程，其专门用于处理异步的事件，如DOM事件,http Request,setTimeout等。WebAPIs本身
+无法将执行代码放置到栈中进行执行，每一个WebAPI在执行完成以后将回调放到我们的事件队列中。而Event Loop就是检查执行栈和事件队列，
+如果执行栈已经为空，那么将事件队列中的第一个回调函数放到栈中执行。
+</pre>
+
+比如下面的例子:
 ```js
 <button id="doStuff">Do Stuff</button>
 <script>
@@ -426,17 +434,17 @@ JavaScript Binding如何工作？
 下面给出上图中的概念的定义:
 
 - Web APIs
-  上面的click事件通过DOM的Web API进行传播，然后在冒泡和捕获阶段触发相应的父级以及子级DOM相应的click回调函数。Web APIs是浏览器中的`多线程`部分内容，它允许在同一时间触发多个事件。它们可以通过在页面加载完成的时候我们熟悉的`window`对象来访问。比如在window上的用于ajax访问的`XMLHttpRequest`对象以及定时器的`setTimeout`函数。
-- 事件队列
-  每一个事件的回调函数都会被推入到一个或者多个事件队列。就像浏览器有很多Web APIs一样，浏览器也会有多个事件队列，比如:网络请求队列,DOM事件队列,UI渲染队列等
-- 事件循环
+  比如上面的click事件通过DOM的Web API进行传播，然后在冒泡和捕获阶段触发相应的父级以及子级DOM相应的click回调函数。Web APIs是浏览器中的`多线程`部分内容，它允许在同一时间触发多个事件。它们可以通过在页面加载完成的时候我们熟悉的`window`对象来访问。比如在window上的用于ajax访问的`XMLHttpRequest`对象以及定时器的`setTimeout`函数。
+- [事件队列](https://www.w3.org/TR/html5/webappapis.html#task-queues)
+  每一个事件的回调函数都会被推入到一个或者多个事件队列。就像浏览器有很多Web APIs一样，浏览器也会有多个事件队列，比如:网络请求队列,DOM事件队列,UI渲染队列等。它本身是任务的有序列表，它负责的内容包括:Events,Parsing,Using a resource,Reacting to DOM manipulation
+- [事件循环](https://www.w3.org/TR/html5/webappapis.html#event-loops)
   事件循环会选择将那个JS的回调函数推入到执行栈中执行。下面是火狐中C++伪代码实现的事件循环。
 ```js
 while(queue.waitForMessage()){
     queue.processNextMessage();
 }
 ```
-此时，事件回调函数将会进入浏览器的`JS执行环境`中执行。
+此时，事件回调函数将会进入浏览器的`JS执行环境`中执行。事件循环是为了协调:事件回调执行,用户交互，脚本执行，页面渲染,网络请求等等。
 
 ##### 7.2 JS中的调用栈及特点
 JS执行环境:JS引擎包括很多部分:比如加载的js的解析，用于对象内存分配的`堆`，垃圾回收系统，解析器，以及用于执行事件处理函数的`栈`等。下面具体讲下栈的内容。
@@ -505,7 +513,50 @@ document.getElementById('doStuff')
       }, 0);
   });
 ```
-`setTimeout()`在WebAPI中执行，然后将回调函数推送到事件队列中，进而可以使得事件循环在将回调函数推送到js执行栈之前进行重新渲染页面(repaint，因为`事件循环会从多个任务队列中选择具体应该执行的回调，包括DOM queue队列的操作。所以两个setTimeout执行间隙可能插入其他的回调执行`)。当然，对于CPU密集型也可以使用web worker。请关注[Events, Concurrency and JavaScript](https://danmartensen.svbtle.com/events-concurrency-and-javascript)原文与参考文献。
+`setTimeout()`在WebAPI中执行，然后将回调函数推送到事件队列中，进而可以使得事件循环在将回调函数推送到js执行栈之前进行重新渲染页面([repaint](https://www.w3.org/TR/html5/webappapis.html#event-loops)，因为`事件循环会从多个任务队列中选择具体应该执行的回调，包括DOM queue队列的操作。所以两个setTimeout执行间隙可能插入其他的回调执行`)。当然，对于CPU密集型也可以使用web worker。请关注[Events, Concurrency and JavaScript](https://danmartensen.svbtle.com/events-concurrency-and-javascript)原文与参考文献。
+
+#### 8.JS语言层面实现了异步?
+答案是:"No"!事实上，ECMAScript`并没有`从语言上约定其异步的特性，我们所探讨的“异步”都是由`执行引擎`所赋予的。于Firefox，这个引擎是SpiderMonkey，于Node.js这个引擎是V8。而提供这个异步能力的`机制`，则是我们所谓的Event Loop——事件轮询。所以像setTimeout，setInterval这样的函数，实际上并不是由语言本身所约定的，而是`浏览器/执行引擎`来实现，向JavaScript暴露的、提供的异步入口。
+
+因此，`异步与单线程`并没有出现矛盾。而具体到浏览器端，每个跃然于我们屏幕之前的Tab页，都拥有一个JS执行线程，即：
+<pre>
+There is only one JavaScript thread per window. 
+</pre>
+
+页面上虽然只提供了一个`JavaScript Call Stack`用于执行代码，不过浏览器在内部还实现了一个或多个队列，借由`事件轮询的机制`来调度全部事件的处理，而且在一定程度上，Programmer有权access到这个内部的轮询中。其一，可以是Timer函数，其二，则可以是通过DOM事件。而在浏览器中，`UI Rendering与JS Call Stack共用了线程`，轮询机制由浏览器内建；而Node.js中，轮询则由libuv提供的，并且libuv建立了针对不同kernel的抽象，封装了更多IO有关的具体的处理场景以及woker线程，这也解释了为什么Node.js单节点拥有高负载的原因。
+
+#### 9.什么是JS执行环境(Runtimes)与浏览器宿主环境
+##### 9.1 基本概念
+JS执行环境，比如V8，有一个堆(用于内存分配)和一个栈(执行环境)。但是执行环境没有`setTimeout`,`DOM`等等,这些API都是在浏览器中提供的。
+
+在浏览器中的JS有以下部分:
+- JS执行环境
+  比如V8(包括堆和栈)
+- Web API
+  浏览器提供的Web API,比如DOM，ajax,setTimeout等
+- 回调队列
+  包括一个回调队列用于执行事件的回调，比如onClick,onLoad,onDone等等
+- 事件循环 
+
+比如下图:
+
+![](./chrome.png)
+
+JS的执行环境在同一个时间只能执行一份代码，在执行其他代码的时候不能发出ajax请求，也不能执行setTimeout。但是，在浏览器中我们可以并发操作，因为浏览器比执行环境Runtime包含的部分要多得多(包括webApi等独立的线程)!
+
+##### 9.2 JS执行环境与UI渲染
+浏览器会受到执行的JS的限制，它会每隔16.6ms进行一次重绘(repaint,60帧每秒)。但是，如果在执行栈中有代码正在执行，那么它就无法正常的进行页面渲染。
+
+<pre>
+  When people say “don’t block the event loop”, this is exactly what they’re talking about. Don’t put slow code 
+  on the stack because, when you do that, the browser can’t do what it needs to do, like create a nice fluid UI.
+</pre>。
+
+当我们讨论不要`阻塞事件循环`的时候，其实是在讨论不要在执行栈中放置耗时代码，这种情况下浏览器不能做它本来应该做的事情，比如创建一个流畅的UI界面。
+
+比如页面频繁滚动的时候，事件处理函数执行会出现卡顿。而一个好的方法就是使用防抖，比如间隔多少秒才执行等等。原文[点击这里](JavaScript's Call Stack, Callback Queue, and Event Loop)[http://cek.io/blog/2015/12/03/event-loop/]阅读。
+
+
 
 
 参考资料:
@@ -535,3 +586,14 @@ document.getElementById('doStuff')
 [Web API](https://en.wikipedia.org/wiki/Web_API)
 
 [Events, Concurrency and JavaScript](https://danmartensen.svbtle.com/events-concurrency-and-javascript)
+
+[event-loops事件循环](https://www.w3.org/TR/html5/webappapis.html#event-loops)
+
+
+[w3c的浏览器草案](https://www.w3.org/TR/html5/webappapis.html#microtask)
+
+[关于浏览器处理事件的问题?](https://www.zhihu.com/question/30970837)
+
+[Understanding Javascript Function Executions — Call Stack, Event Loop , Tasks & more — Part 1](https://medium.com/@gaurav.pandvia/understanding-javascript-function-executions-tasks-event-loop-call-stack-more-part-1-5683dea1f5ec)
+
+[JavaScript's Call Stack, Callback Queue, and Event Loop](http://cek.io/blog/2015/12/03/event-loop/)
