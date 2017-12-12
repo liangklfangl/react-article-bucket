@@ -630,6 +630,33 @@ if (condition) {
 Uncaught ReferenceError: myName is not defined
 </pre>
 
+那么你可能会继续问：如果if..else外面的变量和内部的变量重复了，那么是否会报错呢?比如下面的代码:
+```js
+const condition = false;
+console.log('我的名字为:',myName);
+const myName = "liangklfangl";
+if(condition){
+  const myName = "罄天";
+}else{
+  const myName = "覃亮";
+}
+```
+我们看看babel打包后的代码:
+```js
+"use strict";
+var condition = false;
+console.log('我的名字为:', myName);
+var myName = "liangklfangl";
+if (condition) {
+  var _myName = "罄天";
+} else {
+  var _myName2 = "覃亮";
+}
+```
+也就是说babel将if..else中定义的变量都重新命名了，因此不会存在和外部变量同名的问题。
+
+
+
 参考资料:
 
 [【转向Javascript系列】深入理解Generators](http://www.alloyteam.com/2016/02/generators-in-depth/)

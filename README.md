@@ -110,6 +110,11 @@
 
 [markdown开发中遇到问题](./others/markdown-QA/readme.md)
 
+[浏览器高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md)
+
+[nodejs高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/node-QA.md)
+
+[egg常见问题](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/egg-QA.md)
 
 #### 3.运行说明
 对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:

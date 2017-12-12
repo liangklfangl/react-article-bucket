@@ -398,6 +398,116 @@ Point的成员属性都是相同的，但是被分散存储了。每个对象取
 在 JavaScript中对象是以[Hash结构](https://baike.baidu.com/item/%E5%93%88%E5%B8%8C%E8%A1%A8/5981869?fr=aladdin&fromid=10027933&fromtitle=%E6%95%A3%E5%88%97%E8%A1%A8)存储的，用`<Key, Value>`键值对表示对象的属性，Key 的数据类型为字符串，Value 的数据类型是`结构体`，即对象是以 <String, Object> 类型的`HashMap` 结构存储的。
 
 
+#### 6.什么是JavaScript Binding？
+在html页面中，我们可以通过JavaScript语句来访问DOM节点，例如document.createElement(“canvas”); 可是document所指向的对象`HTMLDocument存在于WebKit中`，通过C++实现的，`并不存在于JavaScript的引擎中`，所以如果想要在web页面中也能通过JavaScript来访问webkit定义的对象，这就需要把WebKit中的对象*注入*到JavaScript引擎中，而JavaScript引擎中对象的表示方式与WebKit中对象的表示方式存在差别，就需要存在一种方式，`把WebKit中的对象转换成JavaScript引擎能识别的对象，这一过程就称为JavaScript Binding`。例如以V8引擎为例，HTMLDocument --> V8HTMLDocument --> v8::Object.
+在Google开发Blink（来自于WebKit）以前，WebKit存在两种JavaScript引擎，即v8和JSC(JavaScriptCore)。v8是由Google公司开发的，应用在Chrome和Android原生浏览器中。JSC是有Apple公司开发，应用Safari中。那么WebKit中也同样存在两种相对应的JavaScript Binding，即JSC Binding和v8 binding。除了JavaScript Binding之外，WebKit中还存在一些其他的语言binding，例如Objective-C binding, GObject binding和CPP binding。Objective-Cbinding让JavaScript可以访问Objective-C的对象和方法，GObject binding存在于GTK中。
+JavaScript Binding如何工作？
+
+如果需要把WebKit中实现的`DOM对象或HTML5对象`暴露给JavaScript，让web开发者在JavaScript中能够访问，就需要在WebKit中为每个对象实现相应的JavaScript Binding文件，以v8引擎为例，我们需要为HTMLDocument对象实现一个V8HTMLDocument的对象，目的是转化HTMLDocument对象为v8::Object。只是WebKit中的DOM对象如此庞大，再加上后续添加的HTML5对象，如果需要为每个对象都亲自完成一个cpp文件实现一个相应的转换类，工作量是可想而知的。WebKit为了解决上述问题，编写了一套工具，可以让WebKit在编译时自动生成相应的binding文件，省去了开发者重复劳动的麻烦。
+在介绍binding工具之前，首先介绍一个Web IDL。Web IDL是W3C Web工作组为了定义Web接口定义的一套标准接口，全称为Web Interface Description Language. 如果浏览器需要实现某项新功能，一般的流程是W3C委员会先讨论该功能，并给出该功能的接口定义，也就是Web IDL，然后各个浏览器厂商来实现该接口，这样就能最大程度的保证各个浏览器的兼容性，才不至于Web开发者采用标准接口开发的Web网页或应用程序只能在某个特定浏览器上运行。
+
+#### 7.什么是浏览器的Web API?
+##### 7.1 Web API以及相关概念?
+客户端的Web API是为了扩展Web浏览器的功能或者其他的HTTP客户端设计的编程接口。常见的Web API一开始都是通过浏览器内置扩展程序实现的，而现在更加倾向于使用JS binding来完成。[Mozilla组织](https://en.wikipedia.org/wiki/Mozilla_Foundation)定义了他们自己的WebAPI标准，目的是使用HTML5形式的应用来替换原生的手机应用。Google也开发了他们自己的Native Client去替换不安全的这种浏览器内置的插件形式，转而采用安全的原生的sandboxed的扩展程序或者应用。这些WebAPI包括常见的DOM, AJAX, setTimeout[等等](https://blog.sessionstack.com/how-does-javascript-actually-work-part-1-b0bacc073cf),这些WebAPI并不是JS引擎提供的，而是宿主环境，例如浏览器提供的，这一点一定要注意!比如下面的例子:
+```js
+<button id="doStuff">Do Stuff</button>
+<script>
+    document.getElementById('doStuff')
+        .addEventListener('click', function() {
+                console.log('Do Stuff');
+            }
+        );
+</script>
+```
+我们再给出网上常见的关于WebAPI的图表:
+
+![](./images/webapi.png)
+
+下面给出上图中的概念的定义:
+
+- Web APIs
+  上面的click事件通过DOM的Web API进行传播，然后在冒泡和捕获阶段触发相应的父级以及子级DOM相应的click回调函数。Web APIs是浏览器中的`多线程`部分内容，它允许在同一时间触发多个事件。它们可以通过在页面加载完成的时候我们熟悉的`window`对象来访问。比如在window上的用于ajax访问的`XMLHttpRequest`对象以及定时器的`setTimeout`函数。
+- 事件队列
+  每一个事件的回调函数都会被推入到一个或者多个事件队列。就像浏览器有很多Web APIs一样，浏览器也会有多个事件队列，比如:网络请求队列,DOM事件队列,UI渲染队列等
+- 事件循环
+  事件循环会选择将那个JS的回调函数推入到执行栈中执行。下面是火狐中C++伪代码实现的事件循环。
+```js
+while(queue.waitForMessage()){
+    queue.processNextMessage();
+}
+```
+此时，事件回调函数将会进入浏览器的`JS执行环境`中执行。
+
+##### 7.2 JS中的调用栈及特点
+JS执行环境:JS引擎包括很多部分:比如加载的js的解析，用于对象内存分配的`堆`，垃圾回收系统，解析器，以及用于执行事件处理函数的`栈`等。下面具体讲下栈的内容。
+每一个函数,包括事件回调在执行的时候会创建一个`栈帧`(也叫做执行对象)。这些栈帧会被从调用栈的顶部推入或者推出，在顶部的栈帧表示当前执行的代码。当一个执行的函数返回后，栈帧将会从栈中被推出。下面是Chrome的V8中单个栈帧的代码:
+```js
+    /**
+   *  v8.h line 1372 -- A single JavaScript stack frame.
+   */
+  class V8_EXPORT StackFrame {
+   public:
+      int GetLineNumber() const;
+      int GetColumn() const;
+      int GetScriptId() const;
+      Local<String> GetScriptName() const;
+      Local<String> GetScriptNameOrSourceURL() const;
+      Local<String> GetFunctionName() const;
+      bool IsEval() const;
+      bool IsConstructor() const;
+  };
+```
+其中栈帧有三个显著的特点:
+- 单线程
+  线程是CPU使用的基本单元。作为OS的底层实现，它包括线程ID，程序计数器(program counter),寄存器组(register set)以及调用栈。虽然，`JS引擎本身是多线程的？(待确认)`，但是调用栈却是单线程的，也就是说在同一时间只有一份代码在执行。
+- 同步的
+  JS通过调用栈来完成一个个的任务，而不是采用任务切换(Task switching)，这对于事件也是一样的。这不是ECMAScript或者WC3强制规定的。但是，这也有例外，比如`window.alert`就会`打断当前的执行任务`。
+- 非阻塞的
+  阻塞发生在当一个线程在执行的时候当前应用状态被挂起。`浏览器的调用栈是非阻塞的`，它能够继续接受事件，比如鼠标点击事件，虽然他们并没有立即执行。比如下面CPU密集型的例子，当调用栈代码在执行的时候依然可以向里面添加事件处理函数。
+
+##### 7.3 浏览器处理CPU密集型任务
+CPU密集型的任务有点稍微复杂，因为单线程+同步的执行环境使得我们必须排队执行所有的回调函数，此时我们的线程进入等待状态，比如`UI线程`。比如下面的例子:
+```js
+<button id="bigLoop">Big Loop</button>
+<button id="doStuff">Do Stuff</button>
+<script>
+document.getElementById('bigLoop')
+    .addEventListener('click', function() {
+        //  big loop
+        for (var array = [], i = 0; i < 10000000; i++) {
+            array.push(i);
+        }
+    });
+
+document.getElementById('doStuff')
+    .addEventListener('click', function() {
+        //  message
+        console.log('do stuff');
+    });
+<\/script>
+```
+在点击了`Big Loop` 后再点击`Do Stuff`。当`Big Loop` 回调函数执行的时候浏览器仿佛冻结了一样。我们知道JS的调用栈是同步的，因此必须要等待`Big Loop`执行完毕。而且，调用栈是非阻塞的，因为:`Do Stuff`的点击事件依然能够被接收到，虽然它们并没有立即执行。这也就是告诉我们:`'事件触发是异步的，但是在调用栈中的回调执行却是同步的'`。CPU密集型的操作可以修改为如下:
+```js
+ document.getElementById('bigLoop')
+  .addEventListener('click', function() {
+      var array = []
+      // smaller loop
+      setTimeout(function() {
+           for (i = 0; i < 5000000; i++) {
+               array.push(i);
+           }
+      }, 0);
+      // smaller loop
+      setTimeout(function() {
+           for (i = 0; i < 5000000; i++) {
+               array.push(i);
+           }
+      }, 0);
+  });
+```
+`setTimeout()`在WebAPI中执行，然后将回调函数推送到事件队列中，进而可以使得事件循环在将回调函数推送到js执行栈之前进行重新渲染页面(repaint，因为`事件循环会从多个任务队列中选择具体应该执行的回调，包括DOM queue队列的操作。所以两个setTimeout执行间隙可能插入其他的回调执行`)。当然，对于CPU密集型也可以使用web worker。请关注[Events, Concurrency and JavaScript](https://danmartensen.svbtle.com/events-concurrency-and-javascript)原文与参考文献。
+
+
 参考资料:
 
 [Tasks, microtasks, queues and schedules](https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/)
@@ -419,3 +529,9 @@ Point的成员属性都是相同的，但是被分散存储了。每个对象取
 [机器码和字节码](https://www.cnblogs.com/qiumingcheng/p/5400265.html)
 
 [V8 Hidden Class](https://www.w3ctech.com/topic/660)
+
+[什么是JavaScript Binding？](http://blog.csdn.net/yl02520/article/details/20720167)
+
+[Web API](https://en.wikipedia.org/wiki/Web_API)
+
+[Events, Concurrency and JavaScript](https://danmartensen.svbtle.com/events-concurrency-and-javascript)
