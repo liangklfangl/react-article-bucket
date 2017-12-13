@@ -554,10 +554,184 @@ JS的执行环境在同一个时间只能执行一份代码，在执行其他代
 
 当我们讨论不要`阻塞事件循环`的时候，其实是在讨论不要在执行栈中放置耗时代码，这种情况下浏览器不能做它本来应该做的事情，比如创建一个流畅的UI界面。
 
-比如页面频繁滚动的时候，事件处理函数执行会出现卡顿。而一个好的方法就是使用防抖，比如间隔多少秒才执行等等。原文[点击这里](JavaScript's Call Stack, Callback Queue, and Event Loop)[http://cek.io/blog/2015/12/03/event-loop/]阅读。
+比如页面频繁滚动的时候，事件处理函数执行会出现卡顿。而一个好的方法就是使用防抖，比如间隔多少秒才执行等等。原文[点击这里](JavaScript's Call Stack, Callback Queue, and Event Loop)[http://cek.io/blog/2015/12/03/event-loop/] 阅读。
 
+#### 10.JavaScript的内存管理
+##### 10.1 栈内存与堆内存
+JavaScript中的变量分为基本类型和引用类型。基本类型就是保存在栈内存中的简单数据段，而引用类型指的是那些保存在堆内存中的对象。              
+- 1、基本类型 
+    基本类型有Undefined、Null、Boolean、Number 和String。这些类型在内存中分别`占有固定大小的空间`，他们的值保存在栈空间，我们通过按值来访问的。              
+- 2、引用类型
+    引用类型，值大小不固定，`栈内存中存放地址指向堆内存中的对象`。是`按引用访问`的。如下图所示：栈内存中存放的只是该对象的访问地址，在堆内存中为这个值分配空间。由于这种值的大小不固定，因此不能把它们保存到栈内存中。但`内存地址大小`是固定的，因此可以将内存地址保存在栈内存中。这样，当查询引用类型的变量时， `先`从栈中读取内存地址， `然后`再通过地址找到堆中的值。对于这种，我们把它叫做`按引用访问`。
 
+![](./images/stc.png)
 
+那么为什么会有栈内存和堆内存之分？
+
+通常与垃圾回收机制有关。为了使程序`运行时占用的内存最小`。当一个方法执行时，[每个方法都会建立自己的内存栈](https://glebbahmutov.com/blog/javascript-stack-size/)，在这个方法内定义的变量将会逐个放入这块栈内存里，随着方法的执行结束，这个方法的内存栈也将自然销毁了。因此，所有在方法中定义的变量都是放在栈内存中的(如果是对象，那么保存在堆中，然后`栈中中保存的是一个引用`)；当我们在程序中创建一个对象时，这个对象将被保存到运行时数据区中，以便`反复利用`（`因为对象的创建成本通常较大`），这个运行时数据区就是堆内存。堆内存中的对象不会随方法的结束而销毁，即使方法结束后，这个对象还可能被另一个引用变量所引用（方法的参数传递时很常见），则这个对象依然不会被销毁，只有当一个对象没有任何引用变量引用它时，系统的垃圾回收机制才会在核实的时候回收它。文字转载[JavaScript变量——栈内存or堆内存](http://blog.csdn.net/xdd19910505/article/details/41900693)
+
+同时，堆栈的区分能够让代码执行更加安全(stack is more protected)同时也更加快(不需要动态栈帧的垃圾回收，而只是创建新的栈帧)。比如下面的例子:
+```js
+function foo() { var a = 1; }
+function bar() { var b = 2; foo(); }
+bar();
+```
+即使我们的方法是递归调用，那么每一个栈帧也会有自己的一份独立的本地变量。当函数执行完毕以后，该栈帧就会从栈中被移除，释放本地变量的内存分配。这也是为什么类似于C++，C的语言不需要去考虑释放本地变量的原因。
+
+##### 10.2 内存的回收策略
+- 引用计数的循环引用
+  引用计数的机制为:(1)当我们创建了一个对象，然后将它存储到一个变量中，那么该对象的引用数量就是1，而当它的引用又被用于另外一个变量或者函数中的时候，它的引用数量就是2。(2)如果我们将使用变量的引用值的变量设置为一个新的值，那么原来的变量和使用引用变量的引用数就是1。(3)如果最后对象被置空了，那么引用数量就是0。下面是示例代码:
+```js
+var a = {obj:{name:"my_name"}};
+var b = a;
+a = 1;
+//Here we created an object, which is used by variable a and b
+// we have 1 to a so one of objects reference is reduced to 1
+// still we have one reference which is b
+b = null;
+// now object has not any reference left, garbage collector will take this object.
+```
+而引用计数算法可能出现循环引用，最终两者都无法经过垃圾回收器进行回收。
+```js
+function f() {
+  var o1 = {};
+  var o2 = {};
+  o1.p = o2; // o1 references o2
+  o2.p = o1; // o2 references o1. This creates a cycle.
+}
+f();
+```
+- 标记清除
+
+#####  10.3 内存泄露的方式
+- 意外的全局变量
+  即使我们讨论了不可预测的全局变量，但是仍有一些明确的全局变量产生的垃圾。这些是根据定义不可回收的（除非被取消或重新分配）。特别地，用于临时存储和处理大量信息的全局变量是令人关注的。 如果必须使用全局变量来存储大量数据，请确保将其置空或在完成后重新分配它。与全局变量有关的增加的内存消耗的一个常见原因是高速缓存）。缓存存储重复使用的数据。 为了有效率，高速缓存必须具有其大小的上限。 无限增长的缓存可能会导致高内存消耗，因为缓存内容无法被回收。
+- 被遗忘的计时器或回调函数
+  比如下面的例子:
+```js
+var someResource = getData();
+  setInterval(function() {
+    var node = document.getElementById('Node');
+    if(node) {
+      // Do stuff with node and someResource.
+      node.innerHTML = JSON.stringify(someResource));
+    }
+  }, 1000);
+```
+此示例说明了挂起计时器可能发生的情况：引用不再需要的节点或数据的计时器。 由节点表示的对象可以在`将来被移除`，使得区间处理器内部的整个块不需要了。但是，处理程序（因为时间间隔仍处于活动状态）无法回收（需要停止时间间隔才能发生）。 如果无法回收间隔处理程序，则也无法回收其依赖项。这意味着someResource，它可能存储大小的数据，也不能被回收。解决方法就是在DOM移除的时候清除定时器。
+
+对于观察者的情况，重要的是进行显式调用，以便在不再需要它们时删除它们（或者相关对象即将无法访问）。 在过去，以前特别重要，因为某些浏览器（Internet Explorer 6）不能管理循环引用（参见下面的更多信息）。 现在，一旦观察到的对象变得不可达，即使没有明确删除监听器，大多数浏览器也可以回收观察者处理程序。 然而，在对象被处理之前显式地删除这些观察者仍然是良好的做法。 例如：
+```js
+ var element = document.getElementById('button');
+  function onClick(event) {
+    element.innerHtml = 'text';
+  }
+  element.addEventListener('click', onClick);
+  // Do stuff
+  element.removeEventListener('click', onClick);
+  element.parentNode.removeChild(element);
+  // Now when element goes out of scope,
+  // both element and onClick will be collected even in old browsers that don't
+  // handle cycles well.
+```
+- 脱离DOM的引用要置空
+有时，将DOM节点存储在数据结构中可能很有用。 假设要快速更新表中多行的内容。 在字典或数组中存储对每个DOM行的引用可能是有意义的。当发生这种情况时，会保留对同一个DOM元素的`两个引用`：一个在DOM树中，另一个在字典中。 如果在将来的某个时候，您决定删除这些行，则需要使这两个引用不可访问。
+```js
+  var elements = {
+    button: document.getElementById('button'),
+    image: document.getElementById('image'),
+    text: document.getElementById('text')
+  };
+  function doStuff() {
+    image.src = 'http://some.url/image';
+    button.click();
+    console.log(text.innerHTML);
+    // Much more logic
+  }
+  function removeButton() {
+    // The button is a direct child of body.
+    document.body.removeChild(document.getElementById('button'));
+    // At this point, we still have a reference to #button in the global
+    // elements dictionary. In other words, the button element is still in
+    // memory and cannot be collected by the GC.
+  }
+```
+对此的另外考虑与对DOM树内的内部或叶节点的引用有关。假设您在JavaScript代码中保留对表的特定单元格（标记）的引用。 在将来的某个时候，您决定从DOM中删除表，但保留对该单元格的引用。直观地，可以假设GC将回收除了该单元之外的所有东西。在实践中，这`不会发生`:单元格是该表的子节点，并且`子级保持对其父级的引用`。 换句话说，从JavaScript代码对表单元格的引用导致整个表保留在内存中。 在保持对DOM元素的引用时仔细考虑这一点。
+
+- 闭包
+JavaScript开发的一个关键方面是闭包：从父作用域捕获变量的匿名函数。 Meteor开发人员发现了一个特定的情况，由于JavaScript运行时的实现细节，可能以一种微妙的方式泄漏内存：
+```js
+var theThing = null;
+var replaceThing = function () {
+  var originalThing = theThing;
+  var unused = function () {
+    if (originalThing) // a reference to 'originalThing'
+      console.log("hi");
+  };
+  theThing = {
+    longStr: new Array(1000000).join('*'),
+    someMethod: function () {
+      console.log("message");
+    }
+  };
+};
+setInterval(replaceThing, 1000);
+```
+这个片段做了一件事：`每次`replaceThing被调用，theThing获取一个新的对象，其中包含一个大数组和一个新的闭包（someMethod）。同时，unused变量保持一个闭包，该闭包具有对originalThing的引用（来自之前对replaceThing的调用的Thing）。已经有点混乱了，是吗？重要的是，一旦为同一父作用域中的闭包创建了作用域，则该作用域是共享的。在这种情况下，为闭包someMethod创建的作用域由unused共享。unused的引用了originalThing。即使unused未使用，可以通过theThing使用someMethod。由于someMethod与unused共享闭包范围，即使未使用，它`对originalThing的引用强制它保持活动（防止其收集）`。当此代码段重复运行时，可以观察到内存使用量的稳定增加。这在GC运行时不会变小。实质上，创建一个闭包的链接列表（其根以theThing变量的形式），并且这些闭包的范围中的每一个都包含对大数组的间接引用，导致相当大的泄漏。原文[点击这里阅读](How JavaScript works: memory management + how to handle 4 common memory leaks)。文中还提到了两种在`堆中分配内存与在栈中分配内存`的区别,如那些内存是从堆中获取的，而那些是从栈中直接获取的,即所谓的动态分配内存与静态分配内存:
+
+![](./images/allocate.png)
+
+在栈中直接分配内存的特点有:分配的大小在编译的时候就能够确定;在编译的时候内存就能够分配完成;内存为栈所拥有;采用先进后出的方式
+
+在堆中直接分配内存的特点有:分配的大小在编译的时候是未知的;在代码执行的时候进行内存分配;内存为堆所持有;分配的顺序无固定式。
+
+##### 10.4 垃圾回收机制(GC)是否会清除栈中数据
+答案是:\`不会!\` 当一个函数执行的时候，它会在栈中添加很多自有的状态数据，而当`函数执行结束`，这些自有的数据将会从栈中被移除掉。而且,栈中的数据采用的是先进后出的原则，因此分配起来很简单，同时也比基于堆的内存分配(动态分配)更加快速。但是，在一些CPU中，线程分配的栈的大小可能会非常小，此时就会出现我们常见的栈内存溢出!一个极端的例子就是死循环的时候，循环的每一次都会有函数被压入栈中，而每一个函数都会消耗掉栈中的一部分内存，最后导致整个程序异常退出。关于栈内存回收，你可以[点击这里](https://en.wikipedia.org/wiki/Stack-based_memory_allocation)。
+
+##### 10.5 栈中存储基本数据也能共享内存
+比如下面的例子:
+```js
+var a=3;
+var b=3;
+a=5;
+b
+```
+执行a=3,b=3的时候，a=3执行时为3在栈中分配了内存，那么b=3的时候不会在栈中分配内存存储3这个值，而是让b去指向已有的3，当a=5的时候，程序去寻找栈中有没有5这个值，如果有则让a去指向5，如果没有则重新分配内存存储5。显示在上面的例子中，a=5重新分配了内存，a此时指向了5，而b指向的值是3，并不会因为a的值的改变而改变。下面的例子也是同样的道理:
+```js
+var a = "apple";
+var b = a;
+//此时a,b指向栈中的同一个地址
+a = "banana";
+//此时栈中为a单独创建了一个值，为"banana"，而b还是指向栈中原来的地址
+b
+```
+和下面的代码结果一致:
+```js
+var a = new String("apple");
+var b = a;
+//此时a,b指向栈中的同一个地址
+a = new String("banana");
+//此时栈中为a单独创建了一个值，为"banana"，而b还是指向栈中原来的地址
+b
+```
+此时两个字符串new String("apple")和new String("banana")因为是基本数据类型，所以依然是存储在栈中的。同时下面给出基本类型的生命周期过程:
+```js
+let str = 'Jack'
+let oStr = str.substring(2)
+```
+第二行代码，访问 str时，访问过程处于读取模式，也就是会从栈内存中读取这个字符串的值，在读取过程中，会进行以下几步：
+<pre>
+1.创建一个String类型的一个实例；
+2.在实例上调用相应的方法。
+3.销毁这个实例。
+</pre>
+它和下面的代码是同样的道理:
+```js
+let str = new String('Jack')
+let oStr = str.substring(2)
+str = null
+```
+基本包装函数，与引用类型主要区别就是对象的生存期，使用new操作符创建的引用类型的实例，在执行流离开当前作用域之前一直都保存在内存中，而自动创建的`基本包装类型的对象`，则只存在与一行代码的执行`瞬间`，然后被[立即销毁](https://github.com/jkchao/blog/issues/9)。这也就是不能给基本类型添加属性和方法的原因了。
 
 参考资料:
 
@@ -597,3 +771,17 @@ JS的执行环境在同一个时间只能执行一份代码，在执行其他代
 [Understanding Javascript Function Executions — Call Stack, Event Loop , Tasks & more — Part 1](https://medium.com/@gaurav.pandvia/understanding-javascript-function-executions-tasks-event-loop-call-stack-more-part-1-5683dea1f5ec)
 
 [JavaScript's Call Stack, Callback Queue, and Event Loop](http://cek.io/blog/2015/12/03/event-loop/)
+
+[4种JavaScript内存泄漏浅析及如何用谷歌工具查内存泄露](https://github.com/wengjq/Blog/issues/1)
+
+[Reference-counting garbage collection in Javascript](http://findnerd.com/list/view/Reference-counting-garbage-collection-in-Javascript/6196/)
+
+[JavaScript stack size](https://glebbahmutov.com/blog/javascript-stack-size/)
+
+[Stack-based memory allocation](https://en.wikipedia.org/wiki/Stack-based_memory_allocation)
+
+[How does a “stack overflow” occur and how do you prevent it?](https://stackoverflow.com/questions/26158/how-does-a-stack-overflow-occur-and-how-do-you-prevent-it)
+
+[Stack-based_memory_allocation](https://en.wikipedia.org/wiki/Stack-based_memory_allocation)
+
+[javascript中变量重新赋值和引用重新赋值问题](http://www.cnblogs.com/songxiaochen/p/7738167.html)

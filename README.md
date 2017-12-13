@@ -118,6 +118,12 @@
 
 [js基础知识详解](./js-native/foundamental-QA.md)
 
+[高性能动画设计的一些优化思路总结](http://blog.csdn.net/liangklfang/article/details/51730556)
+
+[遇到的那些必须弄清楚的关于高性能动画的知识点](http://blog.csdn.net/liangklfang/article/details/51773257)
+
+[关于硬件加速哪些优秀的资源总结](http://blog.csdn.net/liangklfang/article/details/52074738)
+
 
 #### 3.运行说明
 对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:

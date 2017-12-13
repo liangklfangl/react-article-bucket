@@ -101,6 +101,9 @@ setInterval(function(){
 - setInterval的执行间隔时间可能非常短
  setInterval如果本身的执行时间很长(超过指定的interval间隔)，那么多个回调函数之间可能会间隔很短时间执行(其实只有两个，因为setInterval最多有一个等待执行，注意是`等待`执行，在执行的不算)。
 
+
+
+
 参考资料:
 
 [defer和async的区别](https://segmentfault.com/q/1010000000640869)
