@@ -656,7 +656,56 @@ var someResource = getData();
     // memory and cannot be collected by the GC.
   }
 ```
-对此的另外考虑与对DOM树内的内部或叶节点的引用有关。假设您在JavaScript代码中保留对表的特定单元格（标记）的引用。 在将来的某个时候，您决定从DOM中删除表，但保留对该单元格的引用。直观地，可以假设GC将回收除了该单元之外的所有东西。在实践中，这`不会发生`:单元格是该表的子节点，并且`子级保持对其父级的引用`。 换句话说，从JavaScript代码对表单元格的引用导致整个表保留在内存中。 在保持对DOM元素的引用时仔细考虑这一点。
+对此的另外考虑与对DOM树内的内部或叶节点的引用有关。假设您在JavaScript代码中保留对表的特定单元格（标记）的引用。 在将来的某个时候，您决定从DOM中删除表，但保留对该单元格的引用。直观地，可以假设GC将回收除了该单元之外的所有东西。在实践中，这`不会发生`:单元格是该表的子节点，并且`子级保持对其父级的引用`。 换句话说，从JavaScript代码对表单元格的引用导致整个表保留在内存中。 在保持对DOM元素的引用时仔细考虑这一点。下面再给出一个类似的内存泄露的例子:
+```html
+<html>
+    <body>
+        <div id="refA">
+            <ul>
+                <li><a></a></li>
+                <li><a></a></li>
+                <li><a id="#refB"></a></li>
+            </ul>
+        </div>
+        <div></div>
+        <div></div>
+    </body>
+</html>
+
+<script>
+    var refA = document.getElementById('refA');
+    var refB = document.getElementById('refB');//refB引用了refA。它们之间是dom树父节点和子节点的关系。
+</script>
+```
+现在，问题来了，如果我现在在dom中移除div#refA会怎么样呢？答案是dom内存依然存在，因为它被js引用。那么我把refA变量置为null呢？答案是内存依然存在了。因为refB对refA存在引用，所以除非在把refB释放，否则dom节点内存会一直存在浏览器中无法被回收掉。
+
+![](./images/clu.png)
+
+在上图,红色的虽然已经不再DOM树中了，但是其依然占据着内存，所以称为detached Dom Nodes。
+下面是闭包导致的内存泄漏问题：
+```js
+function a() {
+    var obj = [1,2,3,4,5,6];
+    return function Test() {
+        //js作用域的原因，在此闭包运行的上下文中可以访问到obj这个对象
+        console.log(obj);
+    }
+}
+//正常情况下，a函数执行完毕 obj占用的内存会被回收，但是此处a函数返回了一个函数表达式（见Tom大叔的博客函数表达式和函数声明），其中obj因为js的作用域的特殊性一直存在，所以我们可以说b引用了obj。
+var b = a();
+//每次执行b函数的时候都可以访问到obj，说明内存未被回收 所以对于obj来说直接占用内存[1,2,....n], 而b依赖obj，所obj是b的最大内存。
+b()
+```
+在chrome调试工具中可以查看所有自定义的函数等，也可以通过这个视图查找我们写的闭包，如下面的函数的context属性里面有一个closure:
+
+![](./images/clu1.png)
+
+而且我们知道：在每一次`snapshot`的时候都是会提前GC的，所以如果某个元素已经被GC掉那么不会出现在上面的列表中，然而上面的我们的a.b变量都是存在的，所以他们根本没有被GC掉，a函数我们就不讲了，因为他是全局函数，然后我们压根不希望b长久存在，因此我们必须手动解除引用b=null!,这时候我们的b变量就变成了：
+
+![](./images/clu2.png)
+
+这就是告诉我们`全局变量`(只是一个变量)只要能够清除掉那么我们都应该清除掉，而`全局函数`只有在页面卸载的时候被清除，当然是否可以注册onunload事件呢!
+
 
 - 闭包
 JavaScript开发的一个关键方面是闭包：从父作用域捕获变量的匿名函数。 Meteor开发人员发现了一个特定的情况，由于JavaScript运行时的实现细节，可能以一种微妙的方式泄漏内存：
@@ -714,10 +763,11 @@ a = new String("banana");
 //此时栈中为a单独创建了一个值，为"banana"，而b还是指向栈中原来的地址
 b
 ```
-此时两个字符串new String("apple")和new String("banana")因为是基本数据类型，所以依然是存储在栈中的。同时下面给出基本类型的生命周期过程:
+同时下面给出基本类型的生命周期过程:
 ```js
-let str = 'Jack'
-let oStr = str.substring(2)
+let str = 'Jack';
+let oStr = str.substring(2);
+// String对象被销毁了，返回的是一个全新的string，原来的值并没有发生改变
 ```
 第二行代码，访问 str时，访问过程处于读取模式，也就是会从栈内存中读取这个字符串的值，在读取过程中，会进行以下几步：
 <pre>
@@ -725,13 +775,36 @@ let oStr = str.substring(2)
 2.在实例上调用相应的方法。
 3.销毁这个实例。
 </pre>
-它和下面的代码是同样的道理:
+
+基本包装函数，与引用类型主要区别就是对象的生存期，使用new操作符创建的引用类型的实例，在执行流离开当前作用域之前一直都保存在内存中，而自动创建的`基本包装类型的对象`，则只存在与一行代码的执行`瞬间`，然后被[立即销毁](https://www.zhangshengrong.com/p/boNwr5jkaw/)。这也就是不能给基本类型添加属性和方法的原因了。但是通过显示的包装基本类型却可以添加属性和方法:
 ```js
-let str = new String('Jack')
-let oStr = str.substring(2)
-str = null
+var s1="some text"
+s1.color="red";
+// 执行后添加了color属性的这个对象已经被销毁了
+alert(s1.color);
+//undefined
 ```
-基本包装函数，与引用类型主要区别就是对象的生存期，使用new操作符创建的引用类型的实例，在执行流离开当前作用域之前一直都保存在内存中，而自动创建的`基本包装类型的对象`，则只存在与一行代码的执行`瞬间`，然后被[立即销毁](https://github.com/jkchao/blog/issues/9)。这也就是不能给基本类型添加属性和方法的原因了。
+在此，第二行代码试图为字符串s1添加一个color属性。但是，当第三行代码在此访问s1时，其color属性不见了。问题的原因就是第二行创建的String对象在执行第三行代码时已经被销毁了。第三行代码又创建自己的String对象，而该对象没有color属性。但是下面的代码就可以:
+```js
+var s1=new String("some text")
+s1.color="red";
+console.log(s1.color);
+//red
+```
+其实下面[这个例子](http://laichuanfeng.com/study/javascript-immutable-primitive-values-and-mutable-object-references/)也是同样的道理:
+```js
+var s = "hello"; 
+//定义一个由小写字母组成字符串
+s.toUpperCase(); 
+//=>“HELLO”，但并没有改变s的值。首先构造一个new String('hello')然后调用它的toUpperCase方法
+//得到一个新的对象后，因为没有栈中的值对它引用，所以垃圾回收机制能够立即清除它
+//但是原始的s值并没有改变，因为操作的是new String而不是s本身
+s;
+//=>“hello”：原始字符串的值并未改变。
+```
+而且，在我看来，不管是隐式的产生基本类型包装对象还是显式的产生，他们都会在`堆`中被分配内存空间，而不是在`栈`中!只是隐式的这种方式在调用后会将产生的基本类型包装对象立即设置为null(比如toUpperCase的例子没有栈中的变量对它进行引用)，从而可以立即`通过垃圾回收机制回收内存`!而显式的这种方式因为存在对于基本类型包装对象的引用，所以无法立即通过`垃圾回收机制回收内容`!
+
+
 
 参考资料:
 
@@ -785,3 +858,5 @@ str = null
 [Stack-based_memory_allocation](https://en.wikipedia.org/wiki/Stack-based_memory_allocation)
 
 [javascript中变量重新赋值和引用重新赋值问题](http://www.cnblogs.com/songxiaochen/p/7738167.html)
+
+[浅谈javascript中基本包装类型](https://www.zhangshengrong.com/p/boNwr5jkaw/)
