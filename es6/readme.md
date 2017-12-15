@@ -122,7 +122,7 @@ function g() {
 }
 var iterator = g();
 ```
-也就是说，我们在`真正执行第二次next`的时候才会输出console的信息(通过_context.next来控制新的case分支的执行)!这对于理解yield的执行顺序是很有益处的!特别是如下经常遇到的代码:
+也就是说，我们在`真正执行第二次next`的时候才会输出console的信息，也就是此时`才开始`从上一次的yield继续往下执行if语句(通过_context.next来控制新的case分支的执行)!这对于理解yield的执行顺序是很有益处的!特别是如下经常遇到的代码:
 ```js
  try {
     const repos = yield call(fetchGet, requestURL, queryData);
@@ -209,7 +209,7 @@ function g() {
 }
 var iterator = g();
 ```
-即，通过if来控制是否yield一个操作最后会转化为通过_context.next来控制执行哪一个具体的case分支!
+即，通过if来控制是否yield一个操作最后会转化为通过_context.next来控制执行哪一个具体的case分支!而真正if..else的作用只是控制`_context.next`来执行下面哪一个case而已，即`控制_context.next`的值!
 
 #### 3.2 Generator函数与try...catch
 try..catch与Generator在一起，对于理解yield的异常情况非常有帮助。比如，我们有如下的代码:
@@ -414,7 +414,139 @@ it.next("V"); // { value:undefined, done:true }
  2.子级Generator唯一将数据返回给父级Generator的方法就是通过return，而其内部的变量依然是局部变量   
 </pre>
 
-#### 3.4 co如何处理自动执行Generator的异常(reject掉)
+#### 3.3 Generator函数体内外数据交换
+假如有如下的例子:
+```js
+function* gen(x){
+  var y = yield x + 2;
+  console.log('y=',y);
+  // 打印undefined
+  var z =  yield y+3;
+  return y;
+}
+var g = gen(1);
+g.next();
+//{value: 3, done: false}
+g.next()
+//{value: NaN, done: false}
+//此时调用next没有参数值，表示上一次的yield没有值返回，所以是undefined
+```
+也就是告诉我们:如果需要将上一次yield的值传递给下一次yield使用，那么`必须通过`为next传入参数来完成，否则就会出现上面的第一个yield其实没有返回任何值，所以value为undefined的情况。而下面的例子就会输入:
+```js
+function* gen(x){
+  var y = yield x + 2;
+  console.log('y=',y);
+  //4
+  var z =  yield y+3;
+  return z;
+}
+var g = gen(1);
+g.next()
+// {value: 3, done: false}
+g.next(4);
+// {value: 7, done: false}
+// 表示上一次yield执行后的返回值为4
+g.next();
+// {value: undefined, done: true}
+// 因为直接设置第二个yield返回值为undefined，所以得到则值就是undefined
+```
+而下面的值就是正常的:
+```js
+function* gen(x){
+  var y = yield x + 2;
+  console.log('y=',y);
+  //2
+  var z =  yield y+3;
+  return z;
+}
+var g = gen(1);
+g.next()
+// {value: 3, done: false}
+g.next(2);
+//表示上一次yield返回值为2
+// {value: 5, done: false}
+g.next(6);
+// {value: 6, done: true}
+// next(6)表示第二个yield直接返回值为6，所以return的z值就是6
+```
+通过上面的例子我们知道，如果需要将`上`一次yield的执行结果返回给`下一个`yield使用，那就必须使用next方法传入才可以!那么这个`特性`有什么用呢？其实从上面的例子中我们看到，通过next将上一次的yield执行结果传入下一个yield，这个结果其实是保存在`局部变量`里面的。回到下面的代码:
+```js
+try {
+    const repos = yield call(fetchGet, requestURL, queryData);
+  } catch (err) {
+    Modal.error({
+      title: "获取详情失败",
+      content: "进入trycatch"
+    });
+  }
+```
+其实就是把yield后的调用结果`保存到repos`里面，从而让后面的代码能够使用它!
+```js
+function* gen(x){
+  var y = yield x + 2;
+  var z =  yield y+3;
+  return z;
+}
+var g = gen(1);
+```
+正是因为如此，上面的第二个yield才能使用第一个yield的返回值y，而这个y的实际结果就是由next传入的参数决定的!而这个过程如果使用了co，那么`它都帮我们处理`了!
+
+#### 3.4 Generator真的解决了回调地狱吗
+我们可能在Generator函数中写出如下的代码:
+```js
+function* generator(){
+    try {
+    const repos = yield call(fetchGet, requestURL, queryData);
+    if (repos.success == true) {
+      if (action.data.projectDetail) {
+        yield put(
+          saveRes4Project(action.id, repos.data, action.data.projectDetail)
+        );
+      } else {
+        yield put(saveRes4Project(action.id, repos.data));
+      }
+      // (2)必须是异步的才能不打断Generator函数执行
+      if (action.history) {
+        setTimeout(() => {
+          action.history.push({
+            pathname: "/pageView/tsklist"
+          });
+        }, 0);
+      }
+    } else {
+      Modal.error({
+        title: "获取详情失败",
+        content: repos.message
+      });
+    }
+  } catch (err) {
+    Modal.error({
+      title: "获取详情出错",
+      content: "进入trycatch"
+    });
+  }
+}
+```
+与此同时我们可能纠结于代码的执行顺序，即是否yield执行完毕后才能执行下面的代码，因为后面的代码会依赖于该yield的返回值repos。问出这样的问题，说明你在思考，而问题的答案其实我在前面已经说过了，即看编译后的代码。每一次case的执行都是要通过调用一次next从而让`_context.next`的值发生变化。否则后面的代码不会执行，所以答案是:"YES"!而如果是从[Web API](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md#71-web-api以及相关概念)的角度来分析，按道理来说，yield代码表示启动一个浏览器线程用于完成ajax请求，而后面的代码会立即执行(因为Web API是异步的)。那么结果是不是这样的呢？答案是:NO!
+```js
+import  "babel-polyfill";
+var co = require('co');
+function* generator(){
+  var result = yield new Promise(function(resolve,reject){
+    setTimeout(function(){
+      console.log('resolve的值为');
+      resolve(`返回值`);
+    },Math.round(2000));
+  })
+  console.log('result==='+result);
+}
+co(generator);
+```
+上面代码的简洁版本如上，那么按照你的理解是先打印:"result===返回值"然后才打印"resolve的值为"，但是实际上并不是这样!结果是先打印"resolve的值为"然后打印:"resolve的值为"。这得利于`Generator的流程控制`，即它将保证yield执行后才能执行后续的代码。这其实很好理解，Generator作为`流程控制工具`能够摆脱回调地狱，因此它必须保证前面一个请求成功了才能发起后面的请求。这也是回调地狱出现想要解决的问题!
+
+那么按照`Web API`的观点如何理解呢？其实yield一个请求是将该Web API放到事件循环中，而当该请求成功后(Promise被resolve)`回调函数`将会通过事件循环进入调用栈中执行。因为Generator本身流程控制的功能，导致yield后的代码无法正常执行，必须等到事件循环将回调函数在调用栈中执行完毕以后才继续执行后面的代码。也就是说，虽然yield被放入事件队列中执行，但是后续的代码也不能立即执行，必须等到它执行完毕后才行，即它是`阻塞`的。通过这种方式解决了回调地狱的问题(代码不需要无限嵌套)，使得代码本身更加优雅。而回调地狱本身也是`阻塞`的，即必须等待前面一个请求成功后才能触发后面的请求，所以Generator并没有改变回调地狱的本质，但是换回了代码的更加优雅!
+
+#### 3.5 co如何处理自动执行Generator的异常(reject掉)
 下面是具体的co自动执行Generator的代码:
 ```js
 function co(gen) {
@@ -491,7 +623,7 @@ task(function *() {
 ```
 对于这一类的代码，如果前面一个yield执行错误，那么后面的yield根本不会执行了!这和以前遇到的回调地狱代码的执行逻辑完全一致!
 
-#### 3.5 yield与for循环
+#### 3.6 yield与for循环
 很早的时候我就有一个疑问:"如果将yield的产生放在for循环里面，那么yield的顺序是否也能够保证顺序执行呢?"答案是:"能!"，下面是我给出的一个例子:
 ```js
 import "babel-polyfill";
@@ -654,6 +786,7 @@ if (condition) {
 }
 ```
 也就是说babel将if..else中定义的变量都重新命名了，因此不会存在和外部变量同名的问题。
+
 
 
 

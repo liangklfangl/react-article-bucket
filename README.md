@@ -2,6 +2,9 @@
 我会将我在react+redux+webpack+babel+npm+shell+git学习中遇到的各种问题，以及解决问题过程中写的各种文章列举出来。react全家桶的学习是一个积累的过程，在学习过程中我也会产出各种demo,其中一个react全家桶的项目你可以查看我的
 [React全家桶实例](https://github.com/liangklfangl/react-universal-bucket),这个实例包括了React服务端渲染，redux,react-router等重要内容，希望通过该系列文章能对初学者有一定的帮助。
 
+同时，我不仅仅会将精力放在React上，因为框架的东西总有一天会被更好的框架替换掉，所以我会更多的把精力放在原生JS的技术细节上。比如[浏览器高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md),[nodejs高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/node-QA.md),[egg常见问题](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/egg-QA.md),[js基础知识详解](./js-native/foundamental-QA.md),[高性能动画设计的一些优化思路总结](http://blog.csdn.net/liangklfang/article/details/51730556),[遇到的那些必须弄清楚的关于高性能动画的知识点](http://blog.csdn.net/liangklfang/article/details/51773257),[关于硬件加速哪些优秀的资源总结](http://blog.csdn.net/liangklfang/article/details/52074738)等等。通过这些文章的总结，以及结合自己的思考，把这些开发思路真正带到日常的代码编写中。希望自己有一天也能成为技术大牛，哈哈哈。欢迎star,也欢迎issue!
+
+
 #### 2.主要内容
 
 ##### 2.1 React+redux相关内容
