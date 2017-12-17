@@ -735,6 +735,19 @@ co(update);
 ```
 也就是告诉我们外层的Generator函数执行完毕后才会退出，而内部会根据每次循环yield单独的case语句!而且出现了多重循环的时候出现了\_context3,\_context2,\_context等多个控制循环case的变量。
 
+#### 3.7 如何判断一个函数为Generator函数
+可以通过**constructor.name**来判断:
+```js
+function isGeneratorFunction(genFun) {
+    var ctor = typeof genFun === "function" && genFun.constructor;
+    return  (ctor.displayName || ctor.name) === "GeneratorFunction"
+        // For the native GeneratorFunction constructor, the best we can
+        // do is to check its .name property.
+        // 对于原生的generator函数，我们通过判断它的constructor的name属性
+      : false;
+  };
+```
+
 #### 问题4:在ES6的if..else定义同名变量的问题
 比如下面的代码:
 ```js
@@ -787,8 +800,322 @@ if (condition) {
 ```
 也就是说babel将if..else中定义的变量都重新命名了，因此不会存在和外部变量同名的问题。
 
+#### 问题5:Async与Generator函数关系
+##### 问题5.1:Async与Generator函数以及Async的特点
+`一句话，async 函数就是 Generator 函数的语法糖`。比如Generator函数，依次读取两个文件。
+```js
+var fs = require('fs');
+var readFile = function (fileName){
+  return new Promise(function (resolve, reject){
+    fs.readFile(fileName, function(error, data){
+      if (error) reject(error);
+      resolve(data);
+    });
+  });
+};
+var gen = function* (){
+  var f1 = yield readFile('/etc/fstab');
+  var f2 = yield readFile('/etc/shells');
+  console.log(f1.toString());
+  console.log(f2.toString());
+};
+```
+写成 async 函数，就是下面这样。
+```js
+var asyncReadFile = async function (){
+  var f1 = await readFile('/etc/fstab');
+  var f2 = await readFile('/etc/shells');
+  console.log(f1.toString());
+  console.log(f2.toString());
+};
+```
+一比较就会发现，async 函数就是将 Generator 函数的星号（\*）替换成async，将yield 替换成 await，`仅此而已`。async 函数对 Generator 函数的改进，体现在以下三点:
+
+- **内置执行器**
+  Generator 函数的执行必须靠执行器，所以才有了 co 函数库，而 async 函数自带执行器。也就是说，async 函数的执行，与普通函数一模一样，只要一行。
+  ```js
+  var result = asyncReadFile();
+  ```
+- **更好的语义**
+   async 和 await，比起星号和yield，语义更清楚了。async表示函数里有异步操作，await 表示紧跟在后面的表达式需要等待结果。
+- **更广的适用性**
+   co 函数库约定，yield 命令后面只能是`Thunk函数或Promise`对象，而 async 函数的 await 命令后面，可以跟Promise对象和原始类型的值（数值、字符串和布尔值，但这时**等同于同步操作**）。
+async 函数的实现，就是将Generator函数和自动执行器，包装在一个函数里。
+```js
+async function fn(args){
+  // ...
+}
+// 等同于
+function fn(args){ 
+  return spawn(function*() {
+    // ...
+  }); 
+}
+```
+所有的 async 函数都可以写成上面的第二种形式,因此**可以直接调用**，其中的spawn函数就是自动执行器。下面给出spawn函数的实现，基本就是前文自动执行器的翻版。
+```js
+function spawn(genF) {
+  return new Promise(function(resolve, reject) {
+    var gen = genF();
+    //获取迭代器
+    function step(nextF) {
+      try {
+        var next = nextF();
+      } catch(e) {
+        return reject(e); 
+      }
+      if(next.done) {
+        return resolve(next.value);
+      } 
+      //将上次结果传入本次
+      Promise.resolve(next.value).then(function(v) {
+        step(function() { return gen.next(v); });      
+      }, function(e) {
+        step(function() { return gen.throw(e); });
+      });
+    }
+    step(function() { return gen.next(undefined); });
+  });
+}
+```
+async函数是非常新的语法功能，新到都不属于 ES6，而是属于 ES7。目前，它仍处于提案阶段，但是转码器 Babel 和 regenerator 都已经支持，转码后就能使用。
+
+##### 问题5.2:Async函数的特点
+从上面自动执行器的代码可以看到，直接调用async函数后返回的是**Promise**对象，因此可以直接采用下面的方法调用。
+```js
+async function Test(){}
+Test().then(()=>{},()=>{})
+```
+同时，我们也可以采用和Generator函数一样(**原理上面已经讲过,来源于Generator对于流程的控制**)，让当前代码停止执行，然后过一定时间后继续执行。
+```js
+function timeout(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+async function asyncPrint(value, ms) {
+  await timeout(ms);
+  // 因为async只是Generator的语法糖，所以只有调用next后才能继续执行。async也是一样的
+  // 和阻塞代码是一致的!!
+  console.log(value)
+  // 50ms后这句代码才能继续执行
+}
+asyncPrint('hello world', 50);
+```
+
+##### 问题5.3:使用for循环来动态await
+await命令后面的 Promise 对象，运行结果可能是**rejected**，所以最好把await命令放在 try...catch 代码块中。
+```js
+async function myFunction() {
+  try {
+    await somethingThatReturnsAPromise();
+  } catch (err) {
+    console.log(err);
+  }
+}
+// 另一种写法
+async function myFunction() {
+  await somethingThatReturnsAPromise().catch(function (err){
+    console.log(err);
+  });
+}
+```
+await 命令只能用在 async 函数之中，如果用在**普通函数**，就会报错。
+```js
+async function dbFuc(db) {
+  let docs = [{}, {}, {}];
+  // 报错
+  docs.forEach(function (doc) {
+    await db.post(doc);
+  });
+}
+```
+上面代码会报错，因为await用在普通函数之中了。但是，如果将 forEach 方法的参数改成async函数，也有问题。
+```js
+async function dbFuc(db) {
+  let docs = [{}, {}, {}];
+  // 可能得到错误结果
+  docs.forEach(async function (doc) {
+    await db.post(doc);
+  });
+}
+```
+上面代码可能不会正常工作，原因是这时三个db.post 操作将是**并发执行**，也就是同时执行，而不是同步执行。正确的写法是**采用for循环**。
+```js
+async function dbFuc(db) {
+  let docs = [{}, {}, {}];
+  for (let doc of docs) {
+    await db.post(doc);
+  }
+}
+```
+如果确实希望多个请求并发执行，可以使用 Promise.all 方法。
+```js
+async function dbFuc(db) {
+  let docs = [{}, {}, {}];
+  let promises = docs.map((doc) => db.post(doc));
+  // 得到一个Promise列表集合，因为await本身返回的是Promise
+  let results = await Promise.all(promises);
+  console.log(results);
+}
+// 或者使用下面的写法
+async function dbFuc(db) {
+  let docs = [{}, {}, {}];
+  let promises = docs.map((doc) => db.post(doc));
+  let results = [];
+  for (let promise of promises) {
+    results.push(await promise);
+  }
+  console.log(results);
+}
+```
+以上内容来源于[async 函数的含义和用法](http://www.ruanyifeng.com/blog/2015/05/async.html)。
+
+##### 问题5.4:为什么不能在forEach/map方法中await
+如果需要按顺序执行代码，比如如下的代码:
+```js
+let docs = [{}, {}, {}];
+docs.forEach(async function (doc, i) {
+  var result = await new Promise(function(resolve,reject){
+    setTimeout(function(){
+      resolve(`返回值`+i);
+    },Math.round(5000));
+  })
+  console.log('result==='+result);
+});
+console.log('主循环已经退出!');
+```
+此时会立即输出"主循环已经退出!",5s后再输出3次"result===返回值0","result===返回值1","result===返回值2"。这告诉我们以下内容:
+<pre>
+ 1. 主函数提前退出，这和Generator函数是不一样的，后者会等待Generator函数完成后回到主函数后退出因为await其实是在子函数中，
+ 而不是主函数中,它无法阻止主函数继续执行!
+ 2. 数组中每一个元素都按顺序执行forEach中的函数，所以导致三个Promise并发执行，因为每次执行的函数都不一样，应该使用for循环替换
+</pre>
+而不能使用map方法的原理和上面的forEach是一致的:
+```js
+let docs = [{}, {}, {}];
+let promises = docs.map((doc) => db.post(doc));
+// WARNING: this doesn't work
+let results = promises.map(async function(promise) {
+  return await promise;
+});
+// This will just be a list of promises :(
+console.log(results);
+```
+而这两种方式的解决方法如下,其中**forEach使用for循环来替代**:
+```js
+let docs = [{}, {}, {}];
+for (let i = 0; i < docs.length; i++) {
+  let doc = docs[i];
+  await db.post(doc);
+}
+```
+而map方法可以通过**for循环或者Promise.all的方式**来解决:
+```js
+let docs = [{}, {}, {}];
+let promises = docs.map((doc) => db.post(doc));
+let results = [];
+// for循环里面await
+for (let promise of promises) {
+  results.push(await promise);
+}
+console.log(results);
+```
+也可以采用Promise.all方法解决:
+```js
+let docs = [{}, {}, {}];
+let promises = docs.map((doc) => db.post(doc));
+// Promise.all
+let results = await Promise.all(promises);
+console.log(results);
+```
+那么此处你可能在想，**为什么**要用Promise.all来执行呢?我们再看一个例子:
+```js
+async function downloadContent(urls) {
+    return urls.map(async (url) => {
+        const content = await httpGet(url);
+        return content;
+    });
+}
+```
+这个代码有两个问题:
+<pre>
+ 1.这个方法的结果将会得到Promise数组，而不是string数组
+ 2. map方法中的函数在执行后还没有完成，因为await方法只会暂停map中的箭头函数，而httpGet()方法是异步resolve的
+ (forEach/map执行后内部的函数并没有执行完毕，和Generator函数一样此时返回的只是await httpGet(url)而已，后续的代码还没有执行)。也就是说，
+ 此时的await不会等待downloadContent()方法执行完毕。
+</pre>
+
+回到上面的forEach/map方法，有什么方式可以保证Promise不是并发执行的呢?下面使用Promise来解决呢?请看下面的代码:
+```js
+var promise = Promise.resolve("0");
+var docs = [{}, {}, {}];
+docs.forEach(function (doc,i) {
+  promise = promise.then(function (value) {
+      //(2)这里的value就是上一次resolve的值，一开始是0
+      return new Promise(function(resolve,reject){
+        //(1)这里发起请求获取到服务端的数据，然后动态传递给下一个请求
+        //这就是顺序执行代码
+        setTimeout(function(){
+          resolve(value+":"+Math.random());
+        },Math.round(200));
+    })
+  });
+});
+promise.then(function (values) {
+  console.log('最后得到的数据为:',values);
+  //得到所有的每一次resolve后的值
+});
+//(3)这里的代码会在上面的Promise.then和forEach执行完毕之前执行，但是Promise.then
+//会在forEach中所有的代码执行完成以后才会执行
+console.log('Promise.then已经执行完毕了!');
+```
+以上例子原文请[点击](https://pouchdb.com/2015/03/05/taming-the-async-beast-with-es7.html)这里。
+
+##### 问题5.5: Async函数代码执行顺序
+比如下面的代码:
+```js
+async function asyncFunc() {
+   console.log('lalal');
+   // 第一步
+   await new Promise(function(resolve,reject){
+       resolve(1);
+   })
+  console.log('asyncFunc()'); 
+  // 第三步
+  return 'abc';
+}
+asyncFunc().then(x => console.log(`Resolved: ${x}`)); 
+// 第四步
+console.log('main'); 
+// 第二步
+```
+**执行顺序**如下:
+<pre>
+lalal
+main
+asyncFunc()
+Resolved: abc
+</pre>
+
+执行结果告诉我们:
+<pre>
+1.直接调用async方法的时候await之前的代码是提前执行的
+2.async方法是异步的，返回的是Promise,所以调用async方法后的代码是不会被阻塞的!
+</pre>
 
 
+
+
+
+##### 问题5.5:如何判断是否是async函数
+```js
+Object.prototype.toString.call(fn);
+//"[object AsyncFunction]"
+```
+
+#### 问题5:Fetch API问题
+https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch
 
 参考资料:
 
@@ -799,3 +1126,13 @@ if (condition) {
 [Diving Deeper With ES6 Generators](https://davidwalsh.name/es6-generators-dive)
 
 [A Practical Introduction to ES6 Generator Functions](https://thejsguy.com/2016/10/15/a-practical-introduction-to-es6-generator-functions.html)
+
+[Asynchronous APIs Using the Fetch API and ES6 GeneratorsRelated Topics:](https://www.sitepoint.com/asynchronous-apis-using-fetch-api-es6-generators/)
+
+[async 函数的含义和用法](http://www.ruanyifeng.com/blog/2015/05/async.html)
+
+[Taming the asynchronous beast with ES7](https://pouchdb.com/2015/03/05/taming-the-async-beast-with-es7.html)
+
+[Tips for using async functions (ES2017)](http://2ality.com/2016/10/async-function-tips.html)
+
+[A Primer on ES7 Async Functions](https://code.tutsplus.com/tutorials/a-primer-on-es7-async-functions--cms-22367)
