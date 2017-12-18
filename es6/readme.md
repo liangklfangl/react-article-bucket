@@ -1104,15 +1104,216 @@ Resolved: abc
 2.async方法是异步的，返回的是Promise,所以调用async方法后的代码是不会被阻塞的!
 </pre>
 
-
-
-
-
-##### 问题5.5:如何判断是否是async函数
+##### 问题5.6:如何判断某个函数是否是async
 ```js
 Object.prototype.toString.call(fn);
 //"[object AsyncFunction]"
+//或者通过下面的方法来判断，即Symbol.toStringTag属性
+var supportsSymbol = typeof Symbol === 'function';
+function isAsync(fn) {
+    return supportsSymbol && fn[Symbol.toStringTag] === 'AsyncFunction';
+}
 ```
+
+#### 问题6:ES6的Symbol类型
+##### 问题6.1:默认具有迭代器的对象
+**Symbol.iterator**为每一个对象定义了默认的迭代器。该迭代器可以被 for...of 循环使用。当需要对一个对象进行迭代时（比如开始用于一个for..of循环中），它的**@@iterator方法**都会在不传参情况下被调用，返回的迭代器用于获取要迭代的值。一些内置类型拥有默认的迭代器行为，其他类型（如**Object**）则没有。下表中的内置类型拥有默认的@@iterator方法：
+<pre>
+Array.prototype[@@iterator]()
+TypedArray.prototype[@@iterator]()
+String.prototype[@@iterator]()
+Map.prototype[@@iterator]()
+Set.prototype[@@iterator]()
+</pre>
+
+##### 问题6.2:自定义迭代器
+```js
+var myIterable = {}
+myIterable[Symbol.iterator] = function* () {
+    yield 1;
+    yield 2;
+    yield 3;
+};
+[...myIterable] // [1, 2, 3]
+```
+如果一个迭代器 @@iterator 没有返回一个迭代器对象，那么它就是一个不符合标准的迭代器，这样的迭代器将会在运行期抛出异常，甚至非常诡异的 Bug。
+```js
+var nonWellFormedIterable = {}
+nonWellFormedIterable[Symbol.iterator] = () => 1
+[...nonWellFormedIterable] // TypeError: [] is not a function
+```
+
+##### 问题6.3:Symbol类型的说明
+- Symbol是一个基本数据类型
+  ES6 引入了一种新的原始数据类型Symbol，表示独一无二的值。它是 JavaScript 语言的第七种数据类型，前六种是：undefined、null、布尔值（Boolean）、字符串（String）、数值（Number）、对象（Object）
+- Symbol值不能与其他类型的值进行`运算`
+```js
+let sym = Symbol('My symbol');
+"your symbol is " + sym
+// TypeError: can't convert symbol to string
+`your symbol is ${sym}`
+// TypeError: can't convert symbol to string
+```
+但是可以**显式的**转化为String。
+```js
+let sym = Symbol('My symbol');
+String(sym) // 'Symbol(My symbol)'
+sym.toString() // 'Symbol(My symbol)'
+```
+- Symbol 值也可以转为布尔值，但是不能转为数值
+```js
+let sym = Symbol();
+Boolean(sym) // true
+!sym  // false
+if (sym) {
+  // ...
+}
+Number(sym) // TypeError
+sym + 2 // TypeError
+```
+- Symbol 值作为对象属性名时，不能用点运算符
+```js
+const mySymbol = Symbol();
+const a = {};
+a.mySymbol = 'Hello!';
+a[mySymbol] // undefined
+a['mySymbol'] // "Hello!"
+```
+上面代码中，因为**点运算符后面总是字符串**，所以不会读取mySymbol作为标识名所指代的那个值，导致a的属性名实际上是一个字符串，而不是一个 Symbol 值。同理，在对象的内部，使用Symbol 值定义属性时，Symbol 值必须放在方括号之中。
+```js
+let s = Symbol();
+let obj = {
+  [s]: function (arg) { ... }
+};
+obj[s](123);
+```
+- Symbol 作为属性名，该属性不会出现在for...in、for...of循环中
+Symbol作为属性名，该属性**不会**出现在for...in、for...of循环中，也不会被Object.keys()、Object.getOwnPropertyNames()、JSON.stringify()返回。但是，它也**不是私有**属性，有一个**Object.getOwnPropertySymbols**方法，可以获取指定对象的所有 Symbol 属性名。Object.getOwnPropertySymbols方法返回一个数组，成员是当前对象的所有用作属性名的 Symbol 值。
+```js
+const obj = {};
+let a = Symbol('a');
+let b = Symbol('b');
+obj[a] = 'Hello';
+obj[b] = 'World';
+const objectSymbols = Object.getOwnPropertySymbols(obj);
+objectSymbols
+// [Symbol(a), Symbol(b)]
+```
+另一个新的 API，**Reflect.ownKeys**方法可以返回所有类型的键名，包括常规键名和Symbol键名。
+```js
+let obj = {
+  [Symbol('my_key')]: 1,
+  enum: 2,
+  nonEnum: 3
+};
+Reflect.ownKeys(obj)
+//  ["enum", "nonEnum", Symbol(my_key)]
+```
+由于以 Symbol 值作为名称的属性，不会被常规方法遍历得到。我们可以利用这个特性，为对象定义一些非私有的、但又希望只用于内部的方法。
+```js
+let size = Symbol('size');
+class Collection {
+  constructor() {
+    this[size] = 0;
+  }
+  add(item) {
+    this[this[size]] = item;
+    this[size]++;
+  }
+  static sizeOf(instance) {
+    return instance[size];
+  }
+}
+let x = new Collection();
+Collection.sizeOf(x) // 0
+x.add('foo');
+Collection.sizeOf(x) // 1
+Object.keys(x) // ['0']
+Object.getOwnPropertyNames(x) // ['0']
+Object.getOwnPropertySymbols(x) // [Symbol(size)]
+```
+上面代码中，对象x的size属性是一个 Symbol 值，所以Object.keys(x)、Object.getOwnPropertyNames(x)都无法获取它。这就造成了一种**非私有的内部方法**的效果。
+
+- Symbol.for与Symbol.keyFor的区别
+有时，我们希望重新使用同一个Symbol值，Symbol.for方法可以做到这一点。它接受一个字符串作为参数，然后搜索有没有以该参数作为名称的Symbol值。如果有，就返回这个 Symbol 值，否则就新建并返回一个以该字符串为名称的Symbol值。
+```js
+let s1 = Symbol.for('foo');
+let s2 = Symbol.for('foo');
+s1 === s2 // true
+```
+上面代码中，s1和s2都是 Symbol值，但是它们都是同样参数的Symbol.for方法生成的，所以实际上是**同一个值**。Symbol.for()与Symbol()这两种写法，都会生成新的 Symbol。它们的**区别**是，前者会被登记在全局环境中供搜索，后者不会。Symbol.for()不会每次调用就返回一个新的 Symbol 类型的值，而是会**先检查**给定的key是否已经存在，如果不存在才会新建一个值。比如，如果你调用Symbol.for("cat")30 次，每次都会返回同一个 Symbol 值，但是调用Symbol("cat")30 次，会返回 30 个不同的 Symbol 值。
+```js
+Symbol.for("bar") === Symbol.for("bar")
+// true
+Symbol("bar") === Symbol("bar")
+// false
+```
+上面代码中，由于Symbol()写法**没有登记机制**，所以每次调用都会返回一个不同的值。Symbol.keyFor方法返回一个已登记的 Symbol 类型值的key。
+```js
+let s1 = Symbol.for("foo");
+Symbol.keyFor(s1) // "foo"
+let s2 = Symbol("foo");
+Symbol.keyFor(s2) // undefined
+```
+上面代码中，变量s2属于未登记的 Symbol 值，所以返回undefined。
+需要注意的是，Symbol.for为 Symbol 值登记的名字，是**全局环境**的，可以在不同的 iframe 或 service worker 中取到同一个值。
+```js
+iframe = document.createElement('iframe');
+iframe.src = String(window.location);
+document.body.appendChild(iframe);
+iframe.contentWindow.Symbol.for('foo') === Symbol.for('foo')
+// true
+```
+上面代码中，iframe 窗口生成的 Symbol 值，可以在主页面得到。
+
+- 保证模块代码只会执行一次
+```js
+// mod.js
+function A() {
+  this.foo = 'hello';
+}
+if (!global._foo) {
+  global._foo = new A();
+}
+module.exports = global._foo;
+```
+然后，加载上面的mod.js。
+```js
+const a = require('./mod.js');
+console.log(a.foo);
+```
+上面代码中，变量a任何时候加载的都是A的同一个实例。但是，这里有一个问题，全局变量global.\_foo是可写的，任何文件都可以修改。
+```js
+const a = require('./mod.js');
+global._foo = 123;
+```
+上面的代码，会使得别的脚本加载mod.js都失真。为了防止这种情况出现，我们就可以使用 Symbol。
+```js
+// mod.js
+const FOO_KEY = Symbol.for('foo');
+function A() {
+  this.foo = 'hello';
+}
+if (!global[FOO_KEY]) {
+  global[FOO_KEY] = new A();
+}
+module.exports = global[FOO_KEY];
+```
+上面代码中，可以保证global[FOO_KEY]不会被无意间覆盖，但**还是可以**被改写。
+```js
+const a = require('./mod.js');
+global[Symbol.for('foo')] = 123;
+```
+如果键名使用Symbol方法生成，那么外部将无法引用这个值，当然也就无法改写。
+```js
+// mod.js
+const FOO_KEY = Symbol('foo');
+// 后面代码相同 ……
+```
+上面代码将导致其他脚本都无法引用FOO_KEY。但这样也有一个问题，就是如果多次执行这个脚本，每次得到的FOO_KEY都是不一样的。虽然 Node会将脚本的执行结果缓存，一般情况下，不会多次执行同一个脚本，但是用户可以手动清除缓存，所以也不是完全可靠。其他内容请[点击这里](http://es6.ruanyifeng.com/#docs/symbol)阅读。
+
+
+
 
 #### 问题5:Fetch API问题
 https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch
@@ -1136,3 +1337,10 @@ https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch
 [Tips for using async functions (ES2017)](http://2ality.com/2016/10/async-function-tips.html)
 
 [A Primer on ES7 Async Functions](https://code.tutsplus.com/tutorials/a-primer-on-es7-async-functions--cms-22367)
+
+[Symbol.iterator](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Symbol/iterator)
+
+[Symbol](http://es6.ruanyifeng.com/#docs/symbol)
+
+
+[可迭代协议与迭代器协议](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Iteration_protocols)
