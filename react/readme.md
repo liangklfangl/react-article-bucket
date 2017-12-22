@@ -1,3 +1,5 @@
+#### 主要内容
+在本章节，主要是一些React相关内容，比如React组件中加载js文件，findDOMNode，原型链属性方法与constructor属性方法调用顺序等
 #### 1.学会使用findDOMNode(this)与React.DOM[element]
 ```js
 import hljs from 'highlight.js';
@@ -477,6 +479,167 @@ new Test();
 ```
 知道，因为_this.getStatus()在调用之前已经被定义过了，所以代码是正常的。这也是Babel处理class属性和方法的原理!
 
+#### 4.一个页面中有多个相同组件的问题
+比如下面的例子:
+```js
+class XCounter extends React.Component{
+    static idCounter = 0;
+    static scriptLoaderContainer = [];
+     // Notice 1:静态属性属于类对象，而不是类实例
+    constructor(props) {
+    super(props);
+     this.scriptLoaderId = `id${this.constructor.idCounter++}`; 
+     this.constructor.scriptLoaderContainer.push(this.scriptLoaderId);
+      //Notice 2:这里的this属性属于类实例，而不是类对象
+    }
+    render(){
+     return null
+    }
+  }
+  ReactDOM.render(<div>
+     <XCounter/><XCounter/>
+  </div>,document.getElementById('example'));
+  console.log('当前的数量为:',XCounter.idCounter);
+  //2
+  console.log('当前的数量为:',XCounter.scriptLoaderContainer);
+  //["id0", "id1"]
+```
+在页面中有多个XCounter组件被实例化，而其对应的构造函数是同一个，该构造函数的静态变量idCounter是共享的，所以上面的XCounter.idCounter为2。但是每一个组件都是有自己独立的scriptLoaderId属性的，这一点一定要注意!从这里例子我们知道:静态变量是类所**共享**的，可以利用这个特性做出很多有意思的判断，比如下面的例子。
+
+#### 5.如何在react组件中加js文件
+```js
+export default class Script extends React.Component {
+  static propTypes = {
+    attributes: RPT.object, // eslint-disable-line react/forbid-prop-types
+    onCreate: RPT.func,
+    onError: RPT.func.isRequired,
+    onLoad: RPT.func.isRequired,
+    url: RPT.string.isRequired,
+  };
+  static defaultProps = {
+    attributes: {},
+    onCreate: () => {},
+    onError: () => {},
+    onLoad: () => {},
+  }
+  // A dictionary mapping script URLs to a dictionary mapping
+  // component key to component for all components that are waiting
+  // for the script to load.
+  static scriptObservers = {};
+  // 特定的URL是否已经加载完成
+  // this.constructor.scriptObservers[url][this.scriptLoaderId] = this.props;
+  // 每一个URL对应于多个scriptLoaderId，但是只会检查一个是否已经加载完毕
+  static loadedScripts = {};
+  // this.constructor.loadedScripts[url] = true;
+  static erroredScripts = {};
+  // this.constructor.erroredScripts[url] = true;
+  static idCount = 0;
+  // 该组件已经被实例化了多少个对象
+  constructor(props) {
+    super(props);
+    this.scriptLoaderId = `id${this.constructor.idCount++}`; 
+    //1.如果某一个页面有多个该Script标签，那么其特定的this.scriptLoaderId都是唯一的
+  }
+  componentDidMount() {
+    const { onError, onLoad, url } = this.props;
+    //fix 1:如果该URL已经加载过了，然后又在页面其他地方要求加载，因为this.constructor.loadedScripts[url]已经被设置为true，那么直接调用onLoad方法
+    if (this.constructor.loadedScripts[url]) {
+      onLoad();
+      return;
+    }
+    //fix 2:如果该URL已经加载过了，而且加载出错，然后又在页面其他地方要求加载，因为tthis.constructor.erroredScripts[url]已经被设置为true，那么直接调用onError方法
+    if (this.constructor.erroredScripts[url]) {
+      onError();
+      return;
+    }
+    // If the script is loading, add the component to the script's observers
+    // and return. Otherwise, initialize the script's observers with the component
+    // and start loading the script.
+    // fix 3:如果某一个URL已经在加载了，即this.constructor.scriptObservers[url]被设置为特定的值了，那么如果还要求该URL那么直接返回，防止一个组件被加载多次
+    if (this.constructor.scriptObservers[url]) {
+      this.constructor.scriptObservers[url][this.scriptLoaderId] = this.props;
+      return;
+    }
+    //8.this.constructor.scriptObservers用于注册某一个URL特定的对象,其值为为该组件添加的所有的props对象，而key为该组件实例的this.scriptLoaderId
+    this.constructor.scriptObservers[url] = {
+      [this.scriptLoaderId]: this.props
+    };
+    this.createScript();
+  }
+  componentWillUnmount() {
+    const { url } = this.props;
+    const observers = this.constructor.scriptObservers[url];
+    // If the component is waiting for the script to load, remove the
+    // component from the script's observers before unmounting the component.
+    // componentWillUnmount只是卸载当前的组件实例而已，所以直接delete当前实例的this.scriptLoaderId
+    if (observers) {
+      delete observers[this.scriptLoaderId];
+    }
+  }
+
+  createScript() {
+    const { onCreate, url, attributes } = this.props;
+    //1.onCreate在script标签创建后被调用
+    const script = document.createElement('script');
+    onCreate();
+    // add 'data-' or non standard attributes to the script tag
+    // 2.所有attributes指定的属性都会被添加到script标签中
+    if (attributes) {
+      Object.keys(attributes).forEach(prop => script.setAttribute(prop, attributes[prop]));
+    }
+    script.src = url;
+    // default async to true if not set with custom attributes
+    // 3.如果script标签没有async属性，表示不是异步加载的
+    if (!script.hasAttribute('async')) {
+      script.async = 1;
+    }
+    //5.shouldRemoveObserver(observers[key])用于移除特定的监听器并触发onLoad
+    const callObserverFuncAndRemoveObserver = (shouldRemoveObserver) => {
+      const observers = this.constructor.scriptObservers[url];
+      //监听当前URL的scriptObservers，然后获取该Observer的key，即对应于this.scriptLoaderId，每一个组件实例都是唯一的，一个URL可能多个this.scriptLoadedId相对应:
+      // if (this.constructor.scriptObservers[url]) {
+    //   this.constructor.scriptObservers[url][this.scriptLoaderId] = this.props;
+    //   return;
+    // }
+      Object.keys(observers).forEach((key) => {
+        //如果某一个特定的key对应的，传入的observers[key]就是该组件实例的this.props
+        if (shouldRemoveObserver(observers[key])) {
+          delete this.constructor.scriptObservers[url][this.scriptLoaderId];
+        }
+      });
+    };
+    //4.onload将该URL已经加载的状态设置为true
+    script.onload = () => {
+      this.constructor.loadedScripts[url] = true;
+      callObserverFuncAndRemoveObserver((observer) => {
+        //6.调用用户自己的onLoad表示脚本加载完成
+        observer.onLoad();
+        return true;
+      });
+    }
+    script.onerror = () => {
+      this.constructor.erroredScripts[url] = true;
+      callObserverFuncAndRemoveObserver((observer) => {
+        //7.调用用户自己的onError表示加载错误
+        observer.onError();
+        return true;
+      });
+    };
+    document.body.appendChild(script);
+  }
+  render() {
+    return null;
+  }
+}
+```
+该组件提供了以下属性:
+<pre>
+onCreate:当script标签被创建的时候调用
+onError:script加载异常时候触发
+onLoad:script加载完成触发，如果该URL已经加载完成了一次，那么下一次直接执行该方法而不是重新加载
+url:要加载的链接地址
+attributes:添加html5自定义属性或者id等，不做区分s
+</pre>
 
 参考资料：
 
@@ -487,3 +650,5 @@ new Test();
 [React异步请求数据出现setState(...): Can only update a mounted or mounting component...](http://blog.csdn.net/dengdengda/article/details/77891912)
 
 [Deprecate `isMounted`](https://github.com/facebook/react/issues/5465#issuecomment-157888325)
+
+[react-load-script](https://github.com/blueberryapps/react-load-script)

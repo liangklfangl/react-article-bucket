@@ -1,6 +1,14 @@
 #### 简要说明
 这个文章我主要会写一些ES6开发中的常用技巧，通过这些技巧不仅能够提升代码的优雅度，同时对于ES6本身的学习也是很好的参考资料。
 
+#### 问题0:判断数组中某一个元素是否存在的优雅写法
+```js
+function remove(array, item) {  
+  var index = array.indexOf(item);  
+  return !!~index && !!array.splice(index, 1);  
+}  
+```
+即!!~index表示在数组中存在!
 #### 问题1：ES6中某一个对象的key是变量，而不是字符串?
 
 ```js
@@ -1312,11 +1320,74 @@ const FOO_KEY = Symbol('foo');
 ```
 上面代码将导致其他脚本都无法引用FOO_KEY。但这样也有一个问题，就是如果多次执行这个脚本，每次得到的FOO_KEY都是不一样的。虽然 Node会将脚本的执行结果缓存，一般情况下，不会多次执行同一个脚本，但是用户可以手动清除缓存，所以也不是完全可靠。其他内容请[点击这里](http://es6.ruanyifeng.com/#docs/symbol)阅读。
 
-
-
-
 #### 问题5:Fetch API问题
-https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch
+##### 问题5.1:Fetch与Ajax对比
+fetch 规范与 jQuery.ajax() 主要有两种方式的不同，牢记：
+
+(1)当接收到一个代表错误的HTTP状态码时，从fetch()返回的Promise不会被标记为reject， **即使该 HTTP 响应的状态码是404或500**。相反，它会将 Promise 状态标记为 resolve（但是会将resolve 的返回值的**ok属性**设置为 false），  仅当**网络故障时或请求被阻止时**，才会标记为 reject。
+
+(2)默认情况下, fetch不会从服务端发送或接收任何cookies, 如果站点依赖于用户 session，则会导致未经认证的请求（要发送 cookies，必须设置**credentials**选项）。
+
+##### 问题5.2:功能检测
+Fetch API 的支持情况，可以通过检测**Headers、Request、Response或 fetch()** 是否在 Window 或 Worker 域中。比如你可以这样做：
+```js
+if(self.fetch) {
+    // run my fetch request here
+} else {
+    // do something with XMLHttpRequest?
+}
+```
+##### 问题5.3:fetch API使用
+如果遇到网络故障，fetch() promise 将会 reject，带上一个 TypeError对象。虽然这个情况经常是遇到了**权限问题(CORS),域名解析失败,无法连接服务器**——比如 404 不是一个网络故障。想要精确的判断fetch()是否成功，需要包含promise resolved 的情况，此时再判断 Response.ok 是不是为 true。
+```js
+function addUser(details) {
+  return fetch('https://api.example.com/user', {
+    mode: 'cors',
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify(details),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-XSRF-TOKEN': getCookieValue('XSRF-TOKEN')
+    }
+  }).then(response => {
+    return response.json().then(data => {
+      // 消耗stream
+      if (response.ok) {
+        return data;
+      } else {
+        return Promise.reject({status: response.status, data});
+      }
+    });
+  });
+}
+```
+除了传给 fetch()一个资源的地址，你还可以通过使用Request()构造函数来创建一个 request 对象，然后再作为参数传给 fetch()：
+```js
+var myHeaders = new Headers();
+var myInit = { method: 'GET',
+               headers: myHeaders,
+               mode: 'cors',
+               cache: 'default' };
+//传入一个Request
+var myRequest = new Request('flowers.jpg', myInit);
+fetch(myRequest).then(function(response) {
+  return response.blob();
+}).then(function(myBlob) {
+  var objectURL = URL.createObjectURL(myBlob);
+  myImage.src = objectURL;
+});
+```
+Request()和fetch()接受同样的参数。你甚至可以传入一个已存在的request对象来创造一个拷贝。
+```js
+var anotherRequest = new Request(myRequest,myInit);
+```
+这个很有用，因为request和response bodies只能被使用一次（这里的意思是因为设计成了 stream 的方式，所以它们只能被读取一次,参见上面的response.json()）。创建一个拷贝就可以再次使用 request/response 了，当然也可以使用不同的init参数。以上内容来自[使用 Fetch](https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch)。
+
+
+
+
 
 参考资料:
 
@@ -1344,3 +1415,5 @@ https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch
 
 
 [可迭代协议与迭代器协议](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Iteration_protocols)
+
+[Why I won’t be using Fetch API in my apps](https://medium.com/@shahata/why-i-wont-be-using-fetch-api-in-my-apps-6900e6c6fe78)
