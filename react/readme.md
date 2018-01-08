@@ -479,7 +479,7 @@ new Test();
 ```
 知道，因为_this.getStatus()在调用之前已经被定义过了，所以代码是正常的。这也是Babel处理class属性和方法的原理!
 
-#### 4.一个页面中有多个相同组件的问题
+#### 7.一个页面中有多个相同组件的问题
 比如下面的例子:
 ```js
 class XCounter extends React.Component{
@@ -506,7 +506,7 @@ class XCounter extends React.Component{
 ```
 在页面中有多个XCounter组件被实例化，而其对应的构造函数是同一个，该构造函数的静态变量idCounter是共享的，所以上面的XCounter.idCounter为2。但是每一个组件都是有自己独立的scriptLoaderId属性的，这一点一定要注意!从这里例子我们知道:静态变量是类所**共享**的，可以利用这个特性做出很多有意思的判断，比如下面的例子。
 
-#### 5.如何在react组件中加js文件
+#### 8.如何在react组件中加js文件
 ```js
 export default class Script extends React.Component {
   static propTypes = {
@@ -640,6 +640,252 @@ onLoad:script加载完成触发，如果该URL已经加载完成了一次，那�
 url:要加载的链接地址
 attributes:添加html5自定义属性或者id等，不做区分s
 </pre>
+
+比如有一次在页面中接入高德地图，需要保证当其依赖的js都加载完毕以后才渲染地图，所以有如下的方法:
+```js
+ handleScriptLoad = value => {
+  ++this.scriptLoaderCount;
+  //两个js脚本
+ if (this.scriptLoaderCount == 2) {
+  this.map = new AMap.Map("my__amp--container", {
+    resizeEnable: true,
+    zoom: 13,
+    center: [116.39, 39.9]
+  });
+  window.AMap.plugin("AMap.Geocoder", () => {
+    this.geocoder = new AMap.Geocoder({
+      //city: "010" //城市，默认：“全国”
+    });
+    this.marker = new AMap.Marker({
+      map: this.map,
+      bubble: true
+    });
+  });
+render(){
+  return <div>
+ <Script
+    url=" https://webapi.amap.com/maps?v=1.4.2&key=eafedbd654c4c2996d778d04f3cba020"
+      onLoad={this.handleScriptLoad}
+  />
+  <Script
+    url="https://webapi.amap.com/demos/js/liteToolbar.js"
+    onLoad={this.handleScriptLoad}
+  />
+  </div>
+}
+```
+这样能够保证当两个js都加载完成以后才会去实例化我们的地图对象。
+
+#### 9.Tab组件中添加多个自定义组件的情形
+假如我们有如下的DOM结构:
+```js
+ /**
+   * 外层切换,需要重新获取数据
+   */
+  upperTabChange = activeKey => {
+    if (activeKey == "first") {
+      this.replyType = 603;
+    } else if (activeKey == "closed") {
+      this.replyType = 602;
+    }
+    this.setState({
+      activeKey
+    });
+    // 切换外层Tab重新获取数据
+    if (this.replyType == 603) {
+      this.props.getPersonalStatusReply(603);
+    } else if (this.replyType == 602) {
+      this.props.getPersonalStatusReply(602, "offtime");
+    }
+  };
+ <Tab
+  className="subscribe-tab"
+  size="small"
+  type="capsule"
+  onChange={this.upperTabChange}
+  activeKey={this.state.activeKey}
+>
+  {tabs.map(item => (
+    <TabPane key={item.key} tab={item.tab}>
+      <PictureTextReply
+        activeKey={tabKey}
+        // 处理data传递数据，这里也通过了activeKey传递了数据到内层组件
+        data={editData}
+        // 外层组件传递给内层组件的数据，内层组件负责解析
+        extra={{ selfDefinedType: item.key == "first" ? 1 : 2 }}
+        // 多个组件实例通过extra知道当前是那个组件处于可见状态
+        key={"pane_" + item.key}
+        // 通过key不同实例化不同的组件实例
+        onChange={this.statusMsgChange}
+        // 内层组件通知外层组件值改变的唯一方式
+      />
+    </TabPane>
+  ))}
+</Tab>
+```
+你需要明确以下知识点:
+
+1.PictureTextReply被实例化,即触发componentDidMount的时候所有的props都已经被设置好了,只有当前的TabPane可见的时候才会调用componentDidMount。这里的PictureTextReply可以就当做两个完全不同的组件来看待，因为key不同!
+
+2.建议组件PictureTextReply提供一个extra用于将数据传入到组件中并保存，比如我们的"情况1","情况2"用于识别当前被切换到那个组件。内部数据变化时候，通过调用this.props.onChange往上传递extra得到当前所处的tab!extra是一个{key:value}的类型，每一个组件实例都有自己独有的extra数据，因此下面的UI组件不用做任何修改就可以了，因为extra是外层组件本身自己传入，然后通过this.props.onChange通知到外层组件从而做相应的判断!
+
+3.在这个PictureTextReply组件中，需要考虑componentWillReceiveProps，从而更新组件。这也是任何一个组件设计应该考虑的!
+
+对于通过UI组件的onChange方法通知上层组件的方式，可以使得UI组件更加具有健壮性。比如上面的Tab组件，在componentDidMount中可能有如下的代码:
+```js
+  componentDidMount() {
+    this.props.queryXXX(603);
+    this.replyType = 603;
+  }
+```
+即当组件首次挂载的时候获取一次服务端的数据，然后把**当前的类型**记录下来，而UI组件的onChange调用的时候可以将内层组件的数据存储到外层:
+```js
+  statusMsgChange = value => {
+    this.replyMessage = value;
+    // 更新外层的数据
+    let replyType = 603,
+      messageType = 2;
+    const { extra, activeKey, data } = value;
+    const { selfDefinedType } = extra;
+    if (selfDefinedType == 2) {
+      replyType = 602;
+    }
+    if (value.activeKey == 1) {
+      messageType = 2;
+    } else if (value.activeKey == 0) {
+      messageType = 3;
+    } else if (value.activeKey == 2) {
+      messageType = 6;
+    }
+    this.replyType = replyType;
+    this.messageType = messageType;
+  };
+```
+而在**真实保存**数据的时候将外层组件自己的数据以及内层组件的数据一起提交到服务端:
+```js
+  changeData() {
+    const message = this.replyMessage || {};
+    // 如果不是编辑的情况下，我们可以保证提交的数据this.replyMessage也存在
+    // 同时componentDidMount中也可以知道当前的replyType,this.replyType = 603;
+    let messageType;
+    let welcomeData;
+    if (this.replyType == 603) {
+      welcomeData = {
+        replyType: "603",
+        replyContent: JSON.stringify({
+          type: this.messageType,
+          content: this.data
+        })
+      };
+    } else if (this.replyType == 602) {
+      welcomeData = {
+        replyType: "602",
+        replyContent: JSON.stringify({
+          type: this.messageType,
+          content: this.data
+        })
+      };
+    }
+    this.props.saveAutoReplyWelcome(welcomeData);
+    // 保存到服务端数据
+  }
+```
+
+#### 10.外层组件setState导致自定义组件重新渲染
+比如我设计了如下的组件:
+```js
+ <VendorTime
+    vendorTimeReRender={this.state.vendorTimeReRender}
+    businessHours={this.businessHours}
+    style={{
+      marginLeft: "200px",
+      marginBottom: "40px",
+      border: "1px dashed #ccc"
+    }}
+    onChange={this.timeChange}
+  />
+```
+其中timeChange的代码如下:
+```js
+timeChange = value => {
+  // console.log("外层组件接受到的时间为:", value);
+  // this.setState({
+  //   businessHours: value.data,
+  //   timeType: value.type
+  // });
+  this.businessHours = value.data;
+  this.timeType = value.type;
+};
+```
+此时也是采用上面说的通过onChange方式，UI组件将数据同步到外层组件。但是:一定要注意，外层组件必定不能setState，否则会导致死循环(如果VendorTime的SCU始终为true)。还有一点就是:外层组件任何setState都可能导致内层的VendorTime被重新渲染，如果SCU是React默认的始终return true的情形。一个好的方法就是,在VendorTime里面强制对比值是否变化。
+```js
+  shouldComponentUpdate(nextProps, nextState) {
+    // 父组件要求渲染
+    if (
+      this.props.vendorTimeReRender !== nextProps.vendorTimeReRender ||
+      !compare(this.state, nextState)
+    ) {
+      return true;
+    }
+    return false;
+  }
+```
+从这里你可以看到，我定义了一个vendorTimeReRender的props，上层组件传入的值默认为false,但是在componentDidMount后，比如走了接口值发生变化以后我设置为true，此时组件就会重新渲染一次，总共渲染了两次，这是合理的。但是后面不管外层组件怎么setState都不会使得VendorTime被重新渲染。同时，因为VendorTime组件自己维护了state数据，如果两次state值发生了变化，那么就要求重新渲染，这是通过compare方法来完成的，compare方法如下:
+```js
+export function compare(x, y) {
+  let p;
+  if (typeof x === "number" && typeof y === "number" && isNaN(x) && isNaN(y)) {
+    return true;
+  }
+  if (x === y) {
+    return true;
+  }
+  if (typeof x === "function" && typeof y === "function") {
+    if (
+      (x instanceof RegExp && y instanceof RegExp) ||
+      (x instanceof String || y instanceof String) ||
+      (x instanceof Number || y instanceof Number)
+    ) {
+      return x.toString() === y.toString();
+    } else {
+      return false;
+    }
+  }
+  if (x instanceof Date && y instanceof Date) {
+    return x.getTime() === y.getTime();
+  }
+  if (!(x instanceof Object && y instanceof Object)) {
+    return false;
+  }
+  if (x.prototype !== y.prototype) {
+    return false;
+  }
+  if (x.constructor !== y.constructor) {
+    return false;
+  }
+  for (p in y) {
+    if (!x.hasOwnProperty(p)) {
+      return false;
+    }
+  }
+  for (p in x) {
+    if (!y.hasOwnProperty(p)) {
+      return false;
+    }
+    if (typeof y[p] !== typeof x[p]) {
+      return false;
+    }
+    if (!compare(x[p], y[p])) {
+      return false;
+    }
+  }
+  return true;
+}
+```
+此时，我们设计的组件只有两个情况下会重新渲染:vendorTimeReRender(父组件控制)+state值(组件自身维护)。
+
+
+
 
 参考资料：
 

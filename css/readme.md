@@ -74,7 +74,51 @@ UED出图的时候一般要么是640的，要么是750的两种。如果是640�
 
 其中ipone5,ipone6的dpr是2，而ipone6+是3!
 
+问题3:选择器
+```js
+<Tab className="subscribe-tab" size="small" type="capsule">
+  {tabs.map(item => (
+    <TabPane key={item.key} tab={item.tab}>
+      <PictureTextReply key={"pane_" + item.key} />
+    </TabPane>
+  ))}
+</Tab>
+```
+如果PictureTextReply里面也用到了Tab，那么如何对我们的Tab进行css控制而不会影响PictureTextReply里面的Tab。使用如下即可:
+```css
+.subscribe__auto--replay {
+ //PictureTextReply的css清除掉，我们的容器为next-tabs-nav-wrap
+ //PictureTextReply的class为picture__text--reply
+  .picture__text--reply {
+    .next-tabs-nav-wrap {
+      border:0;
+    }
+  }
+  .next-tabs-nav-wrap {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    .next-tabs-tab {
+      margin-left: 20px;
+    }
+  }
+}
+```
+但是这种情况下border会继承，所以需要在嵌套的元素里面设置border:0。
 
+
+问题3:css3实现图片在容器中自动缩放居中
+```css
+  .auto__resize--image {
+    width: 400px;
+    height: 200px;
+    background-image:url('images/pic.png');
+    background-origin: content;
+    background-position: 50% 50%;
+    background-size: contain;
+    background-repeat: no-repeat;
+  }
+```
 
 参考资料:
 

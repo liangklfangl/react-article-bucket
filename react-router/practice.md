@@ -49,3 +49,33 @@
   }
 ```
 之所以可以通过contextType来从context中获取router参数[你可以查看这里](https://github.com/ReactTraining/react-router/blob/v2.8.1/docs/API.md#contextrouter)。通过上面两种方式，我们不需要使用window.location.href这种方式来实现全局刷新，进而实现路由跳转了。这是单页面应用常用的两种跳转方式。当然，获取router你还可以[参考这里](./renderProps.md)
+
+#### React-Router实现IndexRouter嵌套
+假如配置如下:
+```js
+<Route path="autoReply" component={autoReplyMine}>
+    <Route component={StatusAutoReply}>
+      <IndexRoute component={PictureTextReply}/>
+    </Route>
+    <Route path="keyWordReply" component={KeywordReply} />
+  </Route>
+```
+因为StatusAutoReply默认没有path属性，所以可以直接实例化它。然后PictureTextReply也可以同时实例化。其中StatusAutoReply写法如下:
+```js
+export default class SubscribeAutoReply extends React.Component {
+  render() {
+    return (
+      <div style={{ paddingLeft: "30px" }}>
+        SubscribeAutoReply{this.props.children}
+      <\/div>
+    );
+  }
+}
+```
+
+
+
+
+参考资料:
+
+[Nested IndexRoute not working](https://github.com/ReactTraining/react-router/issues/1950)

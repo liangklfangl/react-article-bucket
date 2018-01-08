@@ -1,3 +1,49 @@
+#### 0.怎么理解javascript单线程
+可以通过下面的等式来表示:
+
+**One thread == One call stack == One thing at a time**
+
+也就是说javascript只有一个线程，只有一个调用栈，栈中的代码是队列式顺序执行的。但是同时要记住下面这句话:
+
+**Browser is more than runtime!**
+
+浏览器提供了很多机制(Stack和Heap属于Javascript的runtime部分):比如事件队列，事件循环，WebAPI等(请继续阅读下面的部分)。但是,调用栈中的函数在执行的时候浏览器不能做任何事情，包括`UI渲染或者响应用户输入`。这样对于一些计算密集的函数来说，要尽量将它转化为异步的，浏览器可以在执行函数的间隙给UI渲染特定的时间，而不会出现界面假死状况。因为UI渲染要获得时间与调用栈的状态有关，如果是同步的函数，那么代码一直在执行，进而调用栈一直不为空，那么浏览器就无法给UI渲染队列(Render Queue)回调函数分配时间，但是异步可以，因为浏览器会自己做处理，在异步函数调用间隙给UI线程特定的渲染时间,而且UI队列本身的权重要比回调队列的权重要高。下面给出具体的实例:
+```js
+console.log('started');
+//放在webapi里面等待执行，如果你点击了很多次，那么其实这些回调函数都会放在Callback Queue中等待执行。WebAPI和setTimeout不一样的地方在于只会添加一次$.on('button','click')
+$.on('button','click',function onClick(){
+  console.log('clicked!');
+})
+setTimeout(function onTimeout(){
+   console.log('Timeout finished!');
+},5000);
+console.log('Done');
+```
+所以多次点击某一个有事件监听的元素的时候，如果该回调非常耗时，一定要注意。因为多次回调函数都会被推到Callback Queue中等待被放入调用栈中执行。而不会因为前一个回调还没有执行结束就取消后面插入的回调函数(注意[setInterval](https://github.com/liangklfangl/react-article-bucket/blob/master/js-native/foundamental-QA.md#3深入理解settimeout与setinterval)的特殊情况)。也正因为所有的回调是放在回调队列中等待执行的，所以setTimeout往往指定的是最小间隔时间，除非执行栈一直处于空闲状态:
+```js
+//callback是需要等待的，所以1000是最小时间间隔
+setTimeout(function onTimeout(){
+   console.log('Timeout finished!');
+},1000);
+setTimeout(function onTimeout(){
+   console.log('Timeout finished!');
+},1000);
+setTimeout(function onTimeout(){
+   console.log('Timeout finished!');
+},1000);
+setTimeout(function onTimeout(){
+   console.log('Timeout finished!');
+},1000);
+```
+上面讲了事件监听的回调函数不会因为前面一个没有执行就不推入Callback Queue中了，所以对于Scroll事件监听的时候一直就要关注debounce，函数节流等:
+```js
+//因为滚动的时候会有很多回调函数被添加到callback  queue,所以需要debouncing
+function animateSomething(){
+  delay();
+}
+$.on("document","scroll",animateSomething)
+```
+
 #### 1.生产者与消费者理解事件循环
 工作线程是生产者，主线程是消费者(只有一个消费者)。工作线程执行`异步任务(产生事件)`，执行完成后把对应的回调函数封装成为一条消息放在消息队列中。主线程源源不断的从消息队列中取消息并执行。当消息队列为空的时候主线程会阻塞，直到消息队列再次非空。
 ```js
@@ -289,7 +335,7 @@ callback
 
 因此，我们不仅含有JS引擎，真实的JS运行环境可能包含更多的内容。比如这里的`Web APIS`,这部分的内容`是浏览器`本身提供的，比如DOM(`上面的onload,onclick,onDown都与事件有关`)，AJAX,setTimeout等等。同时，我们还有广为人知的事件循环Event Loop和回调队列。
 
-##### 4.3 Callback Stack调用栈(异步回调解决耗时调用)
+##### 4.3 [Callback Stack](https://blog.risingstack.com/node-js-at-scale-understanding-node-js-event-loop/)调用栈(异步回调解决耗时调用)
 JS是单线程的编程语言，这也意味着它只有一个Call Stack调用栈。因此，在同一时间只能做一件事情。调用栈是一个数据结构，其真实的记录`当前运行的代码`，如果进入一个函数，那么将该函数放在调用栈的顶部，如果函数返回了，那么该函数将会从调用栈顶部被移除，这些都是Call Stack完成的事情。比如下面的代码:
 ```js
 function multiply(x, y) {
@@ -805,6 +851,54 @@ s;
 而且，在我看来，不管是隐式的产生基本类型包装对象还是显式的产生，他们都会在`堆`中被分配内存空间，而不是在`栈`中!只是隐式的这种方式在调用后会将产生的基本类型包装对象立即设置为null(比如toUpperCase的例子没有栈中的变量对它进行引用)，从而可以立即`通过垃圾回收机制回收内存`!而显式的这种方式因为存在对于基本类型包装对象的引用，所以无法立即通过`垃圾回收机制回收内容`!
 
 
+#### 11.异步的回调函数通过闭包保存变量或者函数
+本章节我们主要围绕了浏览器的事件循环，比如时间处理函数，setTimeout，ajax等，那么这些回调函数被推入到执行栈中被执行的时候它能获取到那些变量呢？我们给出如下的一个例子:
+```js
+'use strict'
+const express = require('express')
+const superagent = require('superagent')
+const app = express()
+app.get('/', sendWeatherOfRandomCity)
+function sendWeatherOfRandomCity (request, response) {
+  getWeatherOfRandomCity(request, response)
+  sayHi()
+}
+const CITIES = [
+  'london',
+  'newyork',
+  'paris',
+  'budapest',
+  'warsaw',
+  'rome',
+  'madrid',
+  'moscow',
+  'beijing',
+  'capetown',
+]
+function getWeatherOfRandomCity (request, response) {
+  const city = CITIES[Math.floor(Math.random() * CITIES.length)];
+  superagent.get(`wttr.in/${city}`)
+    .end((err, res) => {
+      // 该回调函数中的私有变量都会被随着执行上下文的销毁而回收!
+      // 执行上下文销毁后外部变量的引用city等也会销毁
+      if (err) {
+        console.log('O snap')
+        return response.status(500).send('There was an error getting the weather, try looking out the window')
+      }
+      const responseText = res.text
+      response.send(responseText)
+      console.log('Got the weather')
+    })
+  console.log('Fetching the weather, please be patient')
+}
+function sayHi () {
+  console.log('Hi')
+}
+app.listen(3000)
+```
+当访问`/`这个URL的时候会调用superagent.get(`wttr.in/${city}`)方法，此时end回调函数会被添加到回调队列中，当回调真正完成的时候会将该函数推入到执行栈中被执行。因为**闭包**的存在，该回调函数可以访问到:express, superagent, app, CITIES, request, response, city变量以及我们定义的函数。这也就是告诉我们:虽然sendWeatherOfRandomCity和getWeatherOfRandomCity函数调用已经完毕并return,但是当end回调函数被推入到栈中被执行的时候，它依然可以访问外部的变量，从另一方面来说sendWeatherOfRandomCity和getWeatherOfRandomCity函数调用完毕并return没法销毁如city,superagent等这一类的变量，即内存无法回收,这是**闭包**的作用!而当该函数在调用栈中被执行以后，其会从栈中被pop up出来，进而可以**销毁其执行上下文，从而回收该栈帧占用的所有的内存空间，包括对外部变量的引用/局部变量**，而该过程是由栈的特性自动完成内存回收的!
+
+
 
 参考资料:
 
@@ -860,3 +954,7 @@ s;
 [javascript中变量重新赋值和引用重新赋值问题](http://www.cnblogs.com/songxiaochen/p/7738167.html)
 
 [浅谈javascript中基本包装类型](https://www.zhangshengrong.com/p/boNwr5jkaw/)
+
+[Philip Roberts: What the heck is the event loop anyway?](https://2014.jsconf.eu/speakers/philip-roberts-what-the-heck-is-the-event-loop-anyway.html)
+
+[作用域链与执行上下文](https://github.com/mqyqingfeng/Blog/issues/8)
