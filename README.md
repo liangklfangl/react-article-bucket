@@ -9,7 +9,7 @@
 
 ##### 2.1 React+redux相关内容
 
-[React基础知识详解](./react/readme.md)
+[React基础知识与应用问题详解](./react/readme.md)
 
 [React+antd项目实战](./antd/warning.md)
 
@@ -110,6 +110,7 @@
 
 
 ##### 2.5 其他部分
+[操作系统基础知识](./computer-QA/os-QA.md)
 
 [markdown开发中遇到问题](./others/markdown-QA/readme.md)
 

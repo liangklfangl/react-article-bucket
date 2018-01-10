@@ -1,11 +1,10 @@
 #### 主要内容
-在本章节，主要是一些React相关内容，比如React组件中加载js文件，findDOMNode，原型链属性方法与constructor属性方法调用顺序等
+在本章节，主要是一些React相关内容，比如React组件中加载js文件，findDOMNode，原型链属性方法与constructor属性方法调用顺序等。大部分都是在开发中遇到的问题，然后提供的解决思路。如果你有任何问题欢迎issue,同时也欢迎star！
 #### 1.学会使用findDOMNode(this)与React.DOM[element]
 ```js
 import hljs from 'highlight.js';
 import React from 'react';
 import ReactDOM from 'react-dom';
-
 class Highlight extends React.Component {
     componentDidMount() {
         this.highlightCode();
@@ -791,7 +790,7 @@ render(){
   }
 ```
 
-#### 10.外层组件setState导致自定义组件重新渲染
+#### 10.外层组件setState导致自定义组件重新渲染引入的设计模式
 比如我设计了如下的组件:
 ```js
  <VendorTime
@@ -817,7 +816,7 @@ timeChange = value => {
   this.timeType = value.type;
 };
 ```
-此时也是采用上面说的通过onChange方式，UI组件将数据同步到外层组件。但是:一定要注意，外层组件必定不能setState，否则会导致死循环(如果VendorTime的SCU始终为true)。还有一点就是:外层组件任何setState都可能导致内层的VendorTime被重新渲染，如果SCU是React默认的始终return true的情形。一个好的方法就是,在VendorTime里面强制对比值是否变化。
+此时也是采用上面说的通过onChange方式，UI组件将数据同步到外层组件。但是:一定要注意，如果VendorTime的SCU始终为true，外层组件必定不能setState，否则会导致死循环(即，在redux中不要写store)。还有一点就是:外层组件任何setState都可能导致内层的VendorTime被重新渲染，如果SCU是React默认的始终return true的情形。一个好的方法就是,在VendorTime里面强制对比值是否变化。
 ```js
   shouldComponentUpdate(nextProps, nextState) {
     // 父组件要求渲染
@@ -882,9 +881,202 @@ export function compare(x, y) {
   return true;
 }
 ```
-此时，我们设计的组件只有两个情况下会重新渲染:vendorTimeReRender(父组件控制)+state值(组件自身维护)。
+此时，我们设计的组件只有两个情况下会重新渲染:vendorTimeReRender(父组件控制)+state值(组件自身维护)。这样，如果VendorTime和其他组件在页面中共存的情况下，就需要其他组件的值改变不影响当前VendorTime的值，因此采用vendorTimeReRender是合理的。最后，还是建议采用上面的第9点添加extra参数！
 
+后续更新:在组件的componentDidMount和componentWillReceiveProps中**不建议**调用上级组件的onChange方法，因为数据本来就是从外层组件传入的，我们不需要再次通知外层组件数据，在componentDidMount\/componentWillReceiveProps中外层组件本来就是知道从哪里获取的数据，然后保存起来即可。同时，如果在componentDidMount和componentWillReceiveProps中调用外层的onChange方法，那么外层组件无法修改store\/setState，否则就会导致死循环,除非你手动控制UI组件的componentWillReceiveProps方法(用一个字段控制不让它渲染，比如同级其他组件改变设置组件本身不重新渲染)。
 
+#### 11.组件挂载与更新顺序
+看下面的例子:
+```js
+class Parent extends React.Component {
+  state = {
+    count: 0
+  };
+  /**
+    * (1)componentWillReceiveProps签名知道只有当组件的props发生改变后才会调用该方法
+    * (2)componentWillReceiveProps在shouldComponentUpdate之前调用的
+    */
+  componentWillReceiveProps(nextProps) {
+    console.log("Parent的nextProps为", nextProps);
+  }
+  /**
+    * (1)组件state或者props发生改变都会触发这个方法，但是如果组件没有调用setState那么不会调用。
+    *    同时从函数的签名可以看到:组件的渲染收到两个方面的影响:父组件传递的props改变+组件自己state
+    * (2)如组件如果shouldComponentUpdate返回false，那么render方法不会重新渲染
+    * (3)父组件的SCU一定在子组件的SCU之前调用，组件的componentWillReceiveProps在SCU之前调用
+    */
+  shouldComponentUpdate(nextProps, nextState) {
+    console.log("Parent的shouldComponentUpdate为", nextProps, nextState);
+    return true;
+  }
+  /**
+    * (1)组件只会被挂载一次，父组件的componentDidMount一定在子组件的ComponentDidMount之后被触发
+    */
+  componentDidMount() {
+    console.log("Parent被挂载");
+  }
+  /**
+    * (1)组件调用了setState，那么会让Parent走一次shouldComponentUpdate
+    *
+    */
+  parentRender = () => {
+    this.setState({
+      count: ++this.state.count
+    });
+  };
+  render() {
+    return (
+      <div style={{ border: "1px solid red" }}>
+        我是Parent
+        <div style={{ border: "1px solid pink" }}>
+          <Child1 style={{ border: "1px solid yellow" }} />
+          <Child2 />
+        </div>
+        <button onClick={this.parentRender}>
+          点击我让父组件重新渲染{this.state.count}
+        </button>
+      </div>
+    );
+  }
+}
+class Child1 extends React.Component {
+  /**
+      * (1)子组件重新渲染的时候componentWillReceiveProps在SCU之前被调用
+      */
+  componentWillReceiveProps(nextProps) {
+    console.log("Child1的nextProps为", nextProps);
+  }
+  shouldComponentUpdate(nextProps, nextState) {
+    console.log("Child1的shouldComponentUpdate为", nextProps, nextState);
+  }
+  componentDidMount() {
+    console.log("Child1被挂载");
+  }
+  render() {
+    return <div>我是Child1</div>;
+  }
+}
+class Child2 extends React.Component {
+  componentWillReceiveProps(nextProps) {
+    console.log("Child2的nextProps为", nextProps);
+  }
+  shouldComponentUpdate(nextProps, nextState) {
+    console.log("Child2的shouldComponentUpdate为", nextProps, nextState);
+  }
+  componentDidMount() {
+    console.log("Child2被挂载");
+  }
+  render() {
+    return <div>我是Child1<\/div>;
+  }
+}
+ReactDOM.render(<Parent \/>, document.getElementById("example"));
+```
+总结一下本章节可以学到如下内容:
+<pre>
+1.父组件的componentDidMount在子组件componentDidMount之后调用(可以在子组件挂载后为当前的组件添加特定的值)。
+2.组件更新时候必先调用componentWillReceiveProps然后调用SCU，因此可以在这个方法中判断是否要修改组件的state(这样可以控制
+UI组件是否重新渲染)
+3.运行时候组件的props发生变化会触发componentWillReceiveProps，否则不会触发该方法。但是props和state任意一个变化，那么都会触发shouldComponentUpdate!
+4.只要父级组件被重新渲染了，不管该组件是否有props，比如Child2，都会触发该组件的componentWillReceiveProps方法
+</pre>
+
+具体可以参考下图:
+
+![](./images/life.png)
+
+上面的第一种情形还是很有用的，比如:
+```js
+import Script from "react-load-script";
+class Parent extends React.Component{
+  // 1.当前组件可以获取到子组件挂载完成后为当前组件实例设置的值。此处因为采用异步加载AMap.Geocoder模块，所以让地址的获取尽快执行!
+  // 2.当前组件挂载后，可以根据特定的省市区更新一次地图的位置
+componentDidMount(){
+  //3.等待Script脚本加载完成并实例化this.geocoder，因为此时setTimeout也是macrotask,所以
+  // 会等待window.AMap.plugin("AMap.Geocoder")加载完成
+  setTimeout(() => {
+      this.geocoder &&
+        this.geocoder.getLocation(
+          `${provinceName}${cityName}${areaName}${address}`,
+          (status, result) => {
+            if (status == "complete" && result.geocodes.length) {
+              this.marker.setPosition(result.geocodes[0].location);
+              this.map.setCenter(this.marker.getPosition());
+            }
+          }
+        );
+    }, 0);
+  }
+  handleScriptLoad = value => {
+    ++this.scriptLoaderCount;
+    if (this.scriptLoaderCount == 2) {
+      const _onClick = evt => {
+        console.log("点击的对象为:", evt);
+        const { lnglat } = evt;
+        const { lat, lng } = lnglat;
+      };
+      this.map = new AMap.Map("my__amp--container", {
+        resizeEnable: true,
+        zoom: 13,
+        center: [116.39, 39.9]
+      });
+      window.AMap.plugin("AMap.Geocoder", () => {
+        this.geocoder = new AMap.Geocoder({
+          //city: "010" //城市，默认：“全国”
+        });
+        this.marker = new AMap.Marker({
+          map: this.map,
+          bubble: true
+        });
+      });
+      window.AMap.event.addListener(this.map, "click", _onClick);
+    }
+  };
+  render(){
+    return <div>
+         <Script
+            url=" https://webapi.amap.com/maps?v=1.4.2&key=eafedbd654c4c2996d778d04f3cba020"
+            onLoad={this.handleScriptLoad}
+          />
+          <Script
+            url="https://webapi.amap.com/demos/js/liteToolbar.js"
+            onLoad={this.handleScriptLoad}
+          />
+    </div>
+  }
+}
+```
+此时当页面依赖的两个Script都加载完成以后，我们可以为当前组件添加this.map和this.marker,this.geocoder这样在当前组件被挂载的时候就可以直接使用了。
+
+上面的第二种情形也是很有用的,比如在一个UI组件中封装了如下的逻辑:
+```js
+shouldComponentUpdate(nextProps, nextState) {
+    // 父组件要求渲染
+    if (
+      this.props.vendorTimeReRender !== nextProps.vendorTimeReRender ||
+      !compare(this.state, nextState)
+    ) {
+      return true;
+    }
+    return false;
+}
+componentWillReceiveProps(nextProps) {
+    if (this.props.vendorTimeReRender !== nextProps.vendorTimeReRender) {
+        this.setState({
+          value: "week",
+          weekDate: defaultWeekData
+        });
+        if (this.props.onChange) {
+          this.props.onChange({
+            type: "week",
+            data: defaultWeekData
+          });
+        }
+      }
+    }
+  }
+```
+上面的逻辑是:componentWillReceiveProps接受到的两次vendorTimeReRender不一致我才会要求重新渲染，如果两次一致的情况下那么只有VendorTime组件本身setSate会要求重新渲染。即外层通过vendorTimeReRender控制，内层通过setState控制~
 
 
 参考资料：
