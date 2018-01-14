@@ -110,7 +110,9 @@
 
 
 ##### 2.5 其他部分
-[操作系统基础知识](./computer-QA/os-QA.md)
+[操作系统基础知识](./computer-QA/network-QA.md)
+
+[前端计算机网络基础知识](./computer-QA/os-QA.md)
 
 [markdown开发中遇到问题](./others/markdown-QA/readme.md)
 

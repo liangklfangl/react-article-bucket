@@ -1078,6 +1078,35 @@ componentWillReceiveProps(nextProps) {
 ```
 上面的逻辑是:componentWillReceiveProps接受到的两次vendorTimeReRender不一致我才会要求重新渲染，如果两次一致的情况下那么只有VendorTime组件本身setSate会要求重新渲染。即外层通过vendorTimeReRender控制，内层通过setState控制~
 
+#### 12.组件的值props/state都没有改变是否会reRender
+解答：很显然是不会!因为父级组件重新渲染了，那么子级组件肯定会重新渲染，因为SCU默认就是true。
+```js
+class Parent extends React.Component{
+    state={
+      counter:0
+    }
+    reRender=()=>{
+      this.setState({
+      counter:++this.state.counter
+    });
+    }
+    render(){
+      return <div onClick={this.reRender}>Parent组件{this.state.counter}
+    <Child/>
+    </div>
+    }
+  }
+  class Child extends React.Component{
+    render(){
+       console.log('child组件渲染了');
+      return <div>Component组件</div>
+    }
+  }
+    ReactDOM.render(
+      <div><Parent/></div>,
+      document.getElementById('example')
+    );
+```
 
 参考资料：
 

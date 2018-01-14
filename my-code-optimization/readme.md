@@ -69,3 +69,90 @@ var uniqueMap = arr.reduce(function(pre,cur){
 },{});
 ```
 此时我们发现所有的数组元素通过`component_name`已经去重了!
+
+#### 3.some/every提前退出循环
+```js
+let fulled = true;
+Object.keys(message.data).some((key, idx) => {
+  if (!message.data[key]) {
+    fulled = false;
+    // 只是退出some
+    return true;
+  }
+});
+if (!fulled) {
+  Toast.error(`请确认必填字段已经填写完成再保存!`);
+  return;
+}
+```
+上面的例子表示，只要message.data有一个值为空，那么就通过`return true`退出循环，但是此时并不是退出我们自己的函数，只是退出some函数而已，因此外层要通过fulled来判断。如果采用every只要return false就退出循环了:
+```js
+let fulled = true;
+Object.keys(message.data).every((key, idx) => {
+  if (!message.data[key]) {
+    fulled = false;
+    // 只是退出every
+    return false;
+  }
+});
+if (!fulled) {
+  Toast.error(`请确认必填字段已经填写完成再保存!`);
+  return;
+}
+```
+顾名思义，some/every表示只要有一个满足条件/每一个都满足条件，通过它就能退出循环了。当然也可以使用forEach:
+```js
+function test(){
+ var BreakException = {};
+  try {
+    [1, 2, 3].forEach(function(i) {
+      if (i === 2) throw BreakException;
+      console.log(i);
+    });
+  } catch (e) {
+    // 其他异常直接抛出
+    if (e !== BreakException) {
+      throw e;
+    } else {
+      return false;
+    }
+}
+ console.log("end");
+ // 这句代码永远不会执行，因为i==2的时候已经return false，函数test已经返回
+}
+```
+或者借助finally来实现:
+```js
+function example() { 
+    var returnState = false; // initialisation value is really up to the design
+    try { 
+        returnState = true; 
+    } 
+    catch {
+        returnState = false;
+    }
+    finally { 
+        return returnState; 
+    } 
+} 
+```
+注意，下面的代码返回false:
+```js
+function example() {
+    try {
+        return true;
+    }
+    finally {
+        return false;
+    }
+}
+```
+
+
+参考资料:
+
+[如何跳出forEach遍历](http://annvov.github.io/forEach.html)
+
+[JavaScript中forEach循环数组时，如何中途跳出循环？](https://segmentfault.com/q/1010000003866554/)
+
+[Javascript: try/catch return statement](https://stackoverflow.com/questions/3837994/javascript-try-catch-return-statement)
