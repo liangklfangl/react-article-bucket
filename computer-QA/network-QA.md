@@ -23,15 +23,27 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 ##### 1.2 HTTPS与HTTP共存的两种类型?
 主要包括主动和被动两种混合内容。
-- 主动混合内容
+- [主动混合内容](https://developers.google.com/web/fundamentals/security/prevent-mixed-content/fixing-mixed-content?hl=zh-cn)
   是最危险的混合内容，浏览器会自动和完全阻止掉这部分内容。对于那些能够**修改当前页面DOM**的内容都被称为主动混合内容，比如<script>,<link>,<iframe>,<object>标签，css选择器中使用的url(如background),或者常见的XMLHTTPRequest。这些内容能够读取用户的cookie并获取认证。
-- 被动混合内容
-  处理主动混合内容以外就是被动混合内容。浏览器对于这部分内容的处理策略是允许加载，但是会弹出一个警告。比如:images/audio/video等，他们虽然在页面中，但是无法修改当前页面的DOM。
 
-主动混合内容能够拦截http的请求，然后使用它们自己的内容来替换本来的内容。[这里](https://blog.cloudflare.com/fixing-the-mixed-content-problem-with-automatic-https-rewrites/)也提供了多个使用主动混合内容对网站攻击的例子。
+![](./images/passive.png)
+
+- [被动混合内容](https://www.w3.org/TR/upgrade-insecure-requests/#recommendations)
+  除了主动混合内容以外就是被动混合内容。浏览器对于这部分内容的处理策略是允许加载，但是会弹出一个警告。比如:images/audio/video等，他们虽然在页面中，但是无法修改当前页面的DOM。
+
+![](./images/active.png)
+
+主动混合内容能够拦截http的请求，然后使用它们自己的内容来替换本来的内容。[这里](https://blog.cloudflare.com/fixing-the-mixed-content-problem-with-automatic-https-rewrites/)也提供了多个使用主动混合内容对网站攻击的例子。注意：a标签不会导致mix content问题,因为它们使浏览器导航到新页面。 这意味着它们通常不需要修正,但是如果a标签用于懒加载的情况是特例:
+
+```html
+<a class="gallery" href="http://googlesamples.github.io/web-fundamentals/samples/discovery-and-distribution/avoid-mixed-content/puppy.jpg">
+  <img src="https://googlesamples.github.io/web-fundamentals/samples/discovery-and-distribution/avoid-mixed-content/puppy-thumb.jpg">
+</a>
+```
+上面的例子，img标签默认加载的是缩略图，而当页面真正出现在视口中的时候会使用a标签的href值替换img的src，这样就会存在mix content的问题。这个例子告诉我们:页面onload的时候可能并没有mix content问题，但是随着网页中各种操作点击将会产生动态加载资源的情况，这也是会引起mix content的!
 
 ##### 1.3 我是如何解决HTTP与HTTPS共存问题的?
-下面讲解下我是如何解决https/http共存的问题的(react-router单页应用),方案如下:
+下面讲解下我是如何解决https/http共存的问题的(react-router单页应用),(我遇到的问题就是**主动混合内容**，因为采用的是iframe嵌套别人的网页，该网页可以修改当前页面的DOM。别人https网页嵌入的http资源是image,所以是**被动混合内容**，不会直接被浏览器拦截掉),方案如下:
 
 - 方案一
 1.用户点击某一个按钮需要iframe打开别人的含有http链接的https页面时候，我使用window.open打开,代码如下:
@@ -53,9 +65,11 @@ back2https = () => {
 这种逻辑貌似很完美，但是由于上面的HSTS，当你使用window.open打开自己网站的http版本的时候却被chrome浏览器强制定向到https版本，所以这个方案就是无效的。于是有了方案2:
 
 - 方案二
-只需要在页面的html模板中添加了下面的meta标签即可([网上](https://stackoverflow.com/questions/34909224/http-to-https-mixed-content-issue)有说这个方案不能通过meta添加其实是不正确的)。
+只需要在页面的html模板中添加了下面的meta标签即可([网上](https://stackoverflow.com/questions/34909224/http-to-https-mixed-content-issue)有说这个方案不能通过meta添加，我在本地尝试的时候是可以的，但是发送到服务端后确实不可以)。
 ```html
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+<!-- 该指令指示浏览器在进行网络请求之前升级不安全的网址-->
+<!-- upgrade-insecure-requests 指令级联到 <iframe> 文档中，从而确保整个页面受到保护-->
 ```
 通过在单页应用的html模板中添加这个http头，整个网站的不安全资源全部转化为https了，当然，这个方案需要保证所有警告的资源的https版本是存在的才行。其他的方案你可以参考下参考文献。
 
@@ -234,3 +248,7 @@ OCSP(Online Certificate Status Protocol，在线证书状态协议)是维护`服
 [数字签名](https://baike.baidu.com/item/%E6%95%B0%E5%AD%97%E7%AD%BE%E5%90%8D/212550?fr=aladdin)
 
 [ 电商网站HTTPS实践之路（二）——系统改造篇](http://blog.csdn.net/zhuyiquan/article/details/69569253?locationNum=10&fps=1)
+
+[防止混合内容](https://developers.google.com/web/fundamentals/security/prevent-mixed-content/fixing-mixed-content?hl=zh-cn)
+
+[内容安全政策](https://developers.google.com/web/fundamentals/security/csp/?hl=zh-cn)
