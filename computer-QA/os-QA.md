@@ -113,7 +113,100 @@
 
 每一个文件描述符会与一个打开文件相对应，同时，`不同的文件描述符也会指向同一个文件`。相同的文件可以被不同的进程打开`也可以在同一个进程中被多次打开`。系统为每一个进程维护了一个文件描述符表，该表的值都是从0开始的，所以在不同的进程中你会看到相同的文件描述符，这种情况下相同文件描述符有可能指向同一个文件，也有可能指向不同的文件。
 
+#### 9.[网络IO模型：同步IO和异步IO，阻塞IO和非阻塞IO](https://www.cnblogs.com/Forever-Kenlen-Ja/p/4480718.html)
+- recvfrom函数
 
+[recvfrom](https://baike.baidu.com/item/recvfrom/4459985?fr=aladdin)用来接收远程主机经`指定的socket`传来的数据,并把数据传到由参数buf指向的内存空间,参数len为可接收数据的最大长度.参数flags一般设0,其他数值定义参考recv().参数from用来指定欲传送的网络地址,结构sockaddr请参考bind()函数.参数fromlen为sockaddr的结构长度。
+
+
+- recv函数
+
+[recv()](https://baike.baidu.com/item/recv%28%29/10082153?fr=aladdin&fromid=17200658&fromtitle=recv)
+这里只描述同步Socket的recv函数的执行流程。当应用程序调用recv函数时：
+（1）recv先`等待`s的发送缓冲中的数据被协议传送完毕，如果协议在传送s的发送缓冲中的数据时出现网络错误，那么recv函数返回SOCKET_ERROR；
+（2）如果s的发送缓冲中`没有数据`或者`数据被协议成功发送完毕后`，recv先检查套接字s的接收缓冲区，如果s接收缓冲区中没有数据或者协议正在接收数据，那么recv就一直等待，直到协议把数据接收完毕。当协议把数据接收完毕，recv函数就把s的接收缓冲中的数据`copy到buf中`（注意协议接收到的数据可能大于buf的长度，所以在这种情况下要调用几次recv函数才能把s的接收缓冲中的数据copy完。recv函数仅仅是copy数据，真正的接收数据是协议来完成的）；
+recv函数返回其实际copy的字节数。如果recv在copy时出错，那么它返回SOCKET_ERROR；如果recv函数在等待协议接收数据时网络中断了，那么它返回0。
+注意：在Unix系统下，如果recv函数在等待协议接收数据时网络断开了，那么调用recv的进程会接收到一个SIGPIPE信号，进程对该信号的默认处理是进程终止。
+
+- select函数
+
+ select是一个计算机函数，位于头文件#include <sys/select.h>。该函数用于监视**文件描述符**的变化情况——读写或是异常。
+```c
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, 
+    struct timeval *timeout) 
+//一个指向timeval结构的指针，用于决定select等待I/o的最长时间。如果为空将一直等待
+```
+ 这里，fd_set 类型可以简单的理解为按bit位标记句柄的队列，例如要在某fd_set 中标记一个值为16的句柄，则该fd_set的第16个bit位被标记为1。具体的置位、验证可使用FD_SET、FD_ISSET等宏实现。在select()函数中，readfds、writefds和exceptfds`同时作为输入参数和输出参数`。如果输入的readfds标记了16号句柄，则select()将检测16号句柄是否可读。在select()返回后，可以通过检查readfds有否标记16号句柄，来判断该“可读”事件是否发生。另外，用户可以设置timeout时间。
+
+ Select在Socket编程中还是比较重要的，可是对于初学Socket的人来说都不太爱用Select写程序，他们只是习惯写诸如`connect、accept、recv或recvfrom`这样的阻塞程序（所谓阻塞方式block，顾名思义，就是进程或是线程执行到这些函数时必须等待某个事件的发生，如果事件没有发生，进程或线程就被阻塞，**函数不能立即返回**）。可是使用Select就可以完成`非阻塞`（所谓非阻塞方式non-block，就是进程或线程执行此函数时不必非要等待事件的发生，一旦执行肯定返回，`以返回值的不同来反映函数的执行情况`，如果事件发生则与阻塞方式相同(从内核copy数据到用户进程)，若事件没有发生则返回一个代码来告知事件未发生，而进程或线程继续执行，所以效率较高方式工作的程序，它能够监视我们需要监视的文件描述符的变化情况——读写或是异常。
+
+- read/write非阻塞
+
+  在Linux中，我们可以使用select函数实现I/O端口的复用，传递给select函数的参数会告诉内核：
+  <pre>
+  •我们所关心的文件描述符
+  •对每个描述符，我们所关心的状态。(我们是要想从一个文件描述符中读或者写，还是关注一个描述符中是否出现异常)
+  •我们要等待多长时间。(我们可以等待无限长的时间，等待固定的一段时间，或者根本就不等待)
+  </pre>
+   **每次**select函数返回后，内核告诉我们一下信息：
+ <pre>
+  •对我们的要求已经做好准备的描述符的个数
+  •对于三种条件哪些描述符已经做好准备.(读，写，异常)
+ </pre>
+有了这些返回信息，我们可以调用合适的I/O函数(通常是 read 或 write)，并且这些函数[不会出现阻塞的情况](http://blog.csdn.net/u012317833/article/details/39343915)。如果在open一个设备时指定了`O_NONBLOCK`标志，read/write就不会阻塞。以read为例，如果设备暂时没有数据可读就返回-1，同时置errno为EWOULDBLOCK（或者EAGAIN，这两个宏定义的值相同），表示本来应该阻塞在这里（would block，虚拟语气），事实上并没有阻塞而是直接返回错误，调用者应该试着再读一次（again）。这种行为方式称为轮询（Poll），调用者只是查询一下，而不是阻塞在这里死等，这样可以同时监视多个设备:
+```js
+// 1.进程block，while(true)循环
+// 2.但是process是被select这个函数block，而不是被socket IO给block。因此select()与非阻塞IO类似
+// 3.select()接口可以同时对多个句柄进行读状态、写状态和错误状态的探测，所以可以很容易构建为多个客户端提供独立问答服务的
+// 服务器系统
+while(1) {  
+    // 4.当用户进程调用了select，那么整个进程会被block，而同时，kernel会“监视”所有select负责的socket，当任何一个socket中的
+    // 数据准备好了，select就会返回。这个时候用户进程再调用read操作，将数据从kernel拷贝到用户进程
+    非阻塞read(设备1);  
+    // 可以继续往下读取
+    if(设备1有数据到达)  
+        处理数据;  
+    非阻塞read(设备2);  
+    // 可以继续往下读取
+    if(设备2有数据到达)  
+        处理数据;  
+    ...  
+}  
+```
+如果read(设备1)是阻塞的，那么只要设备1没有数据到达就会`一直阻塞`在设备1的read调用上，即使设备2有数据到达也不能处理，使用非阻塞I/O就可以避免设备2得不到及时处理。
+
+非阻塞I/O有一个**缺点**，如果所有设备都一直没有数据到达，调用者需要`反复查询`做无用功，如果阻塞在那里，操作系统可以调度别的进程执行，就不会做无用功了。在使用非阻塞I/O时，通常不会在一个while循环中一直不停地查询（这称为**Tight Loop**），而是每延迟等待一会儿来查询一下，以免做太多无用功，在延迟等待的时候可以调度其它进程执行。
+```js
+while(1) {  
+    非阻塞read(设备1);  
+    if(设备1有数据到达)  
+        处理数据;  
+    非阻塞read(设备2);  
+    if(设备2有数据到达)  
+        处理数据;  
+    ...  
+    sleep(n);  
+}  
+```
+这样做的问题是，设备1有数据到达时可能不能及时处理，最长需延迟n秒才能处理，而且反复查询还是做了很多无用功。而select函数提供的最后一个参数可以`阻塞地`同时监视多个设备，还可以设定阻塞等待的超时时间，从而解决了这个问题。
+
+**阻塞IO（blocking IO）**过程如下:
+
+ ![](./images/blocking-io.jpg)
+
+**非阻塞IO（non-blocking IO）**过程如下:
+
+![](./images/none-blocking-io.jpg)
+
+**多路复用IO（IO multiplexing）/select/epoll**过程如下:
+
+![](./images/multipexing-io.jpg)
+
+**异步IO（Asynchronous I/O）**过程如下:
+
+![](./images/async-io.jpg)
+
+**同步IO/异步IO区别**:两者的区别就在于synchronous IO做”IO operation”的时候会将`process阻塞`。按照这个定义，之前所述的blocking IO，non-blocking IO，IO multiplexing都属于synchronous IO。有人可能会说，non-blocking IO并没有被block啊。这里有个非常“狡猾”的地方，定义中所指的”IO operation”是指真实的IO操作，就是例子中的recvfrom这个系统调用。non-blocking IO在执行recvfrom这个系统调用的时候，`如果kernel的数据没有准备好，这时候不会block进程。但是当kernel中数据准备好的时候，recvfrom会将数据从kernel拷贝到用户内存中，这个时候进程是被block的`。而asynchronous IO则不一样，当进程发起IO操作之后，就直接返回再也不理睬了，直到kernel发送一个信号，告诉进程说IO完成。在这整个过程中，`进程完全没有被block`。
 
 参考资料:
 
@@ -134,3 +227,19 @@
 [文件描述符](http://blog.csdn.net/captain_mxd/article/details/52153233)
 
 [每天进步一点点——Linux中的文件描述符与打开文件之间的关系](http://blog.csdn.net/cywosp/article/details/38965239)
+
+[转网络IO模型：同步IO和异步IO，阻塞IO和非阻塞IO](https://www.cnblogs.com/Forever-Kenlen-Ja/p/4480718.html)
+
+[select （Linux 网络编程）](https://baike.baidu.com/item/select/12504672?fr=aladdin)
+
+[linux select函数详解](https://www.cnblogs.com/ccsccs/articles/4224253.html)
+
+[阻塞和非阻塞read/write](http://blog.csdn.net/u012317833/article/details/39343915)
+
+[I/O多路复用技术（multiplexing）是什么？](https://www.zhihu.com/question/28594409)
+
+[Linux中epoll用法总结（转）](https://www.cnblogs.com/chunlinge/p/3394649.html)
+
+[Linux下的I/O复用与epoll详解](https://www.cnblogs.com/lojunren/p/3856290.html)
+
+[红黑树](https://baike.baidu.com/item/%E7%BA%A2%E9%BB%91%E6%A0%91/2413209?fr=aladdin)

@@ -809,8 +809,76 @@ const formLayout = {
 ```
 很显然label占据了6列，而内容占据了18列，内容就是Select框的宽度。所以，如果你将Select定宽了，那么后面的文字就可以同行显示了。
 
+#### 13.moment时间相关
+- 本日本周的时间获取
+```js
+generateTimeStamp = type => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const day = date.getDate();
+    const startWeek = moment()
+      .startOf("week")
+      .format("YYYY-MM-DD");
+    const endWeek = moment()
+      .endOf("week")
+      .format("YYYY-MM-DD");
+    if (type == 2) {
+      //今日
+      const startDateString = `${year}-${month}-${day} 00:00:00`;
+      const endDateString = `${year}-${month}-${day} 23:59:59`;
+      return {
+        startDate: startDateString,
+        endDate: endDateString
+      };
+    } else if (type == 3) {
+      //  本周
+      return {
+        startDate: `${startWeek} 00:00:00`,
+        endDate: `${endWeek} 23:59:59`
+      };
+    }
+  };
+```
 
-
+- moment类型与日期字符串，timeStamp之间的转化
+```js
+this.state = {
+  startDay: "",
+  endDay: ""
+}
+/**
+ * 修改数据
+ */
+timeChange = (value, str) => {
+    const [startTime, endTime] = value;
+    const startDay = moment(startTime).format("YYYY-MM-DD");
+    const endDay = moment(endTime).format("YYYY-MM-DD");
+    //其实可以通过str直接获取而不用通过moment转化，此处为了演示
+    this.setState({
+      startDay,
+      endDay
+    });
+  };
+<RangePicker 
+showTime={true} 
+onChange={this.timeChange}
+initialValue={[
+  moment(this.state.startDay, DATE_FORMAT_STRING),
+  moment(this.state.endDay, DATE_FORMAT_STRING)
+ ]}
+format={"YYYY-MM-DD"}/>
+```
+下面假如这个字段是存放到time上的:
+```js
+ const [startTime, endTime] = values.time;
+ const endTimeStamp = moment(startTime).unix();
+ const endTimeStamp1 = moment(startTime).format("X");
+ // 将moment类型转化为timestamp
+ queryParams.startTime = startTime.format("YYYY-MM-DD HH:mm:ss");
+ queryParams.endTime = endTime.format('YYYY-MM-DD HH:mm:ss');
+ // moment转化为日期字符串
+```
 
 
 
