@@ -877,7 +877,7 @@ format={"YYYY-MM-DD"}/>
  // 将moment类型转化为timestamp
  queryParams.startTime = startTime.format("YYYY-MM-DD HH:mm:ss");
  queryParams.endTime = endTime.format('YYYY-MM-DD HH:mm:ss');
- // moment转化为日期字符串
+ // moment转化为日期字符串,服务端的timestamp可以通过format转化为时间类型
 ```
 
 
