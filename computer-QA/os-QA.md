@@ -114,12 +114,12 @@
 每一个文件描述符会与一个打开文件相对应，同时，`不同的文件描述符也会指向同一个文件`。相同的文件可以被不同的进程打开`也可以在同一个进程中被多次打开`。系统为每一个进程维护了一个文件描述符表，该表的值都是从0开始的，所以在不同的进程中你会看到相同的文件描述符，这种情况下相同文件描述符有可能指向同一个文件，也有可能指向不同的文件。
 
 #### 9.[网络IO模型：同步IO和异步IO，阻塞IO和非阻塞IO](https://www.cnblogs.com/Forever-Kenlen-Ja/p/4480718.html)
-- recvfrom函数
+##### 9.1 recvfrom函数
 
 [recvfrom](https://baike.baidu.com/item/recvfrom/4459985?fr=aladdin)用来接收远程主机经`指定的socket`传来的数据,并把数据传到由参数buf指向的内存空间,参数len为可接收数据的最大长度.参数flags一般设0,其他数值定义参考recv().参数from用来指定欲传送的网络地址,结构sockaddr请参考bind()函数.参数fromlen为sockaddr的结构长度。
 
 
-- recv函数
+##### 9.2 recv函数
 
 [recv()](https://baike.baidu.com/item/recv%28%29/10082153?fr=aladdin&fromid=17200658&fromtitle=recv)
 这里只描述同步Socket的recv函数的执行流程。当应用程序调用recv函数时：
@@ -128,7 +128,7 @@
 recv函数返回其实际copy的字节数。如果recv在copy时出错，那么它返回SOCKET_ERROR；如果recv函数在等待协议接收数据时网络中断了，那么它返回0。
 注意：在Unix系统下，如果recv函数在等待协议接收数据时网络断开了，那么调用recv的进程会接收到一个SIGPIPE信号，进程对该信号的默认处理是进程终止。
 
-- select函数
+##### 9.3 select函数
 
  select是一个计算机函数，位于头文件#include <sys/select.h>。该函数用于监视**文件描述符**的变化情况——读写或是异常。
 ```c
@@ -140,7 +140,44 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 
  Select在Socket编程中还是比较重要的，可是对于初学Socket的人来说都不太爱用Select写程序，他们只是习惯写诸如`connect、accept、recv或recvfrom`这样的阻塞程序（所谓阻塞方式block，顾名思义，就是进程或是线程执行到这些函数时必须等待某个事件的发生，如果事件没有发生，进程或线程就被阻塞，**函数不能立即返回**）。可是使用Select就可以完成`非阻塞`（所谓非阻塞方式non-block，就是进程或线程执行此函数时不必非要等待事件的发生，一旦执行肯定返回，`以返回值的不同来反映函数的执行情况`，如果事件发生则与阻塞方式相同(从内核copy数据到用户进程)，若事件没有发生则返回一个代码来告知事件未发生，而进程或线程继续执行，所以效率较高方式工作的程序，它能够监视我们需要监视的文件描述符的变化情况——读写或是异常。
 
-- read/write非阻塞
+##### 9.4 poll函数
+
+下面是函数的签名:
+```c
+#include <poll.h>  
+// fds为pollfd结构体数组
+int poll(struct pollfd fds[], nfds_t nfds, int timeout)；  
+```
+结构体pollfd的值为:
+```c
+struct pollfd {  
+    int fd;  
+    //1.数组中每一个元素都有文件描述符
+    short events;  
+    // 2.每一个文件描述符都有检测的事件，是short类型。读，写，异常事件
+    short revents;  
+    // 3.每一个文件描述符检测后返回的事件
+};  
+```
+这个结构中fd表示文件描述符，events表示请求检测的事件，revents表示检测之后返回的事件，如果当某个文件描述符有状态变化时，revents的值就不为空。下面是**参数**的详细说明:
+<pre>
+(1)fds：存放需要被检测状态的Socket描述符;与select不同（select函数在调用之后，会**清空**检测socket描述符的数组），每当调用这个函数之后，系统不会清空这个数组，而是将有状态变化的描述符结构的**revents变量状态变化**，操作起来比较方便；
+
+(2)nfds：用于标记数组fds中的struct pollfd结构元素的总数量；
+
+(3)timeout：poll函数调用阻塞的时间，单位是MS（毫秒）
+
+</pre>
+下面是**返回值**的详细说明:
+<pre>
+(1)大于0：表示数组fds中有socket描述符的状态发生变化，或可以`读取`、或可以`写入`、或`出错`。并且返回的值表示这些状态有变化的socket描述符的总数量；此时可以对fds数组进行遍历，以寻找那些revents不空的socket描述符，然后判断这个里面有哪些事件以读取数据。
+
+(2)等于0：表示没有socket描述符有状态变化，并且调用超时。
+
+(3)小于0：此时表示有错误发生，此时全局变量errno保存错误码。
+</pre>
+
+##### 9.5 read/write非阻塞
 
   在Linux中，我们可以使用select函数实现I/O端口的复用，传递给select函数的参数会告诉内核：
   <pre>
@@ -208,6 +245,21 @@ while(1) {
 
 **同步IO/异步IO区别**:两者的区别就在于synchronous IO做”IO operation”的时候会将`process阻塞`。按照这个定义，之前所述的blocking IO，non-blocking IO，IO multiplexing都属于synchronous IO。有人可能会说，non-blocking IO并没有被block啊。这里有个非常“狡猾”的地方，定义中所指的”IO operation”是指真实的IO操作，就是例子中的recvfrom这个系统调用。non-blocking IO在执行recvfrom这个系统调用的时候，`如果kernel的数据没有准备好，这时候不会block进程。但是当kernel中数据准备好的时候，recvfrom会将数据从kernel拷贝到用户内存中，这个时候进程是被block的`。而asynchronous IO则不一样，当进程发起IO操作之后，就直接返回再也不理睬了，直到kernel发送一个信号，告诉进程说IO完成。在这整个过程中，`进程完全没有被block`。
 
+##### 9.6 select/poll/epoll的比较
+详细内容请见下面表格:
+
+| 系统调用                               | select                                                                                                                                                                                                                                                        | poll                                                                                                                                                                                                 | epoll                                                                                                                                                                |   |
+|----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
+| 事件集合                               | 1.用户通过3个参数分别传入感兴趣的可读，可写及异常等事件。内核通过对这些参数的在线修改来反馈其中的就绪事件。这使得用户每次调用select都要重置这3个参数。  
+2.int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,,struct timeval *timeout) |
+1.统一处理所有事件类型，因此只需要一个事件集参数。用户通过pollfd.events传入感兴趣的事件，内核通过修改pollfd.revents反馈其中就绪的事件。  
+
+2.int poll(struct pollfd fds[], nfds_t nfds, int timeout)； | 内核通过一个**事件表**直接管理用户感兴趣的所有事件。因此每次调用epoll_wait时，无需**反复传入**用户感兴趣的事件。epoll_wait系统调用的参数events仅用来反馈就绪的事件。 |   |
+| 应用程序索引就绪文件描述符的时间复杂度 | O(n)                                                                                                                                                                                                                                                          | O(n)                                                                                                                                                                                                 | O(1)                                                                                                                                                                 |   |
+| 最大支持文件描述符数                   | 一般有最大值限制                                                                                                                                                                                                                                              | 65535                                                                                                                                                                                                | 65535                                                                                                                                                                |   |
+| 内核实现和工作效率                     | 采用轮询方式检测就绪事件，时间复杂度：O(n)                                                                                                                                                                                                                    | 采用轮询方式检测就绪事件，时间复杂度：O(n)                                                                                                                                                           | 采用回调方式检测就绪事件，时间复杂度：O(1)                                                                                                                           |   |
+
+
 参考资料:
 
 [进程与线程的一个简单解释](http://www.ruanyifeng.com/blog/2013/04/processes_and_threads.html)
@@ -243,3 +295,5 @@ while(1) {
 [Linux下的I/O复用与epoll详解](https://www.cnblogs.com/lojunren/p/3856290.html)
 
 [红黑树](https://baike.baidu.com/item/%E7%BA%A2%E9%BB%91%E6%A0%91/2413209?fr=aladdin)
+
+[poll调用深入解析](http://blog.csdn.net/zmxiangde_88/article/details/8099049)

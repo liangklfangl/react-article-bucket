@@ -64,6 +64,40 @@ shallowCopy.c === obj.c;
 // true
 ```
 
+#### 3.用户快速通过键盘输入不发请求
+很多情况下会遇到用户快速输入的情况，如果每次输入都发送请求到服务端，那么会使得浏览器需要Event Loop执行大量的[callback队列](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md), 这对于浏览器UI渲染将会有一定的影响。同时，也会造成服务端接口被频繁调用，因此可以采用下面的方式解决:
+```js
+// Get the input box
+var textInput = document.getElementById('test-input');
+// Init a timeout variable to be used below
+var timeout = null;
+// Listen for keystroke events
+textInput.onkeyup = function (e) {
+    // Clear the timeout if it has already been set.
+    // This will prevent the previous task from executing
+    // if it has been less than <MILLISECONDS>
+    clearTimeout(timeout);
+    // Make a new timeout set to go off in 800ms
+    timeout = setTimeout(function () {
+        console.log('Input Value:', textInput.value);
+    }, 500);
+};
+```
+这种方式不仅仅可以用于网络请求，当在为input的onChange指定了事件，但是并不希望用户在input中能直接输入数据，可以采用下面的方式来完成,这样在用户快速输入的情况下是不会多次弹窗提示框的。
+```js
+onInputFocus = e => {
+    clearTimeout(this.timeout);
+    this.timeout = setTimeout(() => {
+      Dialog.confirm({
+        content: "无法直接输入，请点击修改或者添加按钮!",
+        title: "无法直接输入",
+        onOk: () => {
+          return;
+        }
+      });
+    }, 500);
+  };
+```
 
 参考资料:
 
@@ -72,3 +106,5 @@ shallowCopy.c === obj.c;
 [What is the most efficient way to deep clone an object in JavaScript?](https://stackoverflow.com/questions/122102/what-is-the-most-efficient-way-to-deep-clone-an-object-in-javascript)
 
 [Issues with Date() when using JSON.stringify() and JSON.parse()](https://stackoverflow.com/questions/11491938/issues-with-date-when-using-json-stringify-and-json-parse/11491993#11491993)
+
+[Wait for User to Stop Typing, Using JavaScript](https://schier.co/blog/2014/12/08/wait-for-user-to-stop-typing-using-javascript.html)
