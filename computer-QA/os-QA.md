@@ -140,68 +140,30 @@ recv函数返回其实际copy的字节数。如果recv在copy时出错，那么�
 
 
 ##### 9.3 select函数
-
- select是一个计算机函数，位于头文件#include <sys/select.h>。该函数用于监视**文件描述符**的变化情况——读写或是异常。
+##### 9.3.1 select函数简介
+select是一个计算机函数，位于头文件#include <sys/select.h>。该函数用于监视**文件描述符**的变化情况——读写或是异常。
 ```c
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, 
     struct timeval *timeout) 
 //一个指向timeval结构的指针，用于决定select等待I/o的最长时间。如果为空将一直等待
 ```
- 这里，fd_set 类型可以简单的理解为按bit位标记句柄的队列，例如要在某fd_set 中标记一个值为16的句柄，则该fd_set的第16个bit位被标记为1。具体的置位、验证可使用FD_SET、FD_ISSET等宏实现。在select()函数中，readfds、writefds和exceptfds`同时作为输入参数和输出参数`。如果输入的readfds标记了16号句柄，则select()将检测16号句柄是否可读。在select()返回后，可以通过检查readfds有否标记16号句柄，来判断该“可读”事件是否发生。另外，用户可以设置timeout时间。
+ 这里，fd_set 类型可以简单的理解为**按bit位标记句柄的队列**，例如要在某fd_set 中标记一个值为16的句柄，则该fd_set的第16个bit位被标记为1。具体的置位、验证可使用FD_SET、FD_ISSET等宏实现。在select()函数中，readfds、writefds和exceptfds`同时作为输入参数和输出参数`。如果输入的readfds标记了16号句柄，则select()将检测16号句柄是否可读。在select()返回后，可以通过检查readfds有否标记16号句柄，来判断该“可读”事件是否发生。另外，用户可以设置timeout时间。
 
  Select在Socket编程中还是比较重要的，可是对于初学Socket的人来说都不太爱用Select写程序，他们只是习惯写诸如`connect、accept、recv或recvfrom`这样的阻塞程序（所谓阻塞方式block，顾名思义，就是进程或是线程执行到这些函数时必须等待某个事件的发生，如果事件没有发生，进程或线程就被阻塞，**函数不能立即返回**）。可是使用Select就可以完成`非阻塞`（所谓非阻塞方式non-block，就是进程或线程执行此函数时不必非要等待事件的发生，一旦执行肯定返回，`以返回值的不同来反映函数的执行情况`，如果事件发生则与阻塞方式相同(从内核copy数据到用户进程)，若事件没有发生则返回一个代码来告知事件未发生，而进程或线程继续执行，所以效率较高方式工作的程序，它能够监视我们需要监视的文件描述符的变化情况——读写或是异常。
 
-##### 9.4 poll函数
-
-下面是函数的签名:
-```c
-#include <poll.h>  
-// fds为pollfd结构体数组
-int poll(struct pollfd fds[], nfds_t nfds, int timeout)；  
-```
-结构体pollfd的值为:
-```c
-struct pollfd {  
-    int fd;  
-    //1.数组中每一个元素都有文件描述符
-    short events;  
-    // 2.每一个文件描述符都有检测的事件，是short类型。读，写，异常事件
-    short revents;  
-    // 3.每一个文件描述符检测后返回的事件
-};  
-```
-这个结构中fd表示文件描述符，events表示请求检测的事件，revents表示检测之后返回的事件，如果当某个文件描述符有状态变化时，revents的值就不为空。下面是**参数**的详细说明:
+##### 9.3.2 select函数原理
+在Linux中，我们可以使用select函数实现I/O端口的复用，传递给select函数的参数会告诉内核：
 <pre>
-(1)fds：存放需要被检测状态的Socket描述符;与select不同（select函数在调用之后，会**清空**检测socket描述符的数组），每当调用这个函数之后，系统不会清空这个数组，而是将有状态变化的描述符结构的**revents变量状态变化**，操作起来比较方便；
-
-(2)nfds：用于标记数组fds中的struct pollfd结构元素的总数量；
-
-(3)timeout：poll函数调用阻塞的时间，单位是MS（毫秒）
-
+•我们所关心的文件描述符
+•对每个描述符，我们所关心的状态。(读/写/异常)
+•我们要等待多长时间。(我们可以等待无限长的时间，等待固定的一段时间，或者根本就不等待)
 </pre>
-下面是**返回值**的详细说明:
+**每次**select函数返回后，内核告诉我们一下信息：
 <pre>
-(1)大于0：表示数组fds中有socket描述符的状态发生变化，或可以`读取`、或可以`写入`、或`出错`。并且返回的值表示这些状态有变化的socket描述符的总数量；此时可以对fds数组进行遍历，以寻找那些revents不空的socket描述符，然后判断这个里面有哪些事件以读取数据。
-
-(2)等于0：表示没有socket描述符有状态变化，并且调用超时。
-
-(3)小于0：此时表示有错误发生，此时全局变量errno保存错误码。
+•对我们的要求已经做好准备的描述符的个数
+•对于三种条件哪些描述符已经做好准备.(读/写/异常)
 </pre>
-
-##### 9.5 read/write非阻塞
-
-  在Linux中，我们可以使用select函数实现I/O端口的复用，传递给select函数的参数会告诉内核：
-  <pre>
-  •我们所关心的文件描述符
-  •对每个描述符，我们所关心的状态。(我们是要想从一个文件描述符中读或者写，还是关注一个描述符中是否出现异常)
-  •我们要等待多长时间。(我们可以等待无限长的时间，等待固定的一段时间，或者根本就不等待)
-  </pre>
-   **每次**select函数返回后，内核告诉我们一下信息：
- <pre>
-  •对我们的要求已经做好准备的描述符的个数
-  •对于三种条件哪些描述符已经做好准备.(读，写，异常)
- </pre>
-有了这些返回信息，我们可以调用合适的I/O函数(通常是 read 或 write)，并且这些函数[不会出现阻塞的情况](http://blog.csdn.net/u012317833/article/details/39343915)。如果在open一个设备时指定了`O_NONBLOCK`标志，read/write就不会阻塞。以read为例，如果设备暂时没有数据可读就返回-1，同时置errno为EWOULDBLOCK（或者EAGAIN，这两个宏定义的值相同），表示本来应该阻塞在这里（would block，虚拟语气），事实上并没有阻塞而是直接返回错误，调用者应该试着再读一次（again）。这种行为方式称为轮询（Poll），调用者只是查询一下，而不是阻塞在这里死等，这样可以同时监视多个设备:
+有了这些返回信息，我们可以调用合适的I/O函数(通常是read或write)，并且这些函数[不会出现阻塞的情况](http://blog.csdn.net/u012317833/article/details/39343915)。如果在open一个设备时指定了`O_NONBLOCK`标志，read/write就不会阻塞。以read为例，如果设备暂时没有数据可读就返回-1，同时置errno为EWOULDBLOCK（或者EAGAIN，这两个宏定义的值相同），表示本来应该阻塞在这里（would block，虚拟语气），事实上并没有阻塞而是直接返回错误，调用者应该试着再读一次（again）。这种行为方式称为轮询（Poll），调用者只是查询一下，而不是阻塞在这里死等，这样可以同时监视多个设备:
 ```js
 // 1.进程block，while(true)循环
 // 2.但是process是被select这个函数block，而不是被socket IO给block。因此select()与非阻塞IO类似
@@ -238,6 +200,128 @@ while(1) {
 ```
 这样做的问题是，设备1有数据到达时可能不能及时处理，最长需延迟n秒才能处理，而且反复查询还是做了很多无用功。而select函数提供的最后一个参数可以`阻塞地`同时监视多个设备，还可以设定阻塞等待的超时时间，从而解决了这个问题。
 
+##### 9.4 poll函数
+###### 9.4.1 poll函数简介
+poll与select很类似，都是对描述符进行遍历，查看是否有描述符就绪。如果有就返回就绪文件描述符的个数。select系统调用最终会引发设备驱动中的poll函数被执行。
+###### 9.4.2 poll函数详解
+下面是函数的签名:
+```c
+#include <poll.h>  
+// fds为pollfd结构体数组
+int poll(struct pollfd fds[], nfds_t nfds, int timeout)；  
+```
+结构体pollfd的值为:
+```c
+struct pollfd {  
+    int fd;  
+    //1.数组中每一个元素都有文件描述符
+    short events;  
+    // 2.每一个文件描述符都有检测的事件，是short类型。读，写，异常事件
+    short revents;  
+    // 3.每一个文件描述符检测后返回的事件
+};  
+```
+这个结构中fd表示文件描述符，events表示请求检测的事件，revents表示检测之后返回的事件，如果当某个文件描述符有状态变化时，revents的值就不为空。下面是**参数**的详细说明:
+<pre>
+(1)fds：存放需要被检测状态的Socket描述符;与select不同（select函数在调用之后，会**清空**检测socket描述符的数组），每当调用这个函数之后，系统不会清空这个数组，而是将有状态变化的描述符结构的**revents变量状态变化**，操作起来比较方便；
+
+(2)nfds：用于标记数组fds中的struct pollfd结构元素的总数量；
+
+(3)timeout：poll函数调用阻塞的时间，单位是MS（毫秒）
+
+</pre>
+下面是**返回值**的详细说明:
+<pre>
+(1)大于0：表示数组fds中有socket描述符的状态发生变化，或可以`读取`、或可以`写入`、或`出错`。并且返回的值表示这些状态有变化的socket描述符的总数量；此时可以对fds数组进行遍历，以寻找那些revents不空的socket描述符，然后判断这个里面有哪些事件以读取数据。
+
+(2)等于0：表示没有socket描述符有状态变化，并且调用超时。
+
+(3)小于0：此时表示有错误发生，此时全局变量errno保存错误码。
+</pre>
+
+##### 9.5 epoll函数
+###### 9.5.1 epoll简介
+1.epoll是Linux内核为**处理大批量文件描述符**而作了改进的poll，是Linux下多路复用IO接口select/poll的增强版本，它能显著提高程序在`大量并发连接中只有少量活跃的情况下的系统CPU利用率`。
+
+2.epoll获取事件的时候无须**遍历**整个被侦听的描述符集，只要遍历那些被**内核IO事件异步唤醒而加入Ready队列的描述符集合**就行了。epoll除了提供select/poll那种IO事件的水平触发(下次调用select/poll后会再次通知)外，还提供了边缘触发（Edge Triggered），这就使得用户空间程序有可能缓存IO状态，减少epoll_wait/epoll_pwait的调用，提高应用程序效率。
+
+###### 9.5.2 epoll_create函数
+下面仔细分析下epoll的三个函数,首先是**epoll_create**:
+```c
+int epoll_create(int size)
+// 返回值是fd
+```
+创建一个epoll的句柄，size用来告诉`内核`这个监听的数目一共有多大。这个参数不同于select()中的第一个参数，给出最大监听的fd+1的值。需要注意的是，当创建好epoll句柄后，它是会**占用一个fd值**，在linux下如果查看/proc/进程id/fd/，是能够看到这个fd的，所以在使用完epoll后，必须调用close()关闭，否则可能导致fd被耗尽。自从Linux2.6.8开始，size参数被忽略，但是依然要大于0。(注意:在内核实现中epoll是根据`每个`fd上面的callback函数实现的。那么，只有`“活跃”`的socket才会主动的去调用callback函数，其他idle状态socket则不会，在这点上，epoll实现了一个“伪”AIO，因为这时候推动力在`os内核`)。
+
+###### 9.5.3 epoll_ctl函数
+下面是**epoll_ctl**函数:
+```c
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)
+// 第一个参数是epoll_create返回值，它可以监听size的文件描述符
+// 第二个参数表示操作
+// 第三个参数表示需要监听的fd
+// 第四个参数告诉内核需要监听的事件
+```
+epoll的事件注册函数，它不同于select是在调用时告诉内核要监听什么类型的事件，而是在这里**先**注册要监听的事件类型。第一个参数是epoll_create的`返回值`，第二个参数表示`操作`，用三个宏来表示：
+<pre>
+EPOLL_CTL_ADD:注册新的fd到epfd(create方法返回值，占用一个文件描述符)中；
+EPOLL_CTL_MOD:修改已经注册的fd的监听事件；
+EPOLL_CTL_DEL:从epfd中删除一个fd；
+</pre>
+第三个参数是需要监听的fd，第四个参数是告诉内核需要监听的事件，struct epoll_event结构如下:
+```c
+struct epoll_event {
+__uint32_t events; 
+/*Epoll事件类型，通过下面的宏表示*/
+epoll_data_t data; 
+/*用户数据变量*/
+};
+```
+events可以是以下几个宏的集合:
+<pre>
+EPOLLIN:表示对应的文件描述符可以读(包括对端SOCKET正常关闭)
+EPOLLOUT:表示对应的文件描述符可以写
+EPOLLPRI:表示对应的文件描述符有紧急的数据可读(这里应该表示有带外数据到来)
+EPOLLERR:表示对应的文件描述符发生错误；
+EPOLLHUP:表示对应的文件描述符被挂断；
+EPOLLET:将EPOLL设为边缘触发(Edge Triggered)模式，这是相对于水平触发(Level Triggered)来说的。
+EPOLLONESHOT:只监听一次事件，当监听完这次事件之后，如果还需要继续监听这个socket的话，需要再次把这个socket加入到EPOLL队列里。
+</pre>
+
+###### 9.5.4 epoll_wait函数
+```c
+int epoll_wait(int epfd, struct epoll_event * events, int maxevents, int timeout)
+// events:表示从内核获取到的事件集合
+// maxevents:每次能处理的最大事件数，该值不能大于epoll_create的size
+// timeout:超时时间（毫秒，0会立即返回，-1将不确定)
+// 返回值:需要处理的事件数目，如返回0表示已超时
+```
+该函数等待事件的产生，类似于select()调用。参数events表示从内核得到事件的集合，maxevents表示每次能处理的最大事件数，告之内核这个events有多大，这个maxevents的值不能大于创建epoll_create()时的size，参数timeout是超时时间（毫秒，0会立即返回，-1将不确定，也有说法说是永久阻塞）。该函数返回需要处理的事件数目，如返回0表示已超时。
+
+###### 9.5.5 epoll具体原理(事件通知,执行回调,而不是遍历查询)
+要深刻理解epoll，首先得了解epoll的三大关键要素：**mmap、红黑树、链表**。
+
+epoll是通过`内核`与`用户空间`mmap同一块内存实现的。mmap将用户空间的一块地址和内核空间的一块地址同时映射到相同的一块物理内存地址（不管是用户空间还是内核空间都是虚拟地址，最终要通过地址映射映射到物理地址），使得这块物理内存对内核和对用户均可见，减少用户态和内核态之间的数据交换。内核可以直接看到epoll监听的句柄，效率高。
+
+**一方面**:红黑树将存储epoll所监听的**套接字(套接字本身通过红黑树存储)**。上面mmap出来的内存如何保存epoll所监听的套接字，必然也得有一套数据结构，epoll在实现上采用红黑树去存储所有套接字，当添加或者删除一个套接字时（epoll_ctl），都在红黑树上去处理，红黑树本身插入和删除性能比较好，时间复杂度O(logN)。因此添加或者删除套接字通过红黑树解决了性能问题。
+
+**另一方面**:通过epoll_ctl函数添加进来的事件都会被放在**红黑树的某个节点**(套接字)内，所以，重复添加是没有用的。当把事件添加进来的时候时候会完成关键的一步，那就是该事件都会与相应的**设备（网卡）驱动程序建立回调关系**，当相应的事件发生后，就会调用这个回调函数，该回调函数在内核中被称为：`ep_poll_callback`,这个回调函数其实就所把这个事件添加到rdllist这个双向链表中。一旦有事件发生，epoll就会将该事件添加到双向链表中。那么当我们调用epoll_wait时，epoll_wait只需要检查rdlist双向链表中是否有存在注册的事件，效率非常可观。这里也需要将发生了的事件复制到用户态内存中即可。
+
+![](./images/epoll-the.jpg)
+
+epoll_wait的工作流程：
+<pre>
+1.epoll_wait调用ep_poll，当rdlist为空（无就绪fd）时挂起当前进程，直到rdlist不空时进程才被唤醒
+2.文件fd状态改变（buffer由不可读变为可读或由不可写变为可写），导致相应fd上的回调函数ep_poll_callback()被调用
+3.ep_poll_callback将相应fd对应epitem加入rdlist，导致rdlist不空，进程被唤醒，epoll_wait得以继续执行
+4.ep_events_transfer函数将rdlist中的epitem拷贝到txlist中，并将rdlist清空
+5.ep_send_events函数(很关键)，它扫描txlist中的每个epitem，调用其关联的fd对应的poll方法。此时对poll的调用仅仅是取得fd上较新的events（防止之前events被更新），之后将取得的events和相应的fd发送到用户空间（封装在struct epoll_event，从而epoll_wait返回）
+</pre>
+
+###### 9.5.6 epoll与AIO
+epoll的**epoll_wait()**方法是阻塞操作。当前线程等待事件的发生，事件发生以后交由不同的程序/函数处理，所以需要事件轮询操作(见9.6下图)。而在AIO中，回调函数的`地址`被传递给系统内核，而在事件发生后回调交给内核处理，内核会通过事件机制来通知应用程序。而AIO也是有一点问题:回调函数的代码是在系统线程中执行，同时也处于系统调用栈的顶部。这样可能会产生意想不到的结果。
+
+##### 9.6 阻塞IO/非阻塞IO/多路复用IO/异步IO图解
 **阻塞IO（blocking IO）**过程如下:
 
  ![](./images/blocking-io.jpg)
@@ -246,11 +330,11 @@ while(1) {
 
 ![](./images/none-blocking-io.jpg)
 
-**多路复用IO（IO multiplexing）/select/epoll**过程如下:
+**多路复用IO（IO multiplexing）/select/poll/epoll**过程如下:
 
 ![](./images/multipexing-io.jpg)
 
-**异步IO（Asynchronous I/O）**过程如下:
+**异步IO(Asynchronous I/O)**过程如下:
 
 ![](./images/async-io.jpg)
 
@@ -261,7 +345,12 @@ while(1) {
 
 ![](./images/epollpluspoll.png)
 
+#### 10.内核
+内核是`操作系统最基本的部分`。它是为众多应用程序提供对计算机**硬件的安全访问**的一部分软件，这种访问是有限的，并且内核决定一个程序在什么时候对某部分硬件操作多长时间。内核的分类可分为单内核和双内核以及微内核。严格地说，内核并不是计算机系统中必要的组成部分。
 
+内核，是一个`操作系统的核心`。是基于硬件的第一层软件扩充，提供操作系统的最基本的功能，是操作系统工作的基础，它负责管理系统的进程、内存、设备驱动程序、文件和网络系统，决定着系统的性能和稳定性
+
+现代操作系统设计中，为减少系统本身的开销，往往将一些与硬件紧密相关的（如中断处理程序、设备驱动程序等）、基本的、公共的、运行频率较高的模块（如时钟管理、进程调度等）以及关键性数据结构独立开来，使之`常驻内存`，并对他们进行保护。通常把这一部分称之为操作系统的内核。
 
 
 参考资料:
@@ -301,3 +390,11 @@ while(1) {
 [红黑树](https://baike.baidu.com/item/%E7%BA%A2%E9%BB%91%E6%A0%91/2413209?fr=aladdin)
 
 [poll调用深入解析](http://blog.csdn.net/zmxiangde_88/article/details/8099049)
+
+[epoll百度百科](https://baike.baidu.com/item/epoll/10738144?fr=aladdin)
+
+[带外数据](https://baike.baidu.com/item/%E5%B8%A6%E5%A4%96%E6%95%B0%E6%8D%AE)
+
+[epoll函数](https://baike.baidu.com/item/epoll%E5%87%BD%E6%95%B0/10792875?fr=aladdin)
+
+[What's the difference between event-driven and asynchronous? Between epoll and AIO?](https://stackoverflow.com/questions/5844955/whats-the-difference-between-event-driven-and-asynchronous-between-epoll-and-a)

@@ -880,7 +880,62 @@ format={"YYYY-MM-DD"}/>
  // moment转化为日期字符串,服务端的timestamp可以通过format转化为时间类型
 ```
 
+#### 14.如何引入彩色IconFont
+- iconFont网站添加
 
+通过在iconfont网站加入相应的svg图片,直接点击下载(选择svg版本)，然后使用React组件添加。比如下面的地理位置图标:
+```js
+import React from "react";
+export default class LocationIcon extends React.Component {
+  render() {
+    return (
+      <svg
+        width="6px"
+        height="9px"
+        viewBox="0 0 6 9"
+        version="1.1"
+        xmlns="http://www.w3.org/2000/svg"
+        xmlnsXlink="http://www.w3.org/1999/xlink"
+      >
+        <g
+          id="Page-1"
+          stroke="none"
+          strokeWidth="1"
+          fill="none"
+          fillRule="evenodd"
+        >
+          <g
+            id="消息号-copy-7"
+            transform="translate(-768.000000, -502.000000)"
+            fillRule="nonzero"
+            fill="#FFFFFF"
+          >
+            <g id="Group-5" transform="translate(229.000000, 64.000000)">
+              <g
+                id="Group-6-Copy"
+                transform="translate(111.000000, 358.000000)"
+              >
+                <g id="门店优惠卷" transform="translate(418.000000, 22.000000)">
+                  <g
+                    id="location_fill"
+                    transform="translate(7.761600, 56.448000)"
+                  >
+                    <path
+                      d="M5.13864324,2.4696 C3.6731634,2.4696 2.48072432,3.775401 2.48072432,5.3802 C2.48072432,6.929433 4.8624613,9.6802146 4.96370385,9.796374 C5.00937173,9.8490294 5.07267853,9.8784 5.13864324,9.8784 C5.14033465,9.8784 5.14226768,9.8784 5.14395908,9.8784 C5.21185683,9.8784 5.27588851,9.8437374 5.32058987,9.7879068 L6.14526963,8.7533208 C7.24105711,7.2834678 7.79656216,6.1485984 7.79656216,5.3802 C7.79656216,3.775401 6.60412308,2.4696 5.13864324,2.4696 Z M5.13864324,6.7032 C4.47126397,6.7032 3.93049828,6.1110252 3.93049828,5.3802 C3.93049828,4.6493748 4.47126397,4.0572 5.13864324,4.0572 C5.80602252,4.0572 6.34678821,4.6493748 6.34678821,5.3802 C6.34678821,6.1110252 5.80602252,6.7032 5.13864324,6.7032 Z"
+                      id="Shape"
+                    />
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+    );
+  }
+}
+```
+但是要注意xmlns:xlink等属性需要替换为`xmlnsXlink`等驼峰属性。
 
 
 参考资料:
