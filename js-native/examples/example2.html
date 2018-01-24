@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+ <iframe id="_if3" scrolling="no" style="width : 100%" ></iframe>
+<script>
+  (function() {
+    var oIf = document.getElementById('_if3'),
+      win = oIf.contentWindow,
+      doc = oIf.contentWindow.document;
+    doc.write('<html><head></head><body><script> google_ad_client = "pub-1821434700708607"; google_ad_slot = "8156194155"; google_ad_width = 200; google_ad_height = 200; </sc' + 'ript><script src="http://pagead2.googlesyndication.com/pagead/show_ads.js"></sc' + 'ript>');
+    if(doc.all) {
+      // (1)假如我们知道加载的广告完成后会产生一个iframe标签，那么我们可以查看iframe完成否
+      var ifArr = doc.getElementsByTagName('iframe');
+      _check();
+      return;
+      function _check() {
+        if(ifArr.length) {
+          doc.close();
+          // (2)关闭iframe文档流
+          _height();
+          return;
+        }
+        setTimeout(_check, 100);
+      }
+    }
+    win.onload = _height;
+    doc.write('<script> document.close(); </sc' + 'ript><body></html>');
+    function _height() {
+      oIf.style.height = doc.body.scrollHeight + 'px';
+    }
+  })();
+  </script>
+<script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js"></script>
+</body>
+</html>

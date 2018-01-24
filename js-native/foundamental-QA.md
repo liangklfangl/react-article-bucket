@@ -112,6 +112,27 @@ setInterval(function(){
 但是文中没有对这个图做细致的区分，所以我在这里作下具体的分析，并提供相应的实例:
 
 ##### 4.1 Script in Iframe
+iframe和主页面中的其他资源都是并行加载的。因为iframe常用于在页面中加入另一个页面，而该种加载js的方式就是利用了iframe的这种特性。比如下面的代码:
+```html
+<iframe src='A.html' width=0 height=0 frameborder=0 id=frame1></iframe>
+```
+这种方式使用A.html而不是A.js，这是必须的，因为iframe默认需要加载一个文档而不是一个js文件。因此你需要将外链的script脚本转换化为HTML文档中的内联脚本。和XHR Eval和XHR Injection方式一样，iframe的URL需要和主页面是同源的，因为XSS(Cross-site security)限制JS访问不同源的父文档或者子文档。即使主页面和iframe来源于同一个域，你仍然需要修改你的js来在两个文档之间建立联系。一个方法就是通过frames数组/document.getElementById来访问iframe本身。比如下面的代码:
+```js
+// access the iframe from the main page using "frames"
+window.frames[0].createNewDiv();
+// access the iframe from the main page using "getElementById"
+document.getElementById('frame1').contentWindow.createNewDiv();
+```
+而子级iframe通过parent来访问父级页面:
+```js
+// access the main page from within the iframe using "parent"
+function createNewDiv() {
+    var newDiv = parent.document.createElement('div');
+    parent.document.body.appendChild(newDiv);
+}
+```
+下面再该出完成的实例:
+
 将你的script代码包裹到一个iframe中，然后以iframe的方式进行加载:
 ```html
 <iframe id="frameID" width="200" height="200"></iframe>
@@ -180,6 +201,8 @@ $(iframeDoc).ready(function (event) {
     }
   })();
 <\/script>
+<script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js"><\/script>
+// 6.即使这里没有加载jquery，通过iframe加载的js也是有jquery的
 ```
 你可以查看[example1](./examples/example1.html),同时在页面中查看瀑布流，你也可以看到页面的js和iframe中的js(第三方广告的js)是并行加载的:
 
@@ -257,10 +280,102 @@ $(iframeDoc).ready(function (event) {
   })();
 </script>
 ```
+这里例子的详细说明可以参考[这里](http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6)。
 
+##### 4.2 XHR Eval
+该方法的完整实例如下:
+```js
+var xhrObj = getXHRObject();
+xhrObj.onreadystatechange =function() {
+        if ( xhrObj.readyState == 4 && 200 == xhrObj.status ) {
+            eval(xhrObj.responseText);
+        }
+};
+xhrObj.open('GET', 'A.js', true); 
+//和主页面必须是同源的
+xhrObj.send('');
+function getXHRObject() {
+  var xhrObj = false;
+  try {
+      xhrObj = new XMLHttpRequest();
+  }
+  catch(e){
+      var progid = ['MSXML2.XMLHTTP.5.0', 'MSXML2.XMLHTTP.4.0',
+'MSXML2.XMLHTTP.3.0', 'MSXML2.XMLHTTP', 'Microsoft.XMLHTTP'];
+      for ( var i=0; i < progid.length; ++i ) {
+          try {
+              xhrObj = new ActiveXObject(progid[i]);
+          }
+          catch(e) {
+              continue;
+          }
+          break;
+      }
+  }
+  finally {
+      return xhrObj;
+  }
+}
+```
+这个方法的明显特点就是**XMLHttpRequest**必须是同源策略。
 
-https://www.npmjs.com/package/iframe-script-loader
-http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6
+##### 4.3 XHR Injection
+```js
+var xhrObj = getXHRObject(); 
+// defined in the previous example
+xhrObj.onreadystatechange =
+  function() {
+      if ( xhrObj.readyState == 4 ) {
+          var scriptElem = document.createElement('script');
+          document.getElementsByTagName('head')[0].appendChild(scriptElem);
+          scriptElem.text = xhrObj.responseText;
+      }
+  };
+xhrObj.open('GET', 'A.js', true); 
+// must be same domain as main page
+xhrObj.send('');
+```
+XHR Injection和XHR Eval一样使用XMLHttpRequest来获取js文件，但是他的不同之处在于不是使用eval而是通过创建一个script元素插入到DOM中，同时把xhr.responseText的作为script元素的text属性而完成数据加载。但是使用XHR Injection的方式明显要比eval的方法更快!
+
+##### 4.4 Script DOM Element
+该方式通过创建一个script元素，同时把src属性设置为一个URL。比如下面的代码:
+```js
+var scriptElem = document.createElement('script');
+scriptElem.src = 'http://anydomain.com/A.js';
+document.getElementsByTagName('head')[0].appendChild(scriptElem);
+```
+通过这种创建script标签的方式不会阻碍其他组件的下载。这种方式可以允许你从另外一个域名加载数据，因为script本身不具有同源特性。
+
+##### 4.5 Script Defer
+IE支持script的defer属性，该属性告诉浏览器当前脚本是异步加载的。这在脚本本身没有调用**document.write**，同时也不被其他脚本依赖的情况下很有用。当IE加载defer属性的脚本的时候，其允许其他资源同步加载。
+```html
+<script defer src='A.js'></script>
+```
+但是这种方式只在IE以及高版本的浏览器中适用。
+
+##### 4.6 document.write Script Tag
+这种模式，和script的defer一样，可以在IE中并行加载script资源。该方式虽然可以让js资源并行加载，但是[其他资源在script加载的过程中却仍然是阻塞的](https://www.safaribooksonline.com/library/view/even-faster-web/9780596803773/ch04.html)。
+```js
+document.write("<script type='text/javascript' src='A.js'><\/script>");
+```
+其中jquery中加载js文件是通过[$.ajax](http://blog.csdn.net/liangklfang/article/details/49638215)来完成的，你可以阅读我的这个文章。
+
+而上面的方法的选择可以参考下面的图:
+
+![](./images/xhr.png)
+
+##### 4.7 百度首页并行加载js方式
+回到前面百度的例子，那么他是如何实现并行加载的呢?
+```js
+var s="https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/global/js/all_async_search_441981b.js",n="/script";document.write("<script src='"+s+"'><"+n+">")
+// 1.通过document.write方法
+function(){var e="https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/plugins/every_cookie_4644b13.js";("Mac68K"==navigator.platform||"MacPPC"==navigator.platform||"Macintosh"==navigator.platform||"MacIntel"==navigator.platform)&&(e="https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/plugins/every_cookie_mac_82990d4.js"),setTimeout(function(){$.ajax({url:e,cache:!0,dataType:"script"})},0)
+// 2.通过$.ajax方法加载js脚本。1，2的脚本可以并行加载......
+// 3.在上面的all_async_search_441981b.js中又并行加载了下面几个资源
+Fe=$.ajax({dataType:"script",cache:!0,url:1===bds.comm.logFlagSug?"https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/sug/js/bdsug_async_sam_sug_a97d823.js":"https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/sug/js/bdsug_async_68cc989.js"})
+// 3.1 通过$.ajax加载
+```
+所以从整体来说，在百度首页的同步加载js中以document.write与$.ajax居多。
 
 #### 4.iframe跨域通信通用方法
 [iframe跨域通信的通用解决方案-第二弹!（终极解决方案）](http://www.alloyteam.com/2013/11/the-second-version-universal-solution-iframe-cross-domain-communication/)
@@ -298,3 +413,9 @@ view-source:https://www.baidu.com/
 [为Iframe注入脚本的不同方式比较](http://harttle.land/2016/04/14/iframe-script-injection.html)
 
 [用JavaScript把script tag塞进iframe加快网页载入速度](http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6)
+
+[Chapter 4. Loading Scripts Without Blocking](https://www.safaribooksonline.com/library/view/even-faster-web/9780596803773/ch04.html)
+
+[Loading Scripts Without Blocking](http://www.stevesouders.com/blog/2009/04/27/loading-scripts-without-blocking/)
+
+[Coupling asynchronous scripts](http://www.stevesouders.com/blog/2008/12/27/coupling-async-scripts/)
