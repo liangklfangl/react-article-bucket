@@ -4,7 +4,7 @@
 #### 1.Event Loop不是在一个独立的线程中执行
 **误解**:很多人都认为:nodejs有一个主线程，该线程用于执行用户编写的代码，而另一个线程用于执行Event Loop。每一次异步的操作出现的时候，主线程就会将它交给Event Loop线程，而当该异步操作完成的时候，Event Loop会将回调的执行交给主线程。其实并不是这样的:
 
-**正解**:其实执行用户代码的线程和执行Event Loop的线程是同一个。而回调函数的执行其实是通过Event Loop来实现的。
+**正解**:其实执行用户代码的线程和执行Event Loop的线程是[同一个](https://www.tuicool.com/articles/vyM77n)。而回调函数的执行其实是通过Event Loop来实现的。
 
 #### 2.并不是所有的异步操作都需要通过线程池
 **误解**:所有的异步操作，比如和文件系统打交道，Http请求或者数据库访问都会通过libuv提供的线程池来完成。
@@ -501,3 +501,5 @@ V8引擎是通过C++编写的，而libuv创建一个抽象层，其提供了很�
 [Object.observe()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/observe)
 
 [Promise method](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise)
+
+[Is NodeJs Single Threaded – Let’s Find Out](https://www.tuicool.com/articles/vyM77n)

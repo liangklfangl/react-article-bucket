@@ -874,10 +874,15 @@ format={"YYYY-MM-DD"}/>
  const [startTime, endTime] = values.time;
  const endTimeStamp = moment(startTime).unix();
  const endTimeStamp1 = moment(startTime).format("X");
- // 将moment类型转化为timestamp
+// 1.将moment类型转化为timestamp，如果是毫秒级别的要✖️1000
+// 一般服务端下发的createTime,modifiedTime都是毫秒级别的
  queryParams.startTime = startTime.format("YYYY-MM-DD HH:mm:ss");
  queryParams.endTime = endTime.format('YYYY-MM-DD HH:mm:ss');
- // moment转化为日期字符串,服务端的timestamp可以通过format转化为时间类型
+// 2.moment转化为日期字符串,此时startTime,endTime必须是moment类型
+const DATE_FORMAT = "YYYY-MM-DD HH:mm:ss";
+const startTime = moment(+item.startTimeStamp).format(DATE_FORMAT),
+const endTime  =  moment(+item.endTimeStamp).format(DATE_FORMAT)
+//3.此时服务端下发timeStamp，且必须转化为数字类型才行
 ```
 
 #### 14.如何引入彩色IconFont
@@ -936,6 +941,10 @@ export default class LocationIcon extends React.Component {
 }
 ```
 但是要注意xmlns:xlink等属性需要替换为`xmlnsXlink`等驼峰属性。
+
+
+#### 16.visible为什么要redux控制
+否则页面不知道接口是否已经正常还是失败了，这样前端都会修改可见性的弹窗
 
 
 参考资料:

@@ -101,12 +101,192 @@ setInterval(function(){
 - setInterval的执行间隔时间可能非常短
  setInterval如果本身的执行时间很长(超过指定的interval间隔)，那么多个回调函数之间可能会间隔很短时间执行(其实只有两个，因为setInterval最多有一个等待执行，注意是`等待`执行，在执行的不算)。
 
+#### 4.如何使得页面的js文件能够并行加载
+下面是百度首页并行加载js的图，看到这里我忽然对js并行加载产生了浓厚的兴趣。
+![](./images/async-js.png)
+
+于是google到了[stevesouders大神](http://www.stevesouders.com/blog/2009/04/27/loading-scripts-without-blocking/)关于并行加载js文件的系列文章。文中引入了下面的图:
+
+![](./images/parall-load-js.png)
+
+但是文中没有对这个图做细致的区分，所以我在这里作下具体的分析，并提供相应的实例:
+
+##### 4.1 Script in Iframe
+将你的script代码包裹到一个iframe中，然后以iframe的方式进行加载:
+```html
+<iframe id="frameID" width="200" height="200"></iframe>
+```
+下面是js部分:
+```js
+var iframe = document.getElementById('frameID'),
+    iframeWin = iframe.contentWindow || iframe,
+    iframeDoc = iframe.contentDocument || iframeWin.document;
+window.myId = 'parent';
+// <1>父级窗口设置myId属性，iframe中无法获取到window.myId的值
+//  即iframe脚本的运行上下文与父容器隔离
+window.hello = function () {
+    alert('hello from owner!');
+};
+// <4>ready,onload后document.write会重写iframe内容
+$(iframeDoc).ready(function (event) {
+    iframeDoc.open();
+    iframeDoc.write('iframe here');
+    iframeDoc.write('\<script>alert("hello from iframe!");\<\/script>');
+    iframeDoc.write('\<script>parent.hello();\<\/script>');
+    iframeDoc.write('\<script>alert(window.myId);\<\/script>');
+    iframeDoc.write('\<script>alert(parent.myId);\<\/script>');
+    // <2>iframe无法通过window直接访问父级iframe上的window属性，必须通过parent才行
+    iframeDoc.close();
+    // <3>通过DOM API互操作，要求iframe与父容器是同域的。 与前面所有DOM操作的注入方式
+    // 同样会存在XSS安全问题
+});
+```
+这种情况一般有什么用呢？其实典型的使用场景就是广告，比如第三方提供的广告是一个js文件的情况。因为浏览器一定要把外部的js抓回来并且执行完，才会继续载入网页下面的部分。如果对方放置js 的主机连线速度很慢，就会发生网页载入到一半卡住等对方的情况，因此无法直接把js通过script标签的src引入。
+
+这种情况`最简单`的解决方式就是自己另外写一个网页，把对方提供的<script src=""><\/script>放进去，在侧栏改用<iframe>嵌入自己写的网页。但这个方法的问题就是你要有**网页空间**放置你写的网页。那么有没有办法不用浏览器**等待**把广告的js抓取回来才继续解析后面的网页，同时也不用自己在网页中添加一个广告空间(比如div)来存放自己的内容呢？我们看看下面的方法:
+
+```js
+<iframe id="_if1" scrolling="no" style="width : 100%" ><\/iframe>
+<script>
+  (function() {
+    var iframe = document.getElementById('_if1'),
+      iframeWin = iframe.contentWindow || iframe ,
+      iframDoc = iframeWin.document || iframe.contentDocument;
+    iframDoc.write('<html><head></head><body><script src="http://postpet.jp/webmail/blog/clock_v1_moco.js" ></sc' + 'ript><body></html>');
+    // 1.写入脚本
+    if(iframDoc.all) {
+      // 3.以前用户判断IE，现在很多浏览器都支持
+      var scArr = iframDoc.getElementsByTagName('script'),
+        oSc = scArr[scArr.length - 1];  
+      // 4.检查一下iframe所有的js是否已经加载完成
+      _check();
+      return;
+      function _check() {
+        var rs = oSc.readyState;
+        if(rs == 'loaded' || rs == 'complete') {
+          iframDoc.close();
+          _height();
+          return;
+        }
+        setTimeout(_check, 100);
+      }     
+    }
+    iframeWin.onload = _height;
+    // 2.iframe执行了onload以后将它的高度设置为内容的高度
+    doc.write('<script> document.close(); </sc' + 'ript>');
+    function _height() {
+      // 5._height 函式的功用是把iframe 的高度撑到可以显示iframe内所有东西的高度
+      iframe.style.height = iframDoc.body.scrollHeight + 'px';
+    }
+  })();
+<\/script>
+```
+你可以查看[example1](./examples/example1.html),同时在页面中查看瀑布流，你也可以看到页面的js和iframe中的js(第三方广告的js)是并行加载的:
+
+![](./images/example1.png)
+
+假如第三方广告提供了如下的资源:
+```html
+<script src="http://www.lucido-l.jp/blogparts/parts.js"><\/script>
+```
+同时该资源具有writeTag方法，那么我们依然可以采用这个方式来完成第三方资源和网页本身资源的并行加载:
+
+```js
+<iframe id="_if2" scrolling="no" style="width : 100%" ></iframe>
+<script>
+  (function() {
+    var oIf = document.getElementById('_if2'),
+      win = oIf.contentWindow,
+      doc = oIf.contentWindow.document;
+    doc.write('<html><head></head><body><script src="http://www.lucido-l.jp/blogparts/parts.js" ></sc' + 'ript>');
+    if(doc.all) {
+      var scArr = doc.getElementsByTagName('script'),
+        oSc = scArr[scArr.length - 1];
+      _check();
+      return;
+      function _check() {
+        var rs = oSc.readyState;
+        if(rs == 'loaded' || rs == 'complete') {
+          doc.write('<script> writeTag(10, 13, 17, 22); </sc' + 'ript><body></html>');
+          doc.close();
+          _height();
+          return;
+        }
+        setTimeout(_check, 100);
+      }
+    }
+    win.onload = _height;
+    doc.write('<script> writeTag(10, 13, 17, 22); document.close(); </sc' + 'ript><body></html>');
+    function _height() {
+      oIf.style.height = doc.body.scrollHeight + 'px';
+    }
+  })();
+<\/script>
+```
+
+如果要嵌入的HTML与这类似，其实将HTML中的doc.write('<html><head></head><body><script src="... src后的网址改掉就可以了。但有个例外，如果载入的js中有再用document.write('<script...')写入其他的script tag ，那么上面的html是有问题的，可以采用下面这种方式来完成:
+
+```js
+<iframe id="_if3" scrolling="no" style="width : 100%" ></iframe>
+<script>
+  (function() {
+    var oIf = document.getElementById('_if3'),
+      win = oIf.contentWindow,
+      doc = oIf.contentWindow.document;
+    doc.write('<html><head></head><body><script> google_ad_client = "pub-1821434700708607"; google_ad_slot = "8156194155"; google_ad_width = 200; google_ad_height = 200; </sc' + 'ript><script src="http://pagead2.googlesyndication.com/pagead/show_ads.js"></sc' + 'ript>');
+    if(doc.all) {
+      // (1)假如我们知道加载的广告完成后会产生一个iframe标签，那么我们可以查看iframe完成否
+      var ifArr = doc.getElementsByTagName('iframe');
+      _check();
+      return;
+      function _check() {
+        if(ifArr.length) {
+          doc.close();
+          // (2)关闭iframe文档流
+          _height();
+          return;
+        }
+        setTimeout(_check, 100);
+      }
+    }
+    win.onload = _height;
+    doc.write('<script> document.close(); </sc' + 'ript><body></html>');
+    function _height() {
+      oIf.style.height = doc.body.scrollHeight + 'px';
+    }
+  })();
+</script>
+```
+
+
+https://www.npmjs.com/package/iframe-script-loader
+http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6
+
 #### 4.iframe跨域通信通用方法
 [iframe跨域通信的通用解决方案-第二弹!（终极解决方案）](http://www.alloyteam.com/2013/11/the-second-version-universal-solution-iframe-cross-domain-communication/)
 
+#### 5.网站为什么使用document.write加载js
+比如网站http://tool.chinaz.com/Tools/unixtime.aspx加载的http://my.chinaz.com/js/uc.js
 
+http://www.stevesouders.com/blog/2012/04/10/dont-docwrite-scripts/
+
+https://stackoverflow.com/questions/802854/why-is-document-write-considered-a-bad-practice
+
+http://www.stevesouders.com/blog/2009/04/27/loading-scripts-without-blocking/
+
+https://stackoverflow.com/questions/556322/why-use-document-write
 
 http://www.alloyteam.com/2013/11/the-second-version-universal-solution-iframe-cross-domain-communication/
+
+
+#### 6.百度首页是如何同步加载js
+
+view-source:https://www.baidu.com/
+
+#### 7.iframe如何不阻塞主页面
+
+
+
 参考资料:
 
 [defer和async的区别](https://segmentfault.com/q/1010000000640869)
@@ -114,3 +294,7 @@ http://www.alloyteam.com/2013/11/the-second-version-universal-solution-iframe-cr
 [How JavaScript Timers Work](https://johnresig.com/blog/how-javascript-timers-work/#postcomment)
 
 [你真的了解setTimeout和setInterval吗？](http://qingbob.com/difference-between-settimeout-setinterval/)
+
+[为Iframe注入脚本的不同方式比较](http://harttle.land/2016/04/14/iframe-script-injection.html)
+
+[用JavaScript把script tag塞进iframe加快网页载入速度](http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6)

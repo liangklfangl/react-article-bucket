@@ -664,3 +664,5 @@ co(function*(){
 [linux IO模型与AIO](http://blog.csdn.net/secretx/article/details/53668827)
 
 [Linux下的I/O复用与epoll详解](https://www.cnblogs.com/lojunren/p/3856290.html)
+
+[Is NodeJs Single Threaded – Let’s Find Out](https://www.tuicool.com/articles/vyM77n)

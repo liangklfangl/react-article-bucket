@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+  <iframe id="_if1" scrolling="no" style="width : 100%" ></iframe>
+<script>
+  (function() {
+    var iframe = document.getElementById('_if1'),
+      iframeWin = iframe.contentWindow || iframe ,
+      iframDoc = iframeWin.document || iframe.contentDocument;
+    iframDoc.write('<html><head></head><body><script src="http://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js" ></sc' + 'ript><body></html>');
+    // 1.写入脚本
+    if(iframDoc.all) {
+      // 3.以前用户判断IE，现在很多浏览器都支持
+      var scArr = iframDoc.getElementsByTagName('script'),
+        oSc = scArr[scArr.length - 1];
+      // 4.检查一下iframe所有的js是否已经加载完成
+      _check();
+      return;
+      function _check() {
+        var rs = oSc.readyState;
+        if(rs == 'loaded' || rs == 'complete') {
+          iframDoc.close();
+          _height();
+          return;
+        }
+        setTimeout(_check, 100);
+      }
+    }
+    iframeWin.onload = _height;
+    // 2.iframe执行了onload以后将它的高度设置为内容的高度
+    iframDoc.write('<script> document.close(); </sc' + 'ript>');
+    function _height() {
+      iframe.style.height = iframDoc.body.scrollHeight + 'px';
+    }
+  })();
+</script>
+<script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js"></script>
+</body>
+</html>

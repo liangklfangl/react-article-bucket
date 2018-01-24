@@ -1108,6 +1108,47 @@ class Parent extends React.Component{
     );
 ```
 
+#### 13.componentWillMount中setState真的不会重新渲染吗
+解答:首先componentWillMount()一定在组件render方法调用之前被执行，因此在该方法中调用setState**不会导致一次多余的渲染**，其效果和直接在constructor方法中更新state是一样的;第二:[官方文档](https://reactjs.org/docs/react-component.html#componentwillmount)明确说明，在该方法中不要做会产生副作用的操作，对于此类需求应该使用componentDidMount来替代。但是componentWillMount是唯一用于服务端渲染的钩子函数。
+
+既然componentWillMount()中调用setState不会导致多余的渲染，而且官方文档也明确说了不要在这个方法中异步setState,那么如果我们一定要这么做呢？React组件会不会被重新渲染呢？
+```js
+ class Parent extends React.Component{
+   state={
+     counter:0
+   }
+   componentWillMount(){
+     //(1)第一次render逻辑和在constructor里面直接写counter=1一致，不会产生多余渲染
+      this.setState({
+      counter:++this.state.counter
+    });
+    // (2)这里是第二次渲染逻辑，组件依然会被reRender。而且此时是异步逻辑，不会阻塞组件的
+    //    初次渲染
+      setTimeout(()=>{
+      this.setState({
+      counter:++this.state.counter
+    });
+    },2000)
+   }
+ 
+  render(){
+     alert('我在渲染');
+     return <div>当前的counter值为{this.state.counter}</div>
+   }
+ }
+ReactDOM.render(
+      <Parent/>,
+      document.getElementById('example')
+  );
+```
+答案是:'会重新渲染'。那么为什么要在componentDidMount中呢?个人理解的原因如下:
+
+(1)跟服务器端渲染有关系，如果在componentWillMount里面获取数据，fetch data会执行两次，一次在服务器端一次在客户端。在componentDidMount中可以解决这个问题。
+
+(2)在componentWillMount中fetch data，数据一定在render后才能到达，如果你忘记了设置初始状态，用户体验不好。但是大部分情况下都不会忘记设置初始值。
+
+所以，如果抛开[服务端渲染](https://github.com/liangklfangl/react-article-bucket/blob/master/react-static/index.md)的问题，在componentWillReceiveProps中发起调用也是可以的!
+
 参考资料：
 
 [七、React.findDOMNode()](https://www.kancloud.cn/kancloud/react/67582)

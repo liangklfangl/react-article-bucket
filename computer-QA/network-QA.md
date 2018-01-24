@@ -219,7 +219,8 @@ OCSP(Online Certificate Status Protocol，在线证书状态协议)是维护`服
  f)应用层数据一致性校验。
 </pre>
 
-
+#### 5.chrome的TTFB
+**TTFB** (Time To First Byte)，是最初的网络请求被发起到从服务器接收到第一个字节这段时间，它包含了 TCP连接时间，发送HTTP请求时间和获得响应消息第一个字节的时间。
 
 
 
