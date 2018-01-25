@@ -697,7 +697,7 @@ window.Messenger = (function(){
 
 ![](./images/dynamic-async.png)
 
-你会发现页面图片早早的下载完了，同时onload也已经触发(红线)，页面不再显示资源加载中，而js文件在onload后才开始加载。这样的页面会使得用户感觉到明显的速度加快。看到这里是不是幡然醒悟，这不是就前面我说的"Script in Iframe"吗？该js和主页面的内容就是并行加载的，同时也不会阻塞主页面的onload事件。
+你会发现页面图片早早的下载完了，同时onload也已经触发(但是红线在iframe中资源加载完成后chrome才绘制出来)，页面**不再显示资源加载中**，而js文件在onload后才开始加载。这样的页面会使得用户感觉到明显的速度加快。看到这里是不是幡然醒悟，这不是就前面我说的"Script in Iframe"吗？该js和主页面的内容就是并行加载的，同时也不会阻塞主页面的onload事件。
 
 #### 6.onload事件所有的资源都加载完成了吗
 ![](./images/dynamic-insert.png)
