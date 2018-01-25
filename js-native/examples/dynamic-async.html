@@ -1,0 +1,69 @@
+
+<!doctype html>
+
+<html lang="en" class="js ">
+<head>
+  <meta charset="utf-8">
+  <!--[if IE]><![endif]-->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>Iframe - Dynamic Asynch</title>
+  <meta name="description" content="">
+</head>
+<body>
+  <h1>Iframe - Dynamic Asynch</h1>
+  <ul>
+    <li>Iframe is created dynamically with JS, via the Meebo Bar 'trick'
+    <li>Creation of iframe happens *before* onload
+    <li>Onload of the iframe fires instantly, because the iframe content is loaded after onload (yeah!)
+    <li>Onload of main page fires soon: the iframe does *not* delay the main page onload !
+    <li>Why does the iframe not block main page onload? Well, that is because of the <code>&lt;body onload=""&gt;</code>
+    <li>If you would *not* use the onload handler in the iframe, the iframe loading would delay the main page onload
+    <li>While the iframe is loading, one or more browser busy indicators show something is loading
+  </ul>
+  <p>
+    <img src="http://www.aaronpeters.nl/sandbox/images/calendar.png" width="128" height="128" alt=""><br>
+  </p>
+<script>
+    (function(d){
+    var iframe = d.body.appendChild(d.createElement('iframe')),
+      doc = iframe.contentWindow.document;
+    iframe.style.cssText = "position:absolute;width:200px;height:100px;left:0px;";
+    // This math.random stuff is only for the purpose of this test page
+    var a = Math.random() + "";
+    var t = a * 10000000000000;
+    doc.open().write('<body onload="' +
+      'var d = document;' +
+      'd.getElementsByTagName(\'head\')[0].' +
+      'appendChild(d.createElement(\'script\')).src' +
+      '=\'http:\/\/1.cuzillion.com\/bin\/resource.cgi?type=js&sleep=2&n=1&t=' + t + '\'">');
+    // Sample code for dynamically creating a DIV and inserting an image in that DIV. Not very useful, but hey!
+
+      // 'var d = document;' +
+      // 'var c = \'<img src=http:\/\/1.cuzillion.com\/bin\/resource.cgi?type=gif&sleep=2&n=1&t=' + t + '>\';' +
+      // 'var elem = d.createElement(\'div\');' +
+      // 'elem.id = \'test1\';' +
+      // 'd.getElementsByTagName(\'body\')[0].appendChild(elem);' +
+      // // OK, the DIV now exists, so let's put some content in it
+      // 'd.getElementById(\'test1\').innerHTML=c;">');
+
+    // If you don't use the <body onload="load some JS here"> in the .write(''), the main page onload will be blocked
+    // e.g. doc.open().write('<img src="http:\/\/1.cuzillion.com\/bin\/resource.cgi?type=gif&sleep=2&n=1&t=584530">');
+    doc.close(); //iframe onload event happens
+  })(document);
+</script>
+
+</body>
+</html>
+<!-- Little test code, leaving in this page for my own ease
+<script>
+var d = document;var t = 'Hi there';var elem = d.createElement('div');
+elem.id = 'test1';
+d.getElementsByTagName('body')[0].appendChild(elem);
+// OK, the DIV now exists, so let's put some content in it
+d.getElementById('test1').innerHTML = t;
+</script>
+-->
+
+<!--
+IE8/JS: http://www.webpagetest.org/result/101219_39_da7bd2e6f13c2753569dce3fdb00c1d8/
+-->

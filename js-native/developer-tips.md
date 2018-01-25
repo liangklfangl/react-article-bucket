@@ -99,6 +99,13 @@ onInputFocus = e => {
   };
 ```
 
+#### 4.获取iframe的window对象
+```js
+function getIframeWindow(iframeElement){
+    return iframeElement.contentWindow || iframeElement.contentDocument.parentWindow;
+}
+```
+
 参考资料:
 
 [new Function()](https://davidwalsh.name/new-function)
@@ -108,3 +115,5 @@ onInputFocus = e => {
 [Issues with Date() when using JSON.stringify() and JSON.parse()](https://stackoverflow.com/questions/11491938/issues-with-date-when-using-json-stringify-and-json-parse/11491993#11491993)
 
 [Wait for User to Stop Typing, Using JavaScript](https://schier.co/blog/2014/12/08/wait-for-user-to-stop-typing-using-javascript.html)
+
+[Iframes, onload, and document.domain](https://www.nczonline.net/blog/2009/09/15/iframes-onload-and-documentdomain/)

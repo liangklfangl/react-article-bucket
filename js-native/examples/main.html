@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+我是iframe
+   <iframe src="./iframe.html" id="main"></iframe>
+   <script type="text/javascript">
+     const iframe = document.getElementById('main');
+     const iframWindow = iframe.contentWindow || iframe;
+     console.log('window.navigator==',iframWindow.navigator ==  window.navigator);
+   </script>
+   <!-- <iframe src="../images/iframe-cost.gif"></iframe> -->
+   <iframe src="./antd.css"></iframe>
+</body>
+</html>

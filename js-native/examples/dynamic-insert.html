@@ -1,0 +1,58 @@
+
+<!doctype html>
+
+<html lang="en" class="js ">
+<head>
+  <meta charset="utf-8">
+
+  <!--[if IE]><![endif]-->
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <title>Iframe - dynamic insertion, after onload</title>
+  <meta name="description" content="">
+</head>
+
+<body>
+  <h1>Iframe - dynamic insertion, after onload</h1>
+
+  <ul>
+    <li>Iframe is created dynamically (appendChild) with JS
+    <li>Creation of iframe happens after onload
+    <li>Onload of main page fires soon, since the page only has 1 image
+    <li>Onload of the iframe fires after ~2.5 seconds (all iframe content done loading)
+    <li>While the iframe is loading, one or more browser busy indicators show something is loading
+  </ul>
+
+  <div id="test1">
+  </div>
+  <p>
+    <img src="http://www.aaronpeters.nl/sandbox/images/calendar.png" width="128" height="128" alt=""><br>
+  </p>
+
+<script>
+    //doesn't block the load event
+  function createIframe(){
+    console.log('onload已经触发了');
+    var i = document.createElement("iframe");
+    var a = Math.random() + "";
+    var t = a * 10000000000000;
+    i.src = "http://1.cuzillion.com/bin/resource.cgi?type=gif&sleep=2&n=1&t=" + t;
+    i.scrolling = "auto";
+    i.frameborder = "0";
+    i.width = "200px";
+    i.height = "100px";
+    document.getElementById("test1").appendChild(i);
+  };
+  // Check for browser support of event handling capability
+  if (window.addEventListener)
+  window.addEventListener("load", createIframe, false);
+  else if (window.attachEvent)
+  window.attachEvent("onload", createIframe);
+  else window.onload = createIframe;
+
+</script>
+
+</body>
+</html>
+<!-- http://www.webpagetest.org/result/101215_3a0cd9a522be1fee6ea7fb5006122f67/ -->
