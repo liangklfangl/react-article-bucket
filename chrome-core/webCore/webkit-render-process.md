@@ -133,7 +133,8 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
     Layer has a sibling with a lower z-index which has a compositing layer (in other words the layer overlaps a composited layer and should be rendered on top of it)
   </pre>
    这里也给出一个[完整例子](http://blog.csdn.net/liangklfang/article/details/52074738):
-   ```html
+
+```html
     <h1>Poster Circle</h1>
     <p>This is a simple example of how to use CSS transformation and animations to get interesting-looking behavior.</p>
     <p>The three rings are constructed using a simple JavaScript function that creates elements and assigns them a transform
