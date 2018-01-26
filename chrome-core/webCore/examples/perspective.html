@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <style type="text/css">
+  body {
+  text-align: center;
+  padding: 30px;
+}
+.camera{
+  -webkit-perspective:100;
+  perspective:1000;
+  background-color:#ccc;
+  width:100px;
+  height: 100px;
+}
+.space{
+  -webkit-transform-style:preserve-3d;
+  /*border:1px solid black;*/
+  width:100%;
+  height:80%;
+}
+/*box肯定会在一个独立的图层中进行渲染，space也会，camera也会，即使给我们*/
+.box{
+     animation:x-spin 5s infinite;
+    -webkit-animation:x-spin 5s infinite; /* Safari 和 Chrome */
+}
+@keyframes x-spin{
+    0% {
+        -webkit-transform: rotateX(0deg);
+    }
+    50% {
+        -webkit-transform: rotateX(180deg);
+    }
+    100% {
+        -webkit-transform: rotateX(360deg);
+    }
+}
+  </style>
+</head>
+<body>
+ <div class="camera">
+    <div class='space'>
+         <div class='box'>children</div>
+    </div>
+</div>
+</body>
+</html>

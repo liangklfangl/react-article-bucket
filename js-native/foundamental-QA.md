@@ -741,3 +741,5 @@ window.Messenger = (function(){
 [iframe跨域通信的通用解决方案-第二弹!（终极解决方案）](http://www.alloyteam.com/2013/11/the-second-version-universal-solution-iframe-cross-domain-communication/)
 
 [跨文档通信解决方案](https://github.com/biqing/MessengerJS)
+
+[Iframe loading techniques and performance](http://www.aaronpeters.nl/blog/iframe-loading-techniques-performance?utm_source=feedburner&utm_medium=feed&utm_campaign=Feed:+aaronpeters+(Aaron+Peters))
