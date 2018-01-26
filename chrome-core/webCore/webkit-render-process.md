@@ -122,6 +122,7 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
   每一个GraphicsLayer有自己的GraphicsContext，这样相应的RenderLayers就可以直接把渲染内容推入到GraphicsContext里面。最后合成器负责将GraphicsContexts的bitmap通过一系列的过程转化为屏幕中的最终图像。
 
   虽然理论上说，每一个RenderLayer都可以有一个单独的后端存储GraphicsLayer，但是在实际情况下这样非常消耗内存资源，特别是VRAM。在chrome的当前blink实现中，满足下面条件就会有自己的后端存储,你可以[点击这里](http://blog.csdn.net/liangklfang/article/details/52074738)查看:
+
   <pre>
     Layer has 3D or perspective transform CSS properties   
     Layer is used by <video> element using accelerated video decoding  
@@ -132,7 +133,8 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
     Layer has a descendant that is a compositing layer  
     Layer has a sibling with a lower z-index which has a compositing layer (in other words the layer overlaps a composited layer and should be rendered on top of it)
   </pre>
-   这里也给出一个[完整例子](http://blog.csdn.net/liangklfang/article/details/52074738):
+
+  这里也给出一个[完整例子](http://blog.csdn.net/liangklfang/article/details/52074738):
 
 ```html
     <h1>Poster Circle</h1>
