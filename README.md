@@ -122,6 +122,8 @@
 
 [egg常见问题](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/egg-QA.md)
 
+[chrome解析原理](https://github.com/liangklfangl/react-article-bucket/blob/master/chrome-core/webCore/webkit-render-process.md)
+
 [js基础知识详解](./js-native/foundamental-QA.md)
 
 [js开发中你需要考虑的细节问题](./js-native/developer-tips.md)
