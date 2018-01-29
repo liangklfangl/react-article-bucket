@@ -24,16 +24,38 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 ##### 1.2 HTTPS与HTTP共存的两种类型?
 主要包括主动和被动两种混合内容。
 - [主动混合内容](https://developers.google.com/web/fundamentals/security/prevent-mixed-content/fixing-mixed-content?hl=zh-cn)
-  是最危险的混合内容，浏览器会自动和完全阻止掉这部分内容。对于那些能够**修改当前页面DOM**的内容都被称为主动混合内容，比如<script>,<link>,<iframe>,<object>标签，css选择器中使用的url(如background),或者常见的XMLHTTPRequest。这些内容能够读取用户的cookie并获取认证。
+  是最危险的混合内容，浏览器会自动和完全阻止掉这部分内容。对于那些能够**修改当前页面DOM**的内容都被称为主动混合内容，比如script,link,iframe,object标签，css选择器中使用的url(如background),或者常见的XMLHTTPRequest。这些内容能够读取用户的cookie并获取认证。chrome中针对**主动混合**内容的处理如下:
 
-![](./images/passive.png)
+  ![](./images/content-mix.png)
+
+  如果页面出现了上面的主动混合内容，chrome将会直接抛出如下的错误信息:
+
+  ![](./images/passive.png)
+
+  我们注意到:img srcset里的资源也是默认会被阻止的，即下面的img会被block：
+  ```html
+  <img srcset="http://fedren.com/test-1x.png 1x, http://fedren.com/test-2x.png 2x" alt>
+  ```
+  但是使用src的不会被block:
+  ```html
+  <img src="http://fedren.com/images/sell/icon-home.png" alt>
+  ```
 
 - [被动混合内容](https://www.w3.org/TR/upgrade-insecure-requests/#recommendations)
-  除了主动混合内容以外就是被动混合内容。浏览器对于这部分内容的处理策略是允许加载，但是会弹出一个警告。比如:images/audio/video等，他们虽然在页面中，但是无法修改当前页面的DOM。
+  除了主动混合内容以外就是被动混合内容。浏览器对于这部分内容的处理策略是允许加载，但是会弹出一个警告。比如:images/audio/video/favicon等，他们虽然在页面中，但是无法修改当前页面的DOM。chrome中针对被动混合内容的处理如下:
+  ```c
+    // "Optionally-blockable" mixed content
+    case WebURLRequest::kRequestContextAudio:
+    case WebURLRequest::kRequestContextFavicon:
+    case WebURLRequest::kRequestContextImage:
+    case WebURLRequest::kRequestContextVideo:
+      return WebMixedContentContextType::kOptionallyBlockable;
+  ```
+如果页面中出现了这部分的混合内容，将会出现如下的警告:
 
 ![](./images/active.png)
 
-主动混合内容能够拦截http的请求，然后使用它们自己的内容来替换本来的内容。[这里](https://blog.cloudflare.com/fixing-the-mixed-content-problem-with-automatic-https-rewrites/)也提供了多个使用主动混合内容对网站攻击的例子。注意：a标签不会导致mix content问题,因为它们使浏览器导航到新页面。 这意味着它们通常不需要修正,但是如果a标签用于懒加载的情况是特例:
+主动混合内容能够拦截http的请求，然后使用它们自己的内容来替换本来的内容。[这里](https://blog.cloudflare.com/fixing-the-mixed-content-problem-with-automatic-https-rewrites/)也提供了多个使用主动混合内容对网站攻击的例子。注意：**a标签**不会导致mix content问题,因为它们使浏览器导航到新页面。 这意味着它们通常不需要修正,但是如果a标签用于懒加载的情况是特例:
 
 ```html
 <a class="gallery" href="http://googlesamples.github.io/web-fundamentals/samples/discovery-and-distribution/avoid-mixed-content/puppy.jpg">
@@ -41,6 +63,59 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 </a>
 ```
 上面的例子，img标签默认加载的是缩略图，而当页面真正出现在视口中的时候会使用a标签的href值替换img的src，这样就会存在mix content的问题。这个例子告诉我们:页面onload的时候可能并没有mix content问题，但是随着网页中各种操作点击将会产生动态加载资源的情况，这也是会引起mix content的!
+
+对于被动混合内容，如果设置**strick mode**,如下:
+```html
+<meta http-equiv="Content-Security-Policy" content="block-all-mixed-content">
+```
+那么也会被block掉。
+```c
+case WebMixedContentContextType::kOptionallyBlockable:
+    allowed = !strict_mode;
+    // 如果页面是strict-mode,是不能允许加载mix content的
+    if (allowed) {
+      content_settings_client->PassiveInsecureContentFound(url);
+      client->DidDisplayInsecureContent();
+    }
+    break;
+```
+上面代码，如果strick_mode是true(就是CSP设置为block-all-mixed-content)，allowed就是false，被动混合内容就会被阻止。而对于主动混合内容，如果用户设置允许加载(一般都会**浏览器询问**):
+
+![](./images/allow.png)
+
+那么也是可以加载的:
+```c
+ // Strictly block subresources that are mixed with respect to their
+  // subframes, unless all insecure content is allowed. This is to avoid the
+  // following situation: https://a.com embeds https://b.com, which loads a
+  // script over insecure HTTP. The user opts to allow the insecure content,
+  // thinking that they are allowing an insecure script to run on
+  // https://a.com and not realizing that they are in fact allowing an
+  // insecure script on https://b.com.
+  bool should_ask_embedder =
+      !strict_mode && settings &&
+      (!settings->GetStrictlyBlockBlockableMixedContent() ||
+       settings->GetAllowRunningOfInsecureContent());
+  allowed = should_ask_embedder &&
+  // 该行代码表示当前client是否允许加载blockable的资源
+            content_settings_client->AllowRunningInsecureContent(
+                settings && settings->GetAllowRunningOfInsecureContent(),
+                security_origin, url);
+  break;
+```
+代码倒数第4行会去判断当前的client即当前页面的设置`是否允许`加载blockable的资源。另外源码注释还提到了一种特殊的情况，就是 https:\/\/a.com 的页面包含了 https:\/\/b.com 的页面， https:\/\/b.com 允许加载blockable(**主动混合**)的资源，https:\/\/a.com在非strick mode的时候页面是允许加载的，但是如果a.com是strick mode(**block-all-mixed-content**)，那么将不允许加载。
+
+并且如果页面设置了strick mode，用户设置的允许blockable资源加载的设置将会失效：
+```c
+// If we're in strict mode, we'll automagically fail everything, and
+  // intentionally skip the client checks in order to prevent degrading the
+  // site's security UI.
+  bool strict_mode =
+      mixed_frame->GetSecurityContext()->GetInsecureRequestPolicy() &
+          kBlockAllMixedContent ||
+      settings->GetStrictMixedContentChecking();
+```
+这种方式就是1.3章节我最后采用的一种方式，即必须让用户`手动点击`"允许加载不安全脚本"!
 
 ##### 1.3 我是如何解决HTTP与HTTPS共存问题的?
 下面讲解下我是如何解决https/http共存的问题的(react-router单页应用),(我遇到的问题就是**主动混合内容**，因为采用的是iframe嵌套别人的网页，该网页可以修改当前页面的DOM。别人https网页嵌入的http资源是image,所以是**被动混合内容**，不会直接被浏览器拦截掉),方案如下:
@@ -62,16 +137,19 @@ back2https = () => {
     }, 50);
 };
 ```
-这种逻辑貌似很完美，但是由于上面的HSTS，当你使用window.open打开自己网站的http版本的时候却被chrome浏览器强制定向到https版本，所以这个方案就是无效的。于是有了方案2:
+这种逻辑貌似很完美，但是可能由于上面的HSTS，当你使用window.open打开自己网站的http版本的时候却被chrome浏览器强制定向到https版本，所以这个方案就是无效的。于是有了方案2:
 
 - 方案二
-只需要在页面的html模板中添加了下面的meta标签即可([网上](https://stackoverflow.com/questions/34909224/http-to-https-mixed-content-issue)有说这个方案不能通过meta添加，我在本地尝试的时候是可以的，但是发送到服务端后确实不可以)。
+只需要在页面的html模板中添加了下面的meta标签即可([网上](https://stackoverflow.com/questions/34909224/http-to-https-mixed-content-issue)有说这个方案不能通过meta添加，我在本地尝试的时候是可以的(可能是由于本地的https证书问题)，但是`发送到服务端后`确实不可以)。
 ```html
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
 <!-- 该指令指示浏览器在进行网络请求之前升级不安全的网址-->
 <!-- upgrade-insecure-requests 指令级联到 <iframe> 文档中，从而确保整个页面受到保护-->
 ```
-通过在单页应用的html模板中添加这个http头，整个网站的不安全资源全部转化为https了，当然，这个方案需要保证所有警告的资源的https版本是存在的才行。其他的方案你可以参考下参考文献。
+通过在单页应用的html模板中添加这个http头，整个网站的不安全资源全部转化为https了，当然，这个方案需要保证所有警告的资源的https版本是存在的才行。但是这种方式由于服务端目前没有尝试，所以我只能说以后如果有尝试了再更新。
+
+- 方案三
+  此时就是1.2章节说到的特例。https:\/\/a.com 的页面包含了 https:\/\/b.com 的页面， https:\/\/b.com 允许加载blockable(**主动混合**)的资源，https:\/\/a.com在非strick mode的时候页面是允许加载的，但是如果a.com是strick mode(**block-all-mixed-content**)，那么将不允许加载。但是这种方案有一个问题：就是用户必须手动点击"允许加载不安全脚本"，这也是我最后采用的解决方案。
 
 #### 2.CRL证书吊销列表
 证书具有一个指定的寿命，但CA可通过称为**证书吊销**的过程来缩短这一寿命。CA发布一个证书吊销列表 (CRL,即Certificate Revocation List)，列出被认为不能再使用的证书的序列号。

@@ -11,9 +11,34 @@
 
 ![](./images/render.png)
 
-1.网页输入URL时候，Webkit调用其资源加载器（总共有三类：特定资源加载器如**ImageLoader**,资源缓存机制的资源加载器如**CachedResourceLoader**,通用资源加载器**ResourceLoader**）加载该URL对应的网页
+1.网页输入URL时候，Webkit调用其资源加载器。总共有三类：特定资源加载器如**ImageLoader**,资源缓存机制的资源加载器如**CachedResourceLoader**,通用资源加载器**ResourceLoader**加载该URL对应的网页。其中里面的**ResourceRequest**值得说一下，每发个请求会生成一个ResourceRequest对象，这个对象包含了http请求的所有信息,包括url、http header、http body等，还有请求的优先级信息等,然后会根据页面的`加载策略`对这个请求做一些预处理。
 
 ![](./images/resourceloader.png)
+
+如下是预处理的逻辑:
+```c
+PrepareRequestResult result = PrepareRequest(params, factory, substitute_datc                             identifier, blocked_reason);
+  if (result == kAbort)
+    return nullptr;
+  if (result == kBlock)
+    return ResourceForBlockedRequest(params, factory, blocked_reason);
+```
+prepareRequest会做两件事情，一件是检查请求是否合法，第二件是把请求做些修改。如果检查合法性返回`kAbort`或者`kBlock`，说明资源被废弃了或者被阻止了，就不去加载了。被block的原因可能有以下几种：
+```c
+enum class ResourceRequestBlockedReason {
+  kCSP,              
+  // CSP内容安全策略检查，通过指定Content-Security-Policy为upgrade-insecure-requests
+  // 解决https与http混合问题
+  kMixedContent,     
+  // mixed content，包括主动混合和被动混合
+  kOrigin,           // secure origin
+  kInspector,        // devtools的检查器
+  kSubresourceFilter,
+  kOther,
+  kNone
+};
+```
+
 
 2.加载器依赖网页模块建立连接，发起请求并接受回复
 
@@ -94,8 +119,8 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 (3)It is transparent
 (4)Has overflow, an alpha mask or reflection
 (5)Has a CSS filter
-(6)Corresponds to <canvas> element that has a 3D (WebGL) context or an accelerated 2D context
-(7)Corresponds to a <video> element
+(6)Corresponds to canvas element that has a 3D (WebGL) context or an accelerated 2D context
+(7)Corresponds to a video element
 </pre>
 下面是做的简单翻译：
 <pre>
@@ -125,8 +150,8 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 
   <pre>
     Layer has 3D or perspective transform CSS properties   
-    Layer is used by <video> element using accelerated video decoding  
-    Layer is used by a <canvas> element with a 3D context or accelerated 2D context
+    Layer is used by video element using accelerated video decoding  
+    Layer is used by a canvas element with a 3D context or accelerated 2D context
     Layer is used for a composited plugin
     Layer uses a CSS animation for its opacity or uses an animated Webkit transform
     Layer uses accelerated CSS filters 
@@ -195,11 +220,522 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
   
   ![](./images/update.png)
  
+#### 2.浏览器解析DOM时候不会开始加载后面资源吗？
+##### 2.1 浏览器后面资源加载不会等待script脚本执行完成
+其实一直有一个疑问:浏览器在解析DOM的时候，如果它命中了script(同步脚本)脚本的时候，会等待script加载并解析执行完成。那么后面的如image,iframe,css等可以并行加载的资源就没法加载了吗？也就是说浏览器必须等到script执行完毕后才能发送新的网络请求去加载这些资源吗？我们给出下面的[例子](./examples/download.html):
+```html
+<body>
+   我是body的开始
+ <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/1.11.1/jquery.min.js"></script>
+  我是script的后面内容
+  <img src='https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1516852910831&di=9d7efe562f07fe1696077c51abe2dc37&imgtype=0&src=http%3A%2F%2Fuploads.xuexila.com%2Fallimg%2F1610%2F704-161024215051.jpg'>
+  <link rel='stylesheet type='text/css' href='https://ss1.bdstatic.com/5eN1bjq8AAUYm2zgoY3K/r/www/cache/static/protocol/https/soutu/css/soutu.css'>
+  我是内容~~~~~~
+</body>
+```
+我们可以在控制台中看看资源加载的瀑布流:
 
-#### 2.那些还在思考的问题
-##### 2.1 image加载会走事件循环吗,DOM树中的请求是并发发出去的吗
+![](./images/download.png)
+
+从瀑布流中可以看到，后面image,css的资源加载并没有等到script加载完成并执行结束。
+
+##### 2.2 DOM停止构建但是资源继续加载
+早在2008年的时候浏览器出了一个**推测加载(speculative preload)策略**，即遇到script的时候，**DOM会停止构建(执行脚本时构建DOM是不安全的)**，但是会继续去搜索页面需要加载的资源，如看后续的html有没有img/script标签，先进行预加载，而`不用等到构建DOM的时候才去加载`。这样大大提高了页面整体的加载速度。
+
+##### 2.3 chrome中资源加载优先级
+下面是chrome中资源加载的优先级:
+```c
+ResourceLoadPriority TypeToPriority(Resource::Type type) {
+  switch (type) {
+    case Resource::kMainResource:
+    case Resource::kCSSStyleSheet:
+    case Resource::kFont:
+      // Also parser-blocking scripts (set explicitly in loadPriority)
+      //1.MainResouce,CSS,Font资源优先级为VeryHigh
+      return kResourceLoadPriorityVeryHigh;
+    case Resource::kXSLStyleSheet:
+      DCHECK(RuntimeEnabledFeatures::XSLTEnabled());
+    case Resource::kRaw:
+    case Resource::kImportResource:
+    case Resource::kScript:
+      // Also visible resources/images (set explicitly in loadPriority)
+      //2.Script等，包括通过loadPriority设置的image/resources
+      return kResourceLoadPriorityHigh;
+    case Resource::kManifest:
+    case Resource::kMock:
+      //3.Manifest,Mock资源，以及通过loadPriority方法加载的js资源
+      // Also late-body scripts discovered by the preload scanner (set
+      // explicitly in loadPriority)
+      return kResourceLoadPriorityMedium;
+    case Resource::kImage:
+    case Resource::kTextTrack:
+    case Resource::kMedia:
+    case Resource::kSVGDocument:
+       //4.Image,TextTrack(字幕),Media,SVG和loadPriority设置的异步脚本
+      // Also async scripts (set explicitly in loadPriority)
+      return kResourceLoadPriorityLow;
+    case Resource::kLinkPrefetch:
+      //5.预加载的css资源
+      return kResourceLoadPriorityVeryLow;
+  }
+
+  return kResourceLoadPriorityUnresolved;
+}
+```
+可以看到优先级总共分为五级：very-high、high、medium、low、very-low，其中MainRescource页面、CSS、字体这三个的优先级是最高的，然后就是Script、Ajax这种，而图片、音视频的默认优先级是比较低的，最低的是prefetch预加载的资源。
+
+注意上面的switch-case设定资源优先级有一个**顺序**，如果既是script又是prefetch的话得到的优化级是high，而不是prefetch的very low，因为prefetch是最后一个判断。所以在设定了资源默认的优先级之后，会再对一些情况做一些调整，主要是对prefetch/preload的资源。包括以下几个部分:
+
+- 降低preload的字体的优先级
+  
+```c
+   // A preloaded font should not take precedence over critical CSS or
+  // parser-blocking scripts.
+  if (type == Resource::kFont && is_link_preload)
+    priority = kResourceLoadPriorityHigh;
+```
+  对于字体文件，默认是VeryHigh,但是如果是preload的字体文件，那么它的优先级会被设置为High，而不是默认的VeryHigh,所以其优先级会降低
+
+- 降低defer/async的script的优先级
+```c
+     if (type == Resource::kScript) {
+        // Async/Defer: Low Priority (applies to both preload and parser-inserted)
+        if (FetchParameters::kLazyLoad == defer_option) {
+          priority = kResourceLoadPriorityLow;
+        }
+    }
+```
+  script脚本的优先级本来是High，但是如果它被设置了defer/async，那么它会被设置为**Low**级别,即它的优先级也会被降低。
+
+- 页面底部preload的script优先级变成medium
+```c
+  if (type == Resource::kScript) {
+    // Special handling for scripts.
+    // Default/Parser-Blocking/Preload early in document: High (set in
+    // typeToPriority)
+    // Async/Defer: Low Priority (applies to both preload and parser-inserted)
+    // Preload late in document: Medium
+    if (FetchParameters::kLazyLoad == defer_option) {
+      priority = kResourceLoadPriorityLow;
+    } else if (speculative_preload_type ==
+                   FetchParameters::SpeculativePreloadType::kInDocument &&
+               image_fetched_) {
+      // Speculative preload is used as a signal for scripts at the bottom of
+      // the document.
+      priority = kResourceLoadPriorityMedium;
+    }
+}
+```
+  上一点说过:如果是defer的script那么优先级调成`最低`，否则如果是preload的script，并且如果页面已经加载了一张图片就认为这个script是在页面偏底部的位置(否则不会先有图片加载，因为script默认是阻塞加载的)，就把它的优先级调成**medium**。通过一个flag决定是否已经加载过第一张图片了。
+```c
+// Resources before the first image are considered "early" in the document and
+  // resources after the first image are "late" in the document.  Important to
+  // note that this is based on when the preload scanner discovers a resource
+  // for the most part so the main parser may not have reached the image element
+  // yet.
+  if (type == Resource::kImage && !is_link_preload)
+    image_fetched_ = true;
+```
+  资源在第一张非preload的图片前认为是early，而在后面认为是late，late的script的优先级会偏低。
+
+  什么叫preload呢？**preload不同于prefetch**的，在早期浏览器，script资源是阻塞加载的，当页面遇到一个script，那么要等这个script下载和执行完了，才会继续解析剩下的DOM结构，也就是说script是串行加载的，并且会堵塞页面其它资源的加载，这样会导致页面整体的加载速度很慢，所以早在2008年的时候浏览器出了一个推测加载(speculative preload)策略，即遇到script的时候，DOM会停止构建，但是会继续去搜索页面需要加载的资源，如看下后续的html有没有img/script标签，先进行预加载，而不用等到构建DOM的时候才去加载。这样大大提高了页面整体的加载速度。
+
+- 把同步即堵塞加载的资源的优先级调成最高
+```c
+// A manually set priority acts as a floor. This is used to ensure that
+// synchronous requests are always given the highest possible priority
+return std::max(priority, resource_request.Priority());
+```
+  如果是同步加载的资源，那么它的request对象里面的优先最级是最高的，所以本来是hight的ajax同步请求在最后return的时候会变成very-high。
+
+  这里是取了两个值的最大值，第一个值是上面进行各种判断得到的priority，第二个在初始这个ResourceRequest对象本身就有的一个优先级属性，返回最大值后再重新设置resource_request的优先级属性。
+
+  在构建resource request对象时所有资源都是最低的，这个可以从构造函数里面知道：
+```c
+ResourceRequest::ResourceRequest(const KURL& url)
+    : url_(url),
+      service_worker_mode_(WebURLRequest::ServiceWorkerMode::kAll),
+      priority_(kResourceLoadPriorityLowest)
+      /* 其它参数略 */ {}
+```
+  但是同步请求在初始化的时候会先设置成最高:
+```c
+void FetchParameters::MakeSynchronous() {
+  // Synchronous requests should always be max priority, lest they hang the
+  // renderer.
+  resource_request_.SetPriority(kResourceLoadPriorityHighest);
+  resource_request_.SetTimeoutInterval(10);
+  options_.synchronous_policy = kRequestSynchronously;
+}
+```
+
+##### 2.4 NET优先级
+这个是在渲染线程里面进行的，上面提到的资源优先级在发请求之前会被转化成Net的优先级:
+```c
+resource_request->priority =
+      ConvertWebKitPriorityToNetPriority(request.GetPriority());
+```
+资源优先级对应Net的优先级关系如下所示：
+
+![](./images/net.png)
+
+也可以通过下面的表格展示:
+
+![](./images/table-net.png)
+
+Net Priority是`请求资源`的时候使用的，这个是在Chrome的IO线程里面进行的。每个页面都有Renderer线程负责渲染页面，而浏览器有IO线程，用来负责请求资源等。为什么**IO线程不是放在每个页面里面而是放在浏览器框架**呢？因为这样的好处是如果两个页面请求了相同资源的话，如果有缓存的话就能避免重复请求了。这些都是在**渲染线程**里面debug操作得到的数据，为了能够观察资源请求的过程，需要切换到IO线程，而这两个线程间的通信是通过Chrome封装的**Mojo框架**进行的。在Renderer线程会发一个消息给IO线程通知它:
+```c
+ mojo::Message message(
+      internal::kURLLoaderFactory_CreateLoaderAndStart_Name, kFlags, 0, 0, nullptr);
+ // 对这个message进行各种设置后（代码略），调接收者的Accept函数 
+ ignore_result(receiver_->Accept(&message));
+```
+
+##### 2.5 资源加载
+此时需要判断当前资源是否能开始加载了，如果能的话就准备加载了，如果不能的话就继续把它放到pending request队列里面，如下代码所示：
+```c
+void ScheduleRequest(const net::URLRequest& url_request,
+                       ScheduledResourceRequest* request) {
+    SetRequestAttributes(request, DetermineRequestAttributes(request));
+    ShouldStartReqResult should_start = ShouldStartRequest(request);
+    if (should_start == START_REQUEST) {
+      // New requests can be started synchronously without issue.
+      StartRequest(request, START_SYNC, RequestStartTrigger::NONE);
+    } else {
+      pending_requests_.Insert(request);
+    }
+  }
+```
+一旦收到Mojo的加载资源消息就会调上面的**ScheduleRequest**函数，除了收到消息之外，还有一个地方也会调用：
+```c
+  void LoadAnyStartablePendingRequests(RequestStartTrigger trigger) {
+    // We iterate through all the pending requests, starting with the highest
+    // priority one. 
+    RequestQueue::NetQueue::iterator request_iter =
+        pending_requests_.GetNextHighestIterator();
+    while (request_iter != pending_requests_.End()) {
+      ScheduledResourceRequest* request = *request_iter;
+      ShouldStartReqResult query_result = ShouldStartRequest(request);
+      if (query_result == START_REQUEST) {
+        pending_requests_.Erase(request);
+        StartRequest(request, START_ASYNC, trigger);
+      }
+  }
+```
+
+这个函数的特点是遍历pending requests，每次取出优先级最高的一个request，然后调ShouldStartRequest判断是否能运行了，如果能的话就把它从pending requests里面删掉，然后运行。
+
+而这个函数会有三个地方会调用，一个是IO线程的循环判断，只要还有未完成的任务，就会触发加载，第二个是当有请求完成时会调，第三个是要插入body标签的时候。所以主要总共有三个地方会触发加载：
+<pre>
+（1）收到来自渲染线程IPC::Mojo的请求加载资源的消息
+（2）每个请求完成之后，触发加载pending requests里还未加载的请求
+（3）IO线程定时循环未完成的任务，触发加载
+</pre>
+
+##### 2.6 资源加载实例分析
+你可以查看如下[例子](./examples/index.html)的完整代码，直接进入这个目录，然后全局安装一个小型服务器anywhere(可以直接在npm中找到)，并在该目录下运行anywhere命令即可。如果你是直接在浏览器中打开该本地html，那么可能看不到相同的效果，因为此时是file协议打开的，而不是http协议，因此每个域名6条HTTP连接的现象你也就看不到了。
+```html
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="./png/4.png">
+    <img src="./png/0.png">
+    <img src="./png/1.png">
+    <link rel="stylesheet" href="./css/1.css">
+    <link rel="stylesheet" href="./css/2.css">
+    <link rel="stylesheet" href="./css/3.css">
+    <link rel="stylesheet" href="./css/4.css">
+    <link rel="stylesheet" href="./css/5.css">
+    <link rel="stylesheet" href="./css/6.css">
+    <link rel="stylesheet" href="./css/7.css">
+</head>
+<body>
+    <p>hello</p>
+    <img src="./png/2.png">
+    <img src="./png/3.png">
+    <img src="./png/4.png">
+    <img src="./png/5.png">
+    <img src="./png/6.png">
+    <img src="./png/7.png">
+    <img src="./png/8.png">
+    <img src="./png/9.png">
+    <script src="./js/1.js"></script>
+    <script src="./js/2.js"></script>
+    <script src="./js/3.js"></script>
+    <img src="./png/3.png">
+<script>
+!function(){
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", "https://baidu.com");
+    xhr.send();
+    document.write("hi");
+}();
+</script>
+<link rel="stylesheet" href="./css/9.css">
+</body>
+</html>
+```
+下面是资源加载的图，我们将会围绕下面的图进行分析:
+
+![](./images/front.png)
+![](./images/end.png)
+
+第一:你虽然可以看到某一个垂直线下很多资源都显示[Content Download状态](../chrome-command/readme.md)，表示正在接受服务端的响应数据。按理说某一个域名下的TCP连接最多是6条，但是很显然某些资源还在加载的时候，后面又有新的TCP连接建立了。这部分内容，我还没有弄清楚！下次会及时更新。但是我猜测是如下原理:
+
+HTTP/1.1支持持续连接,通过这种连接,就有可能在建立一个TCP连接后,发送请求并得到回应,然后发送更多的请求并得到更多的回应。通过把建立和释放TCP连接的开销分摊到多个请求上,则对于每个请求而言,由于TCP而造成的相对开销被大大地降低了。而且,还可以发送**流水线(pipeline)**请求,也就是说在发送请求1之后的回应到来之前就可以发送请求2。这样，就会出现请求1和请求2资源同步接收数据的情况
+
+第二:**CSS具有最高的优先级，最先加载**，即使是放在最后面9.css也是比前面资源先开始加载
+
+第三:只有**等CSS都加载**完了，才能加载其它的资源(css放在head里面不阻塞CSSOM构建，同时不阻塞加载)，即使这个时候没有达到6个的限制
+
+第四:**JS比图片优先加载**，即使出现得比图片晚
+
+第五:head里面的**非高优化级**的资源最多能先加载一张（0.png）
+
+优先级在Medium以下的为delayable，即可推迟的，而大于等于Medium的为不可delayable的。从上面总结的表可以看出：css/js是不可推迟的，而图片、preload的js为可推迟加载。
+
+![](./images/medi.png)
+
+还有一种是layout-blocking的请求:
+```c
+// The priority level above which resources are considered layout-blocking if
+// the html_body has not started.
+static const net::RequestPriority
+    kLayoutBlockingPriorityThreshold = net::MEDIUM;
+```
+就是当还没有渲染body标签，并且优先级在Medium之上的如CSS的请求。
+
+然后，上面提到的ShouldStartRequest函数，这个函数是规划资源加载顺序最主要的函数，从源码注释可以知道它大概的过程：
+```c
+  // ShouldStartRequest is the main scheduling algorithm.
+  // Requests are evaluated on five attributes:
+  // 1. Non-delayable requests:
+  //   * Synchronous requests.
+  //   * Non-HTTP[S] requests.
+  // 2. Requests to request-priority-capable origin servers.
+  // 3. High-priority requests:
+  //   * Higher priority requests (> net::LOW).
+  // 4. Layout-blocking requests:
+  //   * High-priority requests (> net::MEDIUM) initiated before the renderer has
+  //     a <body>.
+  //
+  // 5. Low priority requests
+  //
+  //  The following rules are followed:
+  //
+  //  All types of requests:
+  //   * Non-delayable, High-priority and request-priority capable requests are
+  //     issued immediately.
+  //   * Low priority requests are delayable.
+  //   * While kInFlightNonDelayableRequestCountPerClientThreshold(=1)
+  //     layout-blocking requests are loading or the body tag has not yet been
+  //     parsed, limit the number of delayable requests that may be in flight
+  //     to kMaxNumDelayableWhileLayoutBlockingPerClient(=1).
+  //   * If no high priority or layout-blocking requests are in flight, start
+  //     loading delayable requests.
+  //   * Never exceed 10 delayable requests in flight per client.
+  //   * Never exceed 6 delayable requests for a given host.
+```
+从上面的注释可以得到以下信息：
+<pre>
+（1）高优先级的资源(>=Medium)、同步请求和非http(s)的请求能够立刻加载
+（2）只要有一个layout blocking的资源在加载，最多只能加载一个delayable的资源，这个就解释了为什么0.png能够先加载
+（3）只有当layout blocking和high priority的资源加载完了，才能开始加载delayable的资源，这个就解释了为什么要等CSS加载完了才能加载其它的js/图片。
+（4）同时加载的delayable资源同一个域只能有6个，同一个client即同一个页面最多只能有10个，否则要进行排队。
+</pre>
+
+注意这里说的开始加载，并不是说能够开始请求建立连接了。源码里面叫in flight，在飞行中，而不是叫in request之类的，能够进行in flight的请求是指那些不用queue的请求，如下图：
+
+![](./images/notQ.png)
+
+白色条是指queue的时间段;而灰色的是已经in flight了但受到同域只能最多只能建立6个TCP连接等的影响而进入的stalled状态;绿色是TTFB（Time to First Byte）从开始建立TCP连接到收到第一个字节的时间;蓝色是下载的时间。
+
+#### 3.浏览器IO线程与Renderer线程关系
+每个页面都有Renderer线程负责渲染页面，而浏览器有IO线程，用来负责请求资源等。为什么IO线程不是放在每个页面里面而是放在浏览器框架呢？因为这样的好处是如果两个页面请求了相同资源的话，如果有缓存的话就能**避免重复请求**了。而这两个线程间的通信是通过Chrome封装的Mojo框架进行的。在Renderer线程会发一个消息给IO线程通知它:
+```c
+  mojo::Message message(
+      internal::kURLLoaderFactory_CreateLoaderAndStart_Name, kFlags, 0, 0, nullptr);
+ // 对这个message进行各种设置后（代码略），调接收者的Accept函数 
+ ignore_result(receiver_->Accept(&message));
+```
+上面提到的ShouldStartRequest这个函数是判断当前资源是否能开始加载了，如果能的话就准备加载了，如果不能的话就继续把它放到pending request队列里面，如下代码所示：
+```c
+ void ScheduleRequest(const net::URLRequest& url_request,
+                       ScheduledResourceRequest* request) {
+    SetRequestAttributes(request, DetermineRequestAttributes(request));
+    ShouldStartReqResult should_start = ShouldStartRequest(request);
+    if (should_start == START_REQUEST) {
+      // New requests can be started synchronously without issue.
+      StartRequest(request, START_SYNC, RequestStartTrigger::NONE);
+    } else {
+      pending_requests_.Insert(request);
+    }
+  }
+```
+一旦收到Mojo的加载资源消息就会调上面的**ScheduleRequest**函数，除了收到消息之外，还有一个地方也会调用：
+```c
+  void LoadAnyStartablePendingRequests(RequestStartTrigger trigger) {
+    // We iterate through all the pending requests, starting with the highest
+    // priority one. 
+    RequestQueue::NetQueue::iterator request_iter =
+        pending_requests_.GetNextHighestIterator();
+    while (request_iter != pending_requests_.End()) {
+      ScheduledResourceRequest* request = *request_iter;
+      ShouldStartReqResult query_result = ShouldStartRequest(request);
+      if (query_result == START_REQUEST) {
+        pending_requests_.Erase(request);
+        StartRequest(request, START_ASYNC, trigger);
+      }
+  }
+```
+这个函数的特点是遍历pending requests，每次取出优先级最高的一个request，然后调ShouldStartRequest判断是否能运行了，如果能的话就把它从pending requests里面删掉，然后运行。
+
+而这个函数会有三个地方会调用，一个是**IO线程的循环判断**，只要还有未完成的任务，就会触发加载;第二个是当有**请求完成时**会调，第三个是要**插入body标签的时候**。所以主要总共有三个地方会触发加载：
+<pre>
+（1）收到来自渲染线程IPC::Mojo的请求加载资源的消息
+（2）每个请求完成之后，触发加载pending requests里还未加载的请求
+（3）IO线程定时循环未完成的任务，触发加载
+</pre>
+
+#### 4.页面渲染关键路径
+##### 4.1 页面渲染关键路径理解
+理解**关键渲染路径**是提高页面性能的关键所在。总体来说，**关键渲染路径**分为六步。
+
++ 创建DOM树(Constructing the DOM Tree)
+  HTML可以**部分执行并显示**，也就是说，浏览器并不需要等待整个HTML全部解析完毕才开始显示页面。但是，其他的资源有可能阻塞页面的渲染，比如CSS，JavaScript等。
++ 创建[CSSOM](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model)树
+     **(1)**[CSSOM](https://varvy.com/performance/cssom.html)（CSS对象模型）树是对附在DOM结构上的样式的一种表示方式。它与DOM树的呈现方式相似，只是每个节点都带上样式 ，包括明确定义的和隐式继承的(所有出现在DOM节点的样式)。CSS是一种**渲染阻塞资源(render blocking resource)**，它需要完全被解析完毕之后才能进入**生成渲染树**的环节。
+ 
+      ![](./images/cssom.png)
+
+      CSS字节转换成字符，接着转换成令牌和节点，最后链接到一个称为“CSS 对象模型”(CSSOM) 的树结构内。
+
+      ![](./images/cssomo.png)
+
+     **(2)**CSS并不像HTML那样能执行部分并显示，因为CSS具有继承属性， 后面定义的样式会覆盖或者修改前面的样式。如果我们只使用样式表中部分解析好的样式，我们可能会得到错误的页面效果。所以，我们只能等待CSS完全解析之后，才能进入关键渲染路径的下一环节。
+     **(3)**需要注意的是:只有CSS文件适用于当前设备的时候，才能造成渲染阻塞。标签<link rel=”stylesheet”>接受media属性，该属性规定了此处的CSS文件适用于哪种设备。如果我们有个设备属性值为orientation: landscape(横向)的样式，当我们竖着浏览页面的时候，这个CSS资源是不会起作用的，也就不会阻塞渲染的过程了。因为**JavaScript脚本的执行**必须等到CSSOM生成之后，所以说CSS也会阻塞脚本(script blocking)。
+
++ 执行脚本(Running JavaScript)
+    JavaScript是一种**解析阻塞资源(parser blocking resource)**，它能阻塞HTML页面的解析。当页面解析到`<script>`标签，**不管脚本是內联的还是外联**，页面解析都会暂停，转而加载JavaScript文件（外联的话）并且执行JavaScript。这也是为什么如果JavaScript文件有引用HTML文档中的元素，JavaScript文件必须放在那个元素的[后面](./examples/block.html)。
+
+    页面的[JS脚本一般会阻塞CSSOM的构建](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/adding-interactivity-with-javascript),如果浏览器尚未完成CSSOM的下载和构建，而我们却想在此时运行脚本操作CSSOM，会怎样？答案很简单，对性能不利:**浏览器将延迟脚本执行和DOM构建，直至其完成CSSOM的下载和构建**。为了在页面中展示内容，CSSOM是必须的，直到CSSOM构建完毕。如果你阻塞了CSSOM的构建，那么也意味着用户需要更长时间才能看到页面内容。所以尽量让你的js不要阻塞script。为了避免JavaScript文件阻塞页面的解析，我们可以在`<script>`标签上添加`async`属性，使得JavaScript文件异步加载。
+```
+<script async src="script.js">
+```
++ 生成[渲染树,即RenderObject树](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/render-tree-construction)
+  渲染树是DOM和CSSOM的结合，是最终能渲染到页面的元素的树形结构表示。也就是说，它包含能在页面中最终呈现的元素，而**不包含**那些用CSS样式隐藏的元素，比如带有`display: none;`属性的元素。所以，上述例子的渲染树如下所示。
+![](./images/renderTree.png)
++ 生成布局(Generating the Layout)
+  布局决定了视口的大小，为CSS样式提供了依据，比如百分比的换算或者视口的总像素值。视口大小是由meta标签的name属性为viewport的内容设置所决定的，如果缺少这个标签，默认的视口大小为980px。最常见的viewport设置是自适应于设备尺寸，设置如下：
+```html
+<meta name="viewport" content="width=device-width,initial-scale=1">
+```
+假设用户访问一个显示在设备宽度为1000px的页面，一半的视口大小就是500px，10%就是100px，以此类推。
+
++ 绘制(Painting)
+  最后，页面上可见的内容就会转化为屏幕上的像素点。绘制过程所需要花费的时间取决于DOM的大小以及元素的CSS样式。有些样式比较耗时，比如一个复杂的渐变背景色比起简单的单色背景需要更多的时间来渲染。 
+
+##### 4.2 chrome查看渲染路径
+![](./images/log.png)
+
+各个阶段的信息如下:
+
++ 发送请求(Send Request) —— 发送GET请求获取index.html
++ 解析HTML(Parse HTML)，再次发送请求 —— 开始解析HTML文件，创建DOM结构，发送请求获取style.css和main.js
++ 解析样式文件(Parse Stylesheet) —— 根据style.css生成CSSOM树
++ 执行脚本(Evaluate Script) —— 执行main.js
++ 生成布局(Layout) —— 基于HTML页面中的`meta viewport`标签生成布局
++ 绘制(Paint) —— 在浏览器页面绘制像素点
+
+#### 5.Navigation Timing API分析关键渲染路径(CRP)
+构建渲染树甚至绘制网页时**无需等待**页面上的每个资源,并非所有资源都对快速提供首次绘制具有关键作用。事实上，当我们谈论关键渲染路径时，通常谈论的是 HTML 标记、CSS 和 JavaScript。**图像不会阻止页面的首次渲染**，不过，我们当然也应该尽力确保系统尽快绘制图像！衡量页面的关键路径有以下两种方式:
+##### 5.1 使用Navigation Timing API检测
+![](./images/dom-navtiming.png)
+
+[各个阶段](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/measure-crp)的信息如下:
+<pre>
+domLoading:这是整个过程的起始时间戳，浏览器即将开始解析第一批收到的**HTML文档字节**。
+domInteractive:表示浏览器完成对所有HTML的解析并且**DOM构建完成**的时间点。
+domContentLoaded:此时DOM已经构建完成，同时js也能够执行了，即js不用等待样式表下载解析完成构建CSSOM的过程,此时可以构建RenderObject树，即渲染树了,这样domContentLoaded事件也能够`尽早执行`(即css不阻塞domContentLoaded事件)。许多JavaScript框架都会等待此事件发生后，才开始执行它们自己的逻辑。因此，浏览器会捕获EventStart和EventEnd时间戳，让我们能够追踪执行该事件处理所花费的时间。
+domComplete:所有的处理已经完成，同时所有页面的资源，包括images等都已经下载完成，加载转环已停止旋转
+loadEvent:作为每个网页加载的最后一步，浏览器会触发 onload 事件，以便触发额外的应用逻辑
+</pre>
+
+各个时间段捕捉的代码如下:
+```html
+<html>
+  <head>
+    <title>Critical Path: Measure</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href="style.css" rel="stylesheet">
+    <script>
+      function measureCRP() {
+        var t = window.performance.timing,
+          interactive = t.domInteractive - t.domLoading,
+          dcl = t.domContentLoadedEventStart - t.domLoading,
+          complete = t.domComplete - t.domLoading;
+        var stats = document.createElement('p');
+        stats.textContent = 'interactive: ' + interactive + 'ms, ' +
+            'dcl: ' + dcl + 'ms, complete: ' + complete + 'ms';
+        document.body.appendChild(stats);
+      }
+    </script>
+  </head>
+  <body onload="measureCRP()">
+    <p>Hello <span>web performance</span> students!</p>
+    <div><img src="awesome-photo.jpg"></div>
+  </body>
+</html>
+```
+
+##### 5.2 使用[lighthouse](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/measure-crp#lighthouse)检测
+lightHouse会从页面性能，渐进式的Web应用程序，可用性，最佳实践，seo等[多角度来衡量页面的性能指标](https://developers.google.com/web/tools/lighthouse/audits/blocking-resources)并给出网页优化的点。
+
+![](./images/lighthouse.png)
+
+Lighthouse方法会对页面运行一系列自动化测试，然后生成关于页面的CRP(Critical Rendering Path)性能的报告。 这一方法对您的浏览器中加载的特定页面的CRP性能提供了快速且简单的高级概览，让您可以快速地测试、循环访问和提高其性能。
+
+
+#### 6.页面脚本async与否的渲染路径差别
+假如页面的DOM结构如下:
+```html
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href="style.css" rel="stylesheet">
+  </head>
+  <body>
+    <p>Hello <span>web performance</span> students!</p>
+    <div><img src="awesome-photo.jpg"></div>
+    <script src="app.js"></script>
+    // 此处DOM解析要等到上面的CSSOM完成，同时JS执行完成
+  </body>
+</html>
+```
+因为js本身是阻塞的，此时的页面加载逻辑大致如下:
+![](./images/sync.png)
+
+此时Run JS必须等待**Build CSSOM**完成以后执行(需要稳定的CSSOM结构才能执行JS)，同时脚本后面DOM的解析必须等待Run JS执行完成(即DOM解析被Block掉了)，最后才能将网页渲染在屏幕中。但是如果将上面的js资源改成async，此时不再是关键路径资源，那么页面的加载逻辑将会如下:
+
+![](./images/async.png)
+
+首先Build DOM本身不会因为后面的JS存在而被Block掉;CSS下载被执行完成后能够用于构建CSSOM对象;JavaScript文本不再是关键资源的一部分，同时给script标签设置async属性，相当于向浏览器传递脚本不需要在引用位置执行的**信号**,这既可以让浏览器继续构建 DOM，也能够让脚本在就绪后执行，例如，在从缓存或远程服务器获取文件后执行。所以上图其实只是一种情况，JS执行并[**不一定**](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/page-speed-rules-and-recommendations)会在CSSOM后面,但是一定在onload之前(所有资源都下载完成，除了动态加载的。而且在执行的时候依然可能阻塞CSSOM或者DOM构建，因为浏览器只有一个调用栈控制JS执行与页面渲染)，下面是对async的说明:
+
+<pre>
+The boolean async attribute on script elements allows the external JavaScript file to run when it's available, without delaying page load first.
+</pre>
+
+我们更进一步，如果将css的media属性设置为media="print"后的路径如下:
+
+![](./images/media.png)
+
+因为style.css资源只用于打印，浏览器不必阻止它便可渲染网页。所以，只要DOM构建完毕，浏览器便具有了渲染网页所需的足够信息,此时便可进行网页渲染工作了。因此，该网页只有一项关键资源（HTML 文档），并且最短关键渲染路径长度为一次往返。此时[**Run JS+Build CSSOM**](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/analyzing-crp)将会在页面显示后执行~
+
+#### 那些还在思考的问题
+##### 1 image加载会走事件循环吗,DOM树中的请求是并发发出去的吗
 目前从我的理解来说，image加载虽然是通过chrome一个单独的线程发送出去的，但是它并不需要走事件循环。页面UI渲染是通过事件循环来调度的，但是image本身下载完成后插入的过程并不需要事件循环来介入。所以image的加载和插入都是通过chrome渲染引擎来完成的,而不受到js引擎事件循环的调度!
 
+##### 2.onload与页面可见的时机
 
 参考资料:
 
@@ -218,3 +754,35 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 [Compositing in Blink / WebCore: From WebCore::RenderLayer to cc:Layer](https://docs.google.com/presentation/d/1dDE5u76ZBIKmsqkWi2apx3BqV8HOcNf4xxBdyNywZR8/edit#slide=id.gccb6cccc_072)
 
 [Accelerated Rendering in Chrome](https://www.html5rocks.com/en/tutorials/speed/layers/)
+
+[从Chrome源码看浏览器如何加载资源](https://fed.renren.com/2017/10/29/chrome-fetch-resource/)
+
+[【译】更快地构建 DOM: 使用预解析, async, defer 以及 preload](https://juejin.im/entry/5a558e6ff265da3e243b6718)
+
+[JS与多线程](https://fed.renren.com/2017/05/21/js-threads/)
+
+[人人网FED博客](https://fed.renren.com/author/yincheng/)
+
+[Perceived Web Performance – What is Blocking the DOM?](https://www.keycdn.com/blog/blocking-the-dom/)
+
+[Why do big sites host their images/css on external domains?](https://webmasters.stackexchange.com/questions/26753/why-do-big-sites-host-their-images-css-on-external-domains)
+
+[Network Performance Effects of HTTP/1.1, CSS1, and PNG](https://www.w3.org/Protocols/HTTP/Performance/Pipeline.html)
+
+[Maximum concurrent connections to the same domain for browsers](http://sgdev-blog.blogspot.com/2014/01/maximum-concurrent-connection-to-same.html)
+
+[Understanding the Critical Rendering Path](https://bitsofco.de/understanding-the-critical-rendering-path/)
+
+[理解关键渲染路径](https://github.com/fezaoduke/TranslationInstitute/blob/master/%E7%90%86%E8%A7%A3%E5%85%B3%E9%94%AE%E6%B8%B2%E6%9F%93%E8%B7%AF%E5%BE%84.md)
+
+[渲染树构建、布局及绘制](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/render-tree-construction)
+
+[CSSOM](https://varvy.com/performance/cssom.html)
+
+[Critical rendering path](https://varvy.com/pagespeed/critical-render-path.html)
+
+[使用 JavaScript 添加交互](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/adding-interactivity-with-javascript)
+
+[分析关键渲染路径性能](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/analyzing-crp)
+
+[PageSpeed 规则和建议](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/page-speed-rules-and-recommendations)
