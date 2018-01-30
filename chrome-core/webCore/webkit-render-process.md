@@ -11,7 +11,7 @@
 
 ![](./images/render.png)
 
-1.网页输入URL时候，Webkit调用其资源加载器。总共有三类：特定资源加载器如**ImageLoader**,资源缓存机制的资源加载器如**CachedResourceLoader**,通用资源加载器**ResourceLoader**加载该URL对应的网页。其中里面的**ResourceRequest**值得说一下，每发个请求会生成一个ResourceRequest对象，这个对象包含了http请求的所有信息,包括url、http header、http body等，还有请求的优先级信息等,然后会根据页面的`加载策略`对这个请求做一些预处理。
+1.网页输入URL时候，Webkit调用其资源加载器。总共有三类：特定资源加载器如**ImageLoader**,资源缓存机制的资源加载器如**CachedResourceLoader**,通用资源加载器[**ResourceLoader**](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-resource-loading)加载该URL对应的网页。其中里面的**ResourceRequest**值得说一下，每发个请求会生成一个ResourceRequest对象，这个对象包含了http请求的所有信息,包括url、http header、http body等，还有请求的优先级信息等,然后会根据页面的`加载策略`对这个请求做一些预处理。
 
 ![](./images/resourceloader.png)
 
@@ -38,7 +38,11 @@ enum class ResourceRequestBlockedReason {
   kNone
 };
 ```
+下面是官方给出的图解:
 
+![](./images/blink.png)
+
+其中需要注意的是**ResourceDispatcher**(每一个渲染进程都有一个实例)与**ResourceDispatcherHost**，其中ResourceDispatcher会创建一个唯一的请求ID，然后将这个请求通过IPC通道传递给Browser进程(请查看本文后面部分)，因此请求最后是通过Browser[进程发布出去的](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-resource-loading)。
 
 2.加载器依赖网页模块建立连接，发起请求并接受回复
 
@@ -601,39 +605,48 @@ static const net::RequestPriority
 ##### 4.1 页面渲染关键路径理解
 理解**关键渲染路径**是提高页面性能的关键所在。总体来说，**关键渲染路径**分为六步。
 
-+ 创建DOM树(Constructing the DOM Tree)
-  HTML可以**部分执行并显示**，也就是说，浏览器并不需要等待整个HTML全部解析完毕才开始显示页面。但是，其他的资源有可能阻塞页面的渲染，比如CSS，JavaScript等。
-+ 创建[CSSOM](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model)树
-     **(1)**[CSSOM](https://varvy.com/performance/cssom.html)（CSS对象模型）树是对附在DOM结构上的样式的一种表示方式。它与DOM树的呈现方式相似，只是每个节点都带上样式 ，包括明确定义的和隐式继承的(所有出现在DOM节点的样式)。CSS是一种**渲染阻塞资源(render blocking resource)**，它需要完全被解析完毕之后才能进入**生成渲染树**的环节。
+##### 4.1.1 创建DOM树(Constructing the DOM Tree)
+HTML可以**部分执行并显示**，也就是说，浏览器并不需要等待整个HTML全部解析完毕才开始显示页面。但是，其他的资源有可能阻塞页面的渲染，比如CSS，JavaScript等。
+
+##### 4.1.2 创建[CSSOM](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model)树
+
+**(1)**[CSSOM](https://varvy.com/performance/cssom.html)（CSS对象模型）树是对附在DOM结构上的样式的一种表示方式。它与DOM树的呈现方式相似，只是每个节点都带上样式 ，包括明确定义的和隐式继承的(所有出现在DOM节点的样式)。CSS是一种**渲染阻塞资源(render blocking resource)**，它需要完全被解析完毕之后才能进入**生成渲染树**的环节。
  
-      ![](./images/cssom.png)
+![](./images/cssom.png)
 
-      CSS字节转换成字符，接着转换成令牌和节点，最后链接到一个称为“CSS 对象模型”(CSSOM) 的树结构内。
+CSS字节转换成字符，接着转换成令牌和节点，最后链接到一个称为“CSS 对象模型”(CSSOM) 的树结构内。
 
-      ![](./images/cssomo.png)
+![](./images/cssomo.png)
 
-     **(2)**CSS并不像HTML那样能执行部分并显示，因为CSS具有继承属性， 后面定义的样式会覆盖或者修改前面的样式。如果我们只使用样式表中部分解析好的样式，我们可能会得到错误的页面效果。所以，我们只能等待CSS完全解析之后，才能进入关键渲染路径的下一环节。
-     **(3)**需要注意的是:只有CSS文件适用于当前设备的时候，才能造成渲染阻塞。标签<link rel=”stylesheet”>接受media属性，该属性规定了此处的CSS文件适用于哪种设备。如果我们有个设备属性值为orientation: landscape(横向)的样式，当我们竖着浏览页面的时候，这个CSS资源是不会起作用的，也就不会阻塞渲染的过程了。因为**JavaScript脚本的执行**必须等到CSSOM生成之后，所以说CSS也会阻塞脚本(script blocking)。
+**(2)** CSS并不像HTML那样能执行部分并显示，因为CSS具有继承属性， 后面定义的样式会覆盖或者修改前面的样式。如果我们只使用样式表中部分解析好的样式，我们可能会得到错误的页面效果。所以，我们只能等待CSS完全解析之后，才能进入关键渲染路径的下一环节。
 
-+ 执行脚本(Running JavaScript)
-    JavaScript是一种**解析阻塞资源(parser blocking resource)**，它能阻塞HTML页面的解析。当页面解析到`<script>`标签，**不管脚本是內联的还是外联**，页面解析都会暂停，转而加载JavaScript文件（外联的话）并且执行JavaScript。这也是为什么如果JavaScript文件有引用HTML文档中的元素，JavaScript文件必须放在那个元素的[后面](./examples/block.html)。
+**(3)**需要注意的是:只有CSS文件适用于当前设备的时候，才能造成渲染阻塞。标签<link rel=”stylesheet”>接受media属性，该属性规定了此处的CSS文件适用于哪种设备。如果我们有个设备属性值为orientation: landscape(横向)的样式，当我们竖着浏览页面的时候，这个CSS资源是不会起作用的，也就不会阻塞渲染的过程了。因为**JavaScript脚本的执行**必须等到CSSOM生成之后，所以说CSS也会阻塞脚本(script blocking)。
 
-    页面的[JS脚本一般会阻塞CSSOM的构建](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/adding-interactivity-with-javascript),如果浏览器尚未完成CSSOM的下载和构建，而我们却想在此时运行脚本操作CSSOM，会怎样？答案很简单，对性能不利:**浏览器将延迟脚本执行和DOM构建，直至其完成CSSOM的下载和构建**。为了在页面中展示内容，CSSOM是必须的，直到CSSOM构建完毕。如果你阻塞了CSSOM的构建，那么也意味着用户需要更长时间才能看到页面内容。所以尽量让你的js不要阻塞script。为了避免JavaScript文件阻塞页面的解析，我们可以在`<script>`标签上添加`async`属性，使得JavaScript文件异步加载。
+##### 4.1.3 执行脚本(Running JavaScript)
+
+JavaScript是一种**解析阻塞资源(parser blocking resource)**，它能阻塞HTML页面的解析。当页面解析到`<script>`标签，**不管脚本是內联的还是外联**，页面解析都会暂停，转而加载JavaScript文件（外联的话）并且执行JavaScript。这也是为什么如果JavaScript文件有引用HTML文档中的元素，JavaScript文件必须放在那个元素的[后面](./examples/block.html)。
+
+页面的[JS脚本一般会阻塞CSSOM的构建](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/adding-interactivity-with-javascript),如果浏览器尚未完成CSSOM的下载和构建，而我们却想在此时运行脚本操作CSSOM，会怎样？答案很简单，对性能不利:**浏览器将延迟脚本执行和DOM构建，直至其完成CSSOM的下载和构建**。为了在页面中展示内容，CSSOM是必须的，直到CSSOM构建完毕。如果你阻塞了CSSOM的构建，那么也意味着用户需要更长时间才能看到页面内容。所以尽量让你的js不要阻塞script。为了避免JavaScript文件阻塞页面的解析，我们可以在`<script>`标签上添加`async`属性，使得JavaScript文件异步加载。
 ```
 <script async src="script.js">
 ```
-+ 生成[渲染树,即RenderObject树](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/render-tree-construction)
-  渲染树是DOM和CSSOM的结合，是最终能渲染到页面的元素的树形结构表示。也就是说，它包含能在页面中最终呈现的元素，而**不包含**那些用CSS样式隐藏的元素，比如带有`display: none;`属性的元素。所以，上述例子的渲染树如下所示。
+
+##### 4.1.4 生成[渲染树,即RenderObject树](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/render-tree-construction)
+
+渲染树是DOM和CSSOM的结合，是最终能渲染到页面的元素的树形结构表示。也就是说，它包含能在页面中最终呈现的元素，而**不包含**那些用CSS样式隐藏的元素，比如带有`display: none;`属性的元素。所以，上述例子的渲染树如下所示。
 ![](./images/renderTree.png)
-+ 生成布局(Generating the Layout)
-  布局决定了视口的大小，为CSS样式提供了依据，比如百分比的换算或者视口的总像素值。视口大小是由meta标签的name属性为viewport的内容设置所决定的，如果缺少这个标签，默认的视口大小为980px。最常见的viewport设置是自适应于设备尺寸，设置如下：
+
+##### 4.1.5 生成布局(Generating the Layout)
+
+布局决定了视口的大小，为CSS样式提供了依据，比如百分比的换算或者视口的总像素值。视口大小是由meta标签的name属性为viewport的内容设置所决定的，如果缺少这个标签，默认的视口大小为980px。最常见的viewport设置是自适应于设备尺寸，设置如下：
 ```html
 <meta name="viewport" content="width=device-width,initial-scale=1">
 ```
 假设用户访问一个显示在设备宽度为1000px的页面，一半的视口大小就是500px，10%就是100px，以此类推。
 
-+ 绘制(Painting)
-  最后，页面上可见的内容就会转化为屏幕上的像素点。绘制过程所需要花费的时间取决于DOM的大小以及元素的CSS样式。有些样式比较耗时，比如一个复杂的渐变背景色比起简单的单色背景需要更多的时间来渲染。 
+##### 4.1.6 绘制(Painting)
+
+最后，页面上可见的内容就会转化为屏幕上的像素点。绘制过程所需要花费的时间取决于DOM的大小以及元素的CSS样式。有些样式比较耗时，比如一个复杂的渐变背景色比起简单的单色背景需要更多的时间来渲染。 
 
 ##### 4.2 chrome查看渲染路径
 ![](./images/log.png)
@@ -654,8 +667,8 @@ static const net::RequestPriority
 
 [各个阶段](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/measure-crp)的信息如下:
 <pre>
-domLoading:这是整个过程的起始时间戳，浏览器即将开始解析第一批收到的**HTML文档字节**。
-domInteractive:表示浏览器完成对所有HTML的解析并且**DOM构建完成**的时间点。
+domLoading:这是整个过程的起始时间戳，浏览器即将开始解析第一批收到的HTML文档字节。
+domInteractive:表示浏览器完成对所有HTML的解析并且DOM构建完成的时间点。
 domContentLoaded:此时DOM已经构建完成，同时js也能够执行了，即js不用等待样式表下载解析完成构建CSSOM的过程,此时可以构建RenderObject树，即渲染树了,这样domContentLoaded事件也能够`尽早执行`(即css不阻塞domContentLoaded事件)。许多JavaScript框架都会等待此事件发生后，才开始执行它们自己的逻辑。因此，浏览器会捕获EventStart和EventEnd时间戳，让我们能够追踪执行该事件处理所花费的时间。
 domComplete:所有的处理已经完成，同时所有页面的资源，包括images等都已经下载完成，加载转环已停止旋转
 loadEvent:作为每个网页加载的最后一步，浏览器会触发 onload 事件，以便触发额外的应用逻辑
@@ -719,7 +732,7 @@ Lighthouse方法会对页面运行一系列自动化测试，然后生成关于�
 
 ![](./images/async.png)
 
-首先Build DOM本身不会因为后面的JS存在而被Block掉;CSS下载被执行完成后能够用于构建CSSOM对象;JavaScript文本不再是关键资源的一部分，同时给script标签设置async属性，相当于向浏览器传递脚本不需要在引用位置执行的**信号**,这既可以让浏览器继续构建 DOM，也能够让脚本在就绪后执行，例如，在从缓存或远程服务器获取文件后执行。所以上图其实只是一种情况，JS执行并[**不一定**](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/page-speed-rules-and-recommendations)会在CSSOM后面,但是一定在onload之前(所有资源都下载完成，除了动态加载的。而且在执行的时候依然可能阻塞CSSOM或者DOM构建，因为浏览器只有一个调用栈控制JS执行与页面渲染)，下面是对async的说明:
+首先Build DOM本身不会因为后面的JS存在而被Block掉;CSS下载被执行完成后能够用于构建CSSOM对象;JavaScript文本不再是关键资源的一部分，同时给script标签设置async属性，相当于向浏览器传递脚本不需要在引用位置执行的**信号**,这既可以让浏览器继续构建 DOM，也能够让脚本在就绪后执行，例如，在从缓存或远程服务器获取文件后执行。所以上图其实只是一种情况，JS执行并[**不一定**](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/page-speed-rules-and-recommendations)会在CSSOM后面,但是一定在[onload之前](https://gist.github.com/jakub-g/5286483ff5f29e8fdd9f)(所有资源都下载完成，除了动态加载的。而且在执行的时候依然可能阻塞CSSOM或者DOM构建，因为浏览器只有一个调用栈控制JS执行与页面渲染)，下面是对async的说明:
 
 <pre>
 The boolean async attribute on script elements allows the external JavaScript file to run when it's available, without delaying page load first.
@@ -731,11 +744,82 @@ The boolean async attribute on script elements allows the external JavaScript fi
 
 因为style.css资源只用于打印，浏览器不必阻止它便可渲染网页。所以，只要DOM构建完毕，浏览器便具有了渲染网页所需的足够信息,此时便可进行网页渲染工作了。因此，该网页只有一项关键资源（HTML 文档），并且最短关键渲染路径长度为一次往返。此时[**Run JS+Build CSSOM**](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/analyzing-crp)将会在页面显示后执行~
 
+#### 7.chrome内部架构原理学习
+##### 7.1 chrome中的RootView分发消息
+chrome中有一个比较特殊的View子类，叫做RootView，顾名思义，它是整个View控件树的根，在Chrome中，一个正确的树形的控件结构，必须由RootView作为根。之所以要这样设计，是因为RootView有一个比较特殊的功能，那就是**分发消息**。
+
+一般的Windows控件，都有一个HWND，用于占据一块屏幕，`捕获系统消息`。Chrome中的View**只是保存控件相关信息和绘制控件，里面没有HWND句柄，因此不能够捕获系统消息**。在Chrome中，完整的控件架构是这样的:首先需要有一个ViewContainer，它里面包含一个RootView。ViewContainer是一个抽象类，在Window中的一个子类是HWNDViewContainer，同时，HWNDViewContainer还是MessageLoopForUI::Observer的子类，Observer是用于监听本线程内系统消息。
+
+当有系统消息进入此线程消息循环后，HWNDViewContainer会监听到这个情况，`如果和View相关的消息，它就会调用RootView的相关方法，传递给控件`。在RootView的内部，会遍历整个控件树上的控件，将消息传递给各个控件。当然，有的消息是可以独占的，比如鼠标移动发送在某个View所管辖的范围 内，它会告知RootView（通过方法的返回值），这个消息我要了，那么RootView会停止遍历。
+
+
+##### 7.2 chrome中的[进程](https://chromium.googlesource.com/chromium/src/+/master/docs/threading_and_tasks.md#Threads)
+##### 7.2.1 chrome中主要进程
+在chrome中主要包括**browser进程**与**renderer进程**，而每一个进程都包括两个主要的线程:
+
+- 主线程
+   在browser进程中的主线程主要用于更新UI(比如cursor:pointer,alert/confirm对话框,状态栏等浏览器外框相关)，管理浏览器Tab和插件线程(Plugin Process);而renderer进程(对应上图的**Render Thread**)用于渲染页面，其使用Blink这个开源的排版引擎来解析和排版HTML，而且其和特定的浏览器tab有关。
+- IO线程
+  在browser进程中的IO线程主要用于IPC和网络请求，而renderer进程中的IO线程(对应于上图的Main Thread)主要处理IPC。
+
+chrome除了这两个进程以外还会包括有特定功能的线程或者线程池。大多数的线程都有一个循环用于从队列中获取Task任务，然后执行。同时这些队列可能在多个线程之间共享。其图形表示如下:
+
+![](./images/render-browser.png)
+
+##### 7.2.2 chrome中[主要进程职责](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-architecture)
+- 管理渲染进程
+  每一个渲染进程都有一个**RenderProcess**对象，它用于管理与父级Browser进程通信，同时保存全局状态。相应的父级Browser进程会为每一个渲染进程维护一个**RenderProcessHost**，RenderProcessHost主要用于管理浏览器状态，同时和渲染进程进行IPC通信。
+- 管理RenderView
+  每一个渲染进程有一个或者多个**RenderView**对象，这些RenderView通过RenderProcess进行管理，每一个RenderView对应于每一个**Tab的内容**。而其父级的RenderProcessHost会为`每一个`渲染进程维护一个RenderViewHost。每一个RenderView会都有一个ID，其用于区别在同一个渲染进程中的RenderView。在每一个渲染进程中，这个ID是唯一的，但是在浏览器中并不是。因此为了区分某一个RenderView，我们**需要同时指定RenderProcessHost和该ID值**。
+  Browser进程和某一个特定的tab页面的内容进行通信是通过RenderViewHost对象来完成的，这个RenderViewHost知道如何通过RenderProcessHost传递消息给RenderProcess进而传递给RenderView。
+- 组件和接口
+  **在渲染进程中**:RenderProcess通过IPC和相应的Browser进程的RenderProcessHost进行通信。也就是每一个渲染进程中都有一个RenderProcess，这也是Browser进程和渲染进程进行通信的方式。RenderView通过RenderProcess和相应的RenderViewHost进行通信，同时其和webkit的通信也是通过RenderProcess完成。RenderView代表某一个tab下的网页内容，或者**弹窗窗**。
+  **Browser对象**:代表顶级的浏览器window。RenderProcessHost对象代表Browser进程中单个浏览器和渲染进程通过IPC连接进行通信。每一个渲染进程在Browser进程中都有一个相应的RenderProcessHost与其对应。RenderViewHost包装了和远程RenderView进行通信的机制，RenderWidgetHost用于处理`用户输入`和浏览器中的`RenderWidget`的渲染。更多内容[查看这里](https://sites.google.com/a/chromium.org/dev/developers/design-documents/displaying-a-web-page-in-chrome)。
+- 共享渲染进程
+  通常，每一个tab都会打开一个新的进程，浏览器将会产生一个新的进程，然后通知它创建一个RenderView。但是有时候我们需要在不同的tab中共享渲染进程。比如一个web应用打开一个新的窗口，并需要和这个打开的窗口进行同步通信，例如**window.open**。如果进程很多的情况下，我们甚至可以为某一个存在的进程创建一个新的tab页面。
+- 检查崩溃进与无效渲染进程
+  每一个渲染进程通过IPC连接和父级Browser进程建立了联系，其会监听进程句柄。如果这些句柄接受到信号，比如Render进程crash了，那么这个tab页面会接受到这个crash。比如以前经常看到的"页面崩溃了!"的界面。这时候用户可以点击重新加载或者刷新，此时当前页面没有新的进程就会创建一个。
+- Render进程的sandbox化
+  因为Render进程运行在一个独立的进程中，我们可以限制它访问系统资源。这样渲染进程就只能通过父级Browser进程来访问网络。同时我们也可以限制它访问文件系统。
+- 内存释放
+  因为渲染进程在一个独立的进程中，因此隐藏的Tab页面将会给出较低的优先级，而用户可见的部分将会给出较高的优先级。这在内存有限的情况下将会非常有用。
+  
+##### 7.3 chrome所有资源都在browser进程中下载
+你键入一个Url并敲下回车后，Chrome会在Browser进程中下载Url对应的页面资源（**包括Web页面和Cookie**），而**不是**直接将Url发送给Render进程让它们自行下载（你会越来越发现，Render进程绝对是100%的名符其实，除了绘制，几乎啥多余的事情都不会干）。与各个Render进程各自为站，**各自管好自己所需的资源相比**，这种策略仿佛会增加大量的进程间通信。之所以采用，主要有三个优点:
+<pre>
+(1)避免子进程与网络通信，从而将网络通信的权限牢牢握在主进程手中，可以更好控制各个Render进程的权限
+(2)另一个是有利于Cookie等持久化资源在不同页面中的共享，否则在不同Render进程中传递Cookie这样的事情，做起来更麻烦
+(3)可以控制与网络建立HTTP连接的数量(浏览器作为一个整体可以打开的http连接数量)，以Browser为代表与网络各方进行通信，各种优化策略都比较好开展
+</pre>
+
+##### 7.4 共享内存减少进程通信
+在Browser进程中进行统一的资源管理，也就意味着不再用WebKit进行资源下载（WebKit当然有此能力，不过再次被Chrome抛弃了），而是依托**WinHTTP**来做的。WinHTTP在接受数据的过程中，会不停的把数据和相关的消息通过IPC，发送给负责绘制此页面的Render进程中对应的RenderView。
+
+RenderView接收到页面信息，会一边绘制一边等待更多的资源到来，在用户看来，所请求的页面正在一点一点显示出来。当然，如果是一个通知传输开始、传输结束这样的消息，通过序列化到消息参数里面，经由IPC发过来，代价还是可以承受的，但是，想资源内容这样大段大段的字节流，如果通过消息发过来，浪费两边进程大量空间和时间，就不合适了。于是这里用到了**共享内存**。Browser进程将下载到的资源写到共享内存中，并将共享内存的**句柄和共享区域的大小**序列化在消息中发送给Render进程。Render进程拿到这个句柄，就可以通过它访问到共享内存相关的区域，`读取信息并进行绘制`。通过这样的方式，即享用到了统一资源管理的优点，由避免了很高的进程通信开销，左右逢源，好不快活。
+
+##### 7.5 Render进程中不包含HWND
+[Render进程中不包含HWND](http://www.ha97.com/2913.html)，当你鼠标在页面上划来划去，点上点下，这些消息其实都**发到了Browser进程**，它们拥有页面呈现部分的HWND。Browser会将这些消息**转手**通过IPC发送给对应的Render进程中的RenderView，很多时候**WebKit会处理此类消息**，当它发现出现了某种值得告诉Browser进程的事情(比如cursor:pointer等系统设置的样式)，它会组个报文通知Browser进程。
+
+举个例子，你打开一个页面，然后拿鼠标在页面上乱晃。Browser这时候就像一个碎嘴大婶，不厌其烦的告诉Render进程，“鼠标动了，鼠标动了”。如果Render对这个信息无所谓，就会很无聊的应答着：“哦，哦”（发送一个回包…）。但是，当鼠标划过链接的时候，矜持的Render进程坐不住了，会大声告诉Browser进程：“换鼠标，换鼠标~~”，Browser听到后，会将鼠标从箭头状换成手指状，然后继续以上过程。
+
+为什么不让Render进程自己拥有HWND，自己管理自己的消息，既快捷又便利。在Chrome的官方Blog上，有[一篇解释的文章](https://blog.chromium.org/2008/10/responsiveness-for-plugins-and-renderer.html)， 基本上是这个意思:速度是必须快的，但是为了用户响应，放弃一些速度是必要的，毕竟，没有人喜欢总假死的浏览器。在Browser进程中，基本上是杜绝任何同步Render进程的工作，所有操作都是异步完成。因为Render进程是不靠谱的，随时可能牺牲掉，同步它们往往导致主进程停止响应，从而导致整个浏览器停下来甚至挂掉，`这个代价是不可以容忍的`。
+
+##### 7.6 Render进程重绘
+重新绘制页面是一个太频繁发生的事情，不可能重绘一次就序列化一堆字节流传递给Render进程。于是策略也很清楚了，就是**依然用共享内存读写**，用消息发句柄。在Render进程中，会有一个共享内存池（默认值为2），以size为key，以共享内存为值，简单的先入先出淘汰算法，利用局部性的特征，`避免反复的创建和销毁共享内存`（这和资源传递不一样，因为资源传递可以开一块固定大小的共享内存）。Render进程从共享内存池中拿起一块二维字节数组渲染到网页中。
+
+
+
+
 #### 那些还在思考的问题
 ##### 1 image加载会走事件循环吗,DOM树中的请求是并发发出去的吗
 目前从我的理解来说，image加载虽然是通过chrome一个单独的线程发送出去的，但是它并不需要走事件循环。页面UI渲染是通过事件循环来调度的，但是image本身下载完成后插入的过程并不需要事件循环来介入。所以image的加载和插入都是通过chrome渲染引擎来完成的,而不受到js引擎事件循环的调度!
 
-##### 2.onload与页面可见的时机
+##### 2.onload与[页面可见](https://segmentfault.com/q/1010000008734905)的时机
+更多的时候我们关注的是DOMContentLoaded，因为此时DOM构建完成了，就可以操作页面元素了。但是操作元素以后，页面可能需要重绘或者重排。
+
+
+
+
 
 参考资料:
 
@@ -786,3 +870,29 @@ The boolean async attribute on script elements allows the external JavaScript fi
 [分析关键渲染路径性能](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/analyzing-crp)
 
 [PageSpeed 规则和建议](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/page-speed-rules-and-recommendations)
+
+[HTML5’s async Script Attribute](https://davidwalsh.name/html5-async)
+
+[Google Chrome源码剖析【五】：插件模型](http://www.ha97.com/2914.html)
+
+[Google Chrome源码剖析【四】：UI绘制](http://www.ha97.com/2913.html)
+
+[Google Chrome源码剖析【一】：多线程模型](http://www.ha97.com/2908.html)
+
+[Google Chrome源码剖析【二】：进程通信](http://www.ha97.com/2911.html)
+
+[Google Chrome源码剖析【三】：进程模型](http://www.ha97.com/2912.html)
+
+[HWND](https://baike.baidu.com/item/HWND/1397706?fr=aladdin)
+
+[Threading and Tasks in Chrome](https://chromium.googlesource.com/chromium/src/+/master/docs/threading_and_tasks.md#Threads)
+
+[Responsiveness for Plugins and the Renderer](https://blog.chromium.org/2008/10/responsiveness-for-plugins-and-renderer.html)
+
+[Chromium Blog](https://blog.chromium.org/2008/10/)
+
+[Multi-process Architecture](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-architecture)
+
+[How Chromium Displays Web Pages](https://sites.google.com/a/chromium.org/dev/developers/design-documents/displaying-a-web-page-in-chrome)
+
+[Multi-process Resource Loading](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-resource-loading)
