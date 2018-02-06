@@ -297,8 +297,89 @@ OCSP(Online Certificate Status Protocol，在线证书状态协议)是维护`服
  f)应用层数据一致性校验。
 </pre>
 
-#### 5.chrome的TTFB
-**TTFB** (Time To First Byte)，是最初的网络请求被发起到从服务器接收到第一个字节这段时间，它包含了 TCP连接时间，发送HTTP请求时间和获得响应消息第一个字节的时间。
+#### 5.为什么前端的请求被设置为Options请求
+这当前端调用接口存在**跨域**的情形下会出现，这种情况下建议使用**代理服务器**，而不是前端直接发送XHR或者fetch请求到另一个服务端去。此时在真实发送数据之前会通过Options方法进行[一次探测](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)，过程如下:
+
+- 客户端发送请求方法以及请求头
+
+  下面是Option的数据发送:
+  ```text
+  OPTIONS /resources/post-here/ HTTP/1.1
+  Host: bar.other
+  User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US; rv:1.9.1b3pre) Gecko/20081130 Minefield/3.1b3pre
+  Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  Accept-Language: en-us,en;q=0.5
+  Accept-Encoding: gzip,deflate
+  Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
+  Connection: keep-alive
+  Origin: http://foo.example
+  Access-Control-Request-Method: POST
+  Access-Control-Request-Headers: X-PINGOTHER, Content-Type
+  ```
+(1)Options方法是HTTP/1.1方法，用于从服务端进一步获取消息，是一个安全的方法，也意味着无法修改服务端的资源本身
+
+(2)**Access-Control-Request-Method**表示当真实请求被发送的时候采用的是POST方法
+
+(3)**Access-Control-Request-Headers**表示当真实的请求被发送的时候将会发送X-PINGOTHER, Content-Type两个自定义的请求头。
+
+通过以上信息，服务器可以决定是否接受这个真实的请求。
+
+- 服务端发送可以接受的方法以及请求头
+  服务端返回的数据如下:
+  ```text
+  HTTP/1.1 200 OK
+  Date: Mon, 01 Dec 2008 01:15:39 GMT
+  Server: Apache/2.0.61 (Unix)
+  Access-Control-Allow-Origin: http://foo.example
+  Access-Control-Allow-Methods: POST, GET, OPTIONS
+  <!-- 1.服务端接受POST, GET, OPTIONS用于客户端发送真实的请求 -->
+  Access-Control-Allow-Headers: X-PINGOTHER, Content-Type
+  <!-- 2.表示服务端可以接受这两个自定义的HTTP头 -->
+  Access-Control-Max-Age: 86400
+  <!-- 3.表示通过Options获取到的信息可以缓存多久而不用再次发送OPTIONS请求 -->
+  Vary: Accept-Encoding, Origin
+  Content-Encoding: gzip
+  Content-Length: 0
+  Keep-Alive: timeout=2, max=100
+  Connection: Keep-Alive
+  Content-Type: text/plain
+  ```
+- 发送真实的请求
+  ```text
+  POST /resources/post-here/ HTTP/1.1
+  Host: bar.other
+  User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.5; en-US; rv:1.9.1b3pre) Gecko/20081130 Minefield/3.1b3pre
+  Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  Accept-Language: en-us,en;q=0.5
+  Accept-Encoding: gzip,deflate
+  Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
+  Connection: keep-alive
+  X-PINGOTHER: pingpong
+  Content-Type: text/xml; charset=UTF-8
+  <!-- 1.自定义的头部X-PINGOTHER和Content-Type -->
+  Referer: http://foo.example/examples/preflightInvocation.html
+  Content-Length: 55
+  Origin: http://foo.example
+  Pragma: no-cache
+  Cache-Control: no-cache
+  ```
+
+还有一种可能是跨域情况，比如http:\/\/foo.example发送请求到http:\/\/bar.other，需要发送HTTP Cookie，此时可能需要写出如下的代码:
+```js
+var invocation = new XMLHttpRequest();
+var url = 'http://bar.other/resources/credentialed-content/';
+function callOtherDomain(){
+  if(invocation) {
+    invocation.open('GET', url, true);
+    invocation.withCredentials = true;
+    // 设置withCredentials
+    // 默认情况下跨站点的XMLHttpRequest或者Fetch不会发送Cookie
+    invocation.onreadystatechange = handler;
+    invocation.send(); 
+  }
+}
+```
+而[Preflighted requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)满足的条件，你可以查看这个链接。而对于那些不满足特定条件的请求并不会通过一次的多余的OPTIONS请求来完成。
 
 
 
@@ -331,3 +412,5 @@ OCSP(Online Certificate Status Protocol，在线证书状态协议)是维护`服
 [防止混合内容](https://developers.google.com/web/fundamentals/security/prevent-mixed-content/fixing-mixed-content?hl=zh-cn)
 
 [内容安全政策](https://developers.google.com/web/fundamentals/security/csp/?hl=zh-cn)
+
+[Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)

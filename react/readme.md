@@ -1149,6 +1149,114 @@ ReactDOM.render(
 
 所以，如果抛开[服务端渲染](https://github.com/liangklfangl/react-article-bucket/blob/master/react-static/index.md)的问题，在componentWillReceiveProps中发起调用也是可以的!
 
+#### 14.可以手动调用React的生命周期方法吗?
+答案是:'可以'。比如下面的例子:
+```js
+ class Parent extends React.Component{
+    componentDidMount(){
+      alert('组件挂载');
+    }
+    componentWillUnMount(){
+      alert('组件被卸载');
+    }
+    render(){
+      return <div>
+        This is Parent Component!
+       <button onClick={
+       ()=>{
+         this.componentDidMount();
+         this.componentWillUnMount();
+       }}>调用原型链方法</button>
+       </div>
+    }
+ }
+ReactDOM.render(
+  <Parent/>,
+  document.getElementById('example')
+);
+```
+此时当你点击按钮的时候会发现，生命周期方法componentDidMount/componentWillUnMount都会被触发，分别弹出"组件挂载"和"组件被卸载"！其实很容易理解，生命周期方法也是位于组件原型链上的方法，当然可以直接被调用，但是我们并不建议这么做!
+
+#### 15.React组件外定义的变量在组件卸载后依然存在
+```js
+import {generateRandomKey} from "./util";
+import Texst from "./index";
+import React from "react";
+import ReactDOM from "react-dom";
+class Test extends React.Component{
+  state={
+    key:0
+  }
+  unload=()=>{
+    this.setState({
+      key:++this.state.key
+    });
+  }
+  render(){
+    return <div>
+        <Texst key={this.state.key}/>
+        <button onClick={this.unload}>卸载Test</button>
+    </div>
+  }
+}
+ReactDOM.render(<Test/>,document.getElementById('react-content'));
+//下面是Texst组件内容
+import React from "react";
+import ReactDOM from "react-dom";
+import Child from "./Child";
+import Sibling from "./Sibling";
+let localeData = {
+  name:'liangklfangl',
+  home:'zhejang hangzhuo'
+}
+export default class Texst extends React.Component{
+  render(){
+    console.log('localeData=====>',localeData);
+    return <div>Texst组件{localeData.home}<Sibling/><Child/></div>
+  }
+ }
+```
+localeData的值在组件Texst被卸载后依然存在，而且在其**子组件或者同级组件**中都是不能访问的，这一点很重要(每一个文件都是作为一个独立的模块被打包，该模块中的全局变量只对该模块本身可见)。所以为了清除组件本身的全局变量，我们会结合componentWillUnmount来做处理:
+```js
+componentWillUnmount() {
+   localeData={};
+   // 当下次实例化一个新Texst组件的时候localeData回到初始值，而非上一个组件修改后的值
+  }
+```
+而真实原因如下，你查看webpack打包后的代码就知道了:
+```js
+(function(module, __webpack_exports__, __webpack_require__) {
+"use strict";
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_react__ = __webpack_require__(1);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_react___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_react__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_react_dom__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_react_dom___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_react_dom__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__Child__ = __webpack_require__(28);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__Sibling__ = __webpack_require__(29);
+let localeData = {
+  name: 'liangklfangl',
+  home: 'zhejang hangzhuo'
+};
+class Texst extends __WEBPACK_IMPORTED_MODULE_0_react___default.a.Component {
+  render() {
+    console.log('localeData=====>', localeData);
+    return __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(
+      "div",
+      null,
+      "Texst\u7EC4\u4EF6",
+      localeData.home,
+      __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_3__Sibling__["a" /* default */], null),
+      __WEBPACK_IMPORTED_MODULE_0_react___default.a.createElement(__WEBPACK_IMPORTED_MODULE_2__Child__["a" /* default */], null)
+    );
+  }
+}
+/* harmony export (immutable) */ __webpack_exports__["a"] = Texst;
+/***/ })
+```
+即，localData只是作为组件Texst的局部变量而已，所以即使是子级组件或者同级组件都是无法访问的。你可以查看[这个例子](./global)，运行'npm run dev/npm run build'就可以看到效果。
+
+
+
 参考资料：
 
 [七、React.findDOMNode()](https://www.kancloud.cn/kancloud/react/67582)

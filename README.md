@@ -114,6 +114,8 @@
 
 [前端计算机网络基础知识](./computer-QA/os-QA.md)
 
+[前端计算机图形学基础知识](./chrome-core/webCore/chrome-compositor.md)
+
 [markdown开发中遇到问题](./others/markdown-QA/readme.md)
 
 [浏览器高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md)

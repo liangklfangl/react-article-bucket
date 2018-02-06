@@ -105,6 +105,7 @@ enum class ResourceRequestBlockedReason {
 
 ##### 1.3 进行渲染的RenderLayer树
 创建的RenderLayers树能**映射**到RenderObject中，这个映射是一对多的行为，因为某一个RenderObject要么有自己的RenderLayer，要么属于它父级节点的RenderLayer。
+
 - 网页分层原理
 
 享有**相同坐标空间**(比如设置了相同的css transform)的RenderObject通常都属于同一个RenderLayer。RenderLayer之所以存在是为了页面中的元素能够按照正确的顺序来展示，如当内容存在**重叠**的情况，或者存在**半透明**元素等的时候。RenderLayer也是一个树形结构，RenderLayer的根节点对应于页面的根节点，而页面中其他元素创建的RenderLayer对应于根节点的RenderLayer的子级节点。每一个RenderLayer的子级RenderLayer节点都被保存到两个有序集合中，并按照z-index的顺序排序。对于那些处于当前RenderLayer下面的子级RenderLayer被放到negZOrderList集合中，而那些处于当前RenderLayer之上的子级layer将会放在posZOrderList集合中。之所以引入RenderLayer有以下两个原因:
@@ -139,11 +140,11 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 
 - 我对RenderLayer的理解
 
-  浏览器渲染引擎并不是直接使用RenderObject树进行绘制,虽然RenderObject树中每一个元素都明确的知道其在页面中的位置。但是为了方便处理 Positioning（定位），Clipping（裁剪），Overflow-scroll（页內滚动），CSS Transform/Opacity/Animation/Filter，Mask or Reflection，Z-indexing（Z排序）等，浏览器需要生成另外一棵树RenderLayer树。顾名思义:它是一棵**层级树(按照z-index排序的树)**!根据上面对于negZOrderList,posZOrderList的说明:首先是针对document创建了一个RenderLayer节点，然后将小于当前z-index的放在negZOrderList，而将大于当前z-index的元素放在了posZOrderList中，并依次按此处理子级的元素并创建RenderLayer。最后按照整棵RenderLayer树去渲染网页就能够有效的处理定位等元素重叠或者存在半透明的情况!
+  浏览器渲染引擎并不是直接使用RenderObject树进行绘制,虽然RenderObject树中每一个元素都明确的知道其具体的样式信息。但是为了方便处理 Positioning（定位），Clipping（裁剪），Overflow-scroll（页內滚动），CSS Transform/Opacity/Animation/Filter，Mask or Reflection，Z-indexing（Z排序）等，浏览器需要生成另外一棵树RenderLayer树。顾名思义:它是一棵**层级树(按照z-index排序的树)**!根据上面对于negZOrderList,posZOrderList的说明:首先是针对document创建了一个RenderLayer节点，然后将小于当前z-index的放在negZOrderList，而将大于当前z-index的元素放在了posZOrderList中，并依次按此处理子级的元素并创建RenderLayer。最后按照整棵RenderLayer树去渲染网页就能够有效的处理定位等元素重叠或者存在半透明的情况!
 
 ![](./images/renderLayer.png)
 
-##### 1.4 RenderLayer树到GraphicsLayers树
+##### 1.4 [RenderLayer树到GraphicsLayers树](https://sites.google.com/a/chromium.org/dev/developers/design-documents/gpu-accelerated-compositing-in-chrome)
 - 什么是独立后端存储以及创建条件
 
   为了有效的使用合成器，有些RenderLayers会有自己的后端存储，具有自己后端存储的RenderLayer叫做合成层。每一个RenderLayer要么有自己的GraphicsLayer(它本身就是合成层)，要么使用它最近的父节点的GraphicsLayer(这也意味着该元素会和其父元素一起重绘)。他们的关系与RenderObject和RenderLayers的关系一样。
@@ -208,7 +209,7 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 
    最后，硬件加速的合成：每一个层的绘制和所有层的合成均使用gpu硬件来完成，这对需要使用3d绘图的操作来说特别合适。在这种方式下，在RenderLayer树之后，Webkit和chromium还需要建立更多的内部表示，例如graphiclayer。但是，一方面，硬件加速能够支持现在所有的html5定义的2d或者3d绘图标准；另外一方面，关于更新区域的讨论，如果需要更新**某个层的一个区域**，因为软件渲染没有为每一层提供后端存储，因而它需要将和这个区域有重叠部分的所有的层次相关区域依次从后向前重新绘制一遍，而硬件加速渲染只是需要重新绘制更新发生的层次，因而在某些情况下，软件渲染的代价更大，当然，这取决于网页的结构和渲染策略。
 
-- chrome并非全量更新渲染
+- chrome[并非全量更新渲染](https://sites.google.com/a/chromium.org/dev/developers/design-documents/gpu-accelerated-compositing-in-chrome)
 
   很多情况下，也就是没有**硬件加速**内容的时候（css3变形，变换，webgl，视频），Webkit可以使用软件渲染来完成页面的绘制工作。软件渲染需要关注两个方面，分别是RenderLayer树和RenderObject树。那么Webkit如何遍历RenderLayer树来绘制每一个层？对于每一个RenderObject对象，需要三个阶段绘制自己。
 
@@ -224,6 +225,7 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
   
   ![](./images/update.png)
  
+
 #### 2.浏览器解析DOM时候不会开始加载后面资源吗？
 ##### 2.1 浏览器后面资源加载不会等待script脚本执行完成
 其实一直有一个疑问:浏览器在解析DOM的时候，如果它命中了script(同步脚本)脚本的时候，会等待script加载并解析执行完成。那么后面的如image,iframe,css等可以并行加载的资源就没法加载了吗？也就是说浏览器必须等到script执行完毕后才能发送新的网络请求去加载这些资源吗？我们给出下面的[例子](./examples/download.html):
@@ -758,7 +760,7 @@ chrome中有一个比较特殊的View子类，叫做RootView，顾名思义，�
 在chrome中主要包括**browser进程**与**renderer进程**，而每一个进程都包括两个主要的线程:
 
 - 主线程
-   在browser进程中的主线程主要用于更新UI(比如cursor:pointer,alert/confirm对话框,状态栏等浏览器外框相关)，管理浏览器Tab和插件线程(Plugin Process);而renderer进程(对应上图的**Render Thread**)用于渲染页面，其使用Blink这个开源的排版引擎来解析和排版HTML，而且其和特定的浏览器tab有关。
+   在browser进程中的主线程主要用于更新UI(见1.5章节)，管理浏览器Tab和插件线程(Plugin Process);而renderer进程(对应上图的**Render Thread**)用于渲染页面，其使用Blink这个开源的排版引擎来解析和排版HTML，而且其和特定的浏览器tab有关。
 - IO线程
   在browser进程中的IO线程主要用于IPC和网络请求，而renderer进程中的IO线程(对应于上图的Main Thread)主要处理IPC。
 
@@ -896,3 +898,5 @@ RenderView接收到页面信息，会一边绘制一边等待更多的资源到�
 [How Chromium Displays Web Pages](https://sites.google.com/a/chromium.org/dev/developers/design-documents/displaying-a-web-page-in-chrome)
 
 [Multi-process Resource Loading](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-resource-loading)
+
+[GPU Accelerated Compositing in Chrome](https://sites.google.com/a/chromium.org/dev/developers/design-documents/gpu-accelerated-compositing-in-chrome)

@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "react": "^16.2.0",
+    "react-dom": "^16.2.0",
+    "webpack": "^3.9.1"
+  },
+  "entry":{
+    "index":"./index.test.js"
+  },
+  "name": "react-qa",
+  "version": "1.0.0",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev" :"wcf --dev --devServer --htmlTemplate ./index.html",
+    "build":"wcf --dev"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
