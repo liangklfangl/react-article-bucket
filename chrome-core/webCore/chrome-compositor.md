@@ -1,7 +1,7 @@
 #### 主要内容
 在本章节，主要是一些渲染引擎相关内容。通过这部分内容我希望自己能够更多的了解浏览器，不仅仅是JS引擎，也包括渲染引擎和图像图形学基础知识。如果你有任何问题欢迎issue,同时也欢迎star！
 
-#### 1.计算机图形学基础知识
+#### 第一部分.计算机图形学基础知识
 ##### 1.1 什么是[bitmap](https://baike.baidu.com/item/Bitmap/6493270?fr=aladdin)
 **位图文件（Bitmap）**，扩展名可以是.bmp或者.dib。位图是**Windows标准格式图形文件**，它将图像定义为由**点（像素）**组成，每个点可以由多种色彩表示，包括2、4、8、16、24和32位色彩。例如，一幅1024×768分辨率的32位真彩图片，其所占存储字节数为：1024×768×32/(8\*1024)=3072KB(其中1个字节=8个比特位)。
 
@@ -104,7 +104,16 @@ OpenGL中，GPU屏幕渲染有两种方式:
 (2)上下文切换:离屏渲染的整个过程，需要多次切换上下文环境：先是从当前屏幕（On-Screen）切换到离屏（Off-Screen），等到离屏渲染结束以后，将离屏缓冲区的渲染结果显示到屏幕上又需要将上下文环境从离屏切换到当前屏幕。而上下文环境的切换是要付出很大代价的。
 </pre>
 
-#### 2.深入GPU百科全书
+##### 1.7 [VRAM](https://baike.baidu.com/item/VRAM/910598?fr=aladdin)
+Video Random Access Memory:**显存，帧存储器，刷新存储器，或VRAM（缩写）**。它是[**显卡上的随机存取存储器**](https://baike.baidu.com/item/%E9%9A%8F%E6%9C%BA%E5%AD%98%E5%8F%96%E5%AD%98%E5%82%A8%E5%99%A8)。是一种双端口内存，它允许在同一时间被所有硬件（包括中央处理器、显示芯片等）访问。它比EDO DRAM快20%左右。但它的价格也是比较高的,它适用于**高色深、高分辨率**的显频设备。
+
+它的主要功能是将显卡的**视频数据输出到数模转换器**中，有效降低绘图显示芯片的工作负担。它采用双数据口设计，其中一个数据口是并行式的数据输出入口，另一个是串行式的数据输出口。多用于高级显卡中的高档内存
+
+##### 1.8 [skia](https://baike.baidu.com/item/skia/1287196?fr=aladdin)简介
+skia是个**2D向量图形处理函数库**，包含**字型、坐标转换，以及点阵图**都有高效能且简洁的表现。不仅用于Google Chrome浏览器，新兴的Android开放手机平台也采用skia作为绘图处理，搭配OpenGL/ES与特定的硬件特征，强化显示的效果。
+
+
+#### 第二部分.深入GPU百科全书
 ##### 2.1 方程与几何
 对于图形学来说，外形的改变就是多边形的改变，进一步来讲就是**顶点坐标**的变化。而顶点坐标的变化，是可以通过方程来描述的。只要通过改变这些方程的参量,就能够产生不同的图形。
 
@@ -229,11 +238,11 @@ TMU的作用，归根到底就是对**材质的贴图和过滤操作**。根据�
 
 ##### 2.9 [ROP,Render Output Unit](http://blog.csdn.net/pizi0475/article/details/7523497)
 ###### 2.9.1 ROP主要工作
-其实，ROP单元并没有大多数人想象中那样神秘，除了觉得ROP是在处理光栅化过程的人之外，其他所有人并排坐在一起，把自己的观点重复一遍，ROP单元的功能就出来了——是的，ROP单元的功能，就是**处理雾化等特定的特效，进行采样及抗锯齿操作，以及将所有图像元素混合成最终画面并予以输出**。所以从作用的角度出发，相比于Raster Operations Units这种头衔味道更重的名字来说，Render Output Unit显然更加适合用来描述ROP单元。
+其实，ROP单元并没有大多数人想象中那样神秘，除了觉得ROP是在处理光栅化过程的人之外，其他所有人并排坐在一起，把自己的观点重复一遍，ROP单元的功能就出来了——是的，ROP单元的功能，就是**处理[雾化](https://baike.baidu.com/item/%E9%9B%BE%E5%8C%96%E6%95%88%E6%9E%9C/2798835)等特定的特效，进行采样及抗锯齿操作，以及将所有图像元素混合成最终画面并予以输出**。所以从作用的角度出发，相比于Raster Operations Units这种头衔味道更重的名字来说，Render Output Unit显然更加适合用来描述ROP单元。
 
 ![](./images/raster-png.jpg)
 
-我们所看到的图像的基本构成单位是像素，而像素的形状则是一个又一个的小方格，当两个相邻像素存在巨大的**颜色反差**时，这两个像素中间就会出现一条非常显眼的颜色分界线。颜色分界线带来的界面效应是区分物体边缘的重要标识。对于垂直和水平出现的像素分界来说，由于其本身的范围非常均一，因此并不会造成界面效果之外的效应，但当像素分界以**斜线**的形式出现时，效果就完全不一样了。**斜向像素分界线，正是困扰3D图形界多年的问题——锯齿**。
+我们所看到的图像的基本构成单位是像素，而像素的形状则是一个又一个的小方格，当两个相邻像素存在巨大的**颜色反差**时，这两个像素中间就会出现一条非常显眼的颜色分界线。颜色分界线带来的界面效应是区分物体边缘的重要标识。对于垂直和水平出现的像素分界来说，由于其本身的范围非常均一(因为在同一个水平或者垂直线上，而不存在斜线的阶梯效果)，因此并不会造成界面效果之外的效应，但当像素分界以**斜线**的形式出现时，效果就完全不一样了。**斜向像素分界线，正是困扰3D图形界多年的问题——锯齿**。
 
 ![](./images/gouya.gif)
 
@@ -241,15 +250,21 @@ TMU的作用，归根到底就是对**材质的贴图和过滤操作**。根据�
 
 ![](./images/aa.jpg)
 
-Anti-Aliasing过程的起点**开始于对图像的放大**，我们首先要将整个图像（超级采样，SSAA）或者比较精确的物体边缘（多重采样，MSAA）进行放大，然后对颜色反差巨大的物体边缘部分的像素及其周围的像素进行提取和混合，形成比原来更加自然但也更加模糊的颜色过渡，最后再将图像缩小回原来的尺寸以便消除颜色过渡产生的模糊现象。ROP在AA过程中所做的事情，就是提取颜色分界线所在像素及其周围像素的颜色数值，然后对这些像素的颜色进行混合，再重新把新的过渡颜色刷上去
+Anti-Aliasing过程的起点**开始于对图像的放大**，我们首先要将整个图像（超级采样，SSAA，[Super Sampling](https://www.zhihu.com/question/20236638)）或者比较精确的物体边缘（多重采样，MSAA，Multi-Sampling）进行放大，然后对颜色反差巨大的物体边缘部分的像素及其周围的像素进行提取和混合，形成比原来更加自然但也更加模糊的颜色过渡，最后再将图像缩小回原来的尺寸以便消除颜色过渡产生的模糊现象。ROP在AA过程中所做的事情，就是提取颜色分界线所在像素及其周围像素的颜色数值，然后对这些像素的颜色进行混合，再重新把新的过渡颜色刷上去
 
 ###### 2.9.2 ROP的z/stencil检查与透明度检查
 首先，由**TMU拾取的纹理以及由shader处理完成的像素**会被传送到对应的**z/stencil buffer**，接下来ROP单元会首先对这些纹理和像素进行z/stencil检查，尽管经由光栅化处理之后的模型已经不具备实际存在的Z轴了，但其`深度信息依旧会被保存下来`，对于深度和模板信息的判断能够让ROP做出让那些像素被显示出来的决定，这不仅能够避免完全遮挡的像素被错误的显示在前面，同时也能够减少后续的**color output**部分的压力。由于存在对深度的判断和剔除操作，再加上Raster Operations Units这一特殊名称的误导，很多人都以为光栅化过程是在ROP单元才完成的，实际上Rasterization和ROP单元本身并没有什么直接联系的。**Rasterization所进行的是对模型的3D-2D坐标投影变换，而ROP则是对像素的混合和输出**。
 
-当所有像素都完成了深度检查等操作之后，特定范围深度值的像素将被输送到alpha单元进行**透明度检查**，由透明度及透明混合所导致的效果对于雾化以及体积光等效果有至关重要的意义，因此alpha单元的检查与深度检查几乎可以说同等重要。根据程序的需要，ROP会以Blend单元对特定的像素进行alpha Blending操作。
+当所有像素都完成了深度检查等操作之后，特定范围深度值的像素将被输送到alpha单元进行**透明度检查**,由透明度及透明混合所导致的效果对于雾化以及体积光等效果有至关重要的意义，因此alpha单元的检查与深度检查几乎可以说同等重要。根据程序的需要，ROP会以Blend单元对特定的像素进行[alpha Blending操作](https://baike.baidu.com/item/%CE%B1%E6%B7%B7%E5%90%88/1019033)。
 
 ![](./images/bender.jpg)
 
+其[运算方式](https://yq.aliyun.com/articles/47983)如下:
+```text
+RGB3 = (1- a) * RGB1 + a * RGB2
+<!-- 其中a为混合透明度取值范围[0, 1]之间, RGB3为目标像素值, RGB1与RGB2的值分别来自两
+张不同的图像。 -->
+```
 经过上述步骤之后，剩下的像素将会被填充进2D化模型需要的范围内，也就是我们常见的**Pixel Fillrate过程**。Pixel Fillrate就好像一口大锅，作为肉丝、青椒、冬笋还有葱姜盐糖豆瓣酱之类原料出现的像素会在这里被正确的混在一起。经过混合，图形元素所包含的原本孤立的信息会像食材之间交互作用产生的香气一样被释放出来，最终形成我们能够接受的图像。
 
 ![](./images/anti-aa.png)
@@ -267,37 +282,102 @@ TBDR全称**Tile-based Deferred Rendering**，它通过将每一帧画面划分�
 
 **通俗的说**，TBDR需要在屏幕上画很多很多的小格子，然后把格子里的所有像素都拿出来做某种检查，没通过检查的“坏”像素就会被丢掉。尽管丢掉这些没通过检查的像素可以让后面的工作量减小，但这个检查本身对渲染没有任何意义，所以没有被丢掉的像素就相当于走了一遍无用的过场。与此同时，划分小格子的过程会切坏很多多边形和纹理，想要让这些多边形和纹理能够从“误伤”中幸存下来，你切了它们多少刀就要重新读取它们多少次。如果多边形本身就很多，被误伤的概率就更大，这会使得系统的某种缓存被快速消耗干净，缓存没了，系统干什么都不可能快得起来。
 
+##### 2.10 缓冲体系
+###### 2.10.1 显存
+GPU的缓冲体系十分庞大，它包含了由**体积、延迟及位置**决定的4个主要的组成部分，分别是**显存（Memory）、纹理缓存（Texture cache）、共享缓存（shared）及寄存器（Register）**。显存置于GPU芯片外部，通过GPU内部的显存控制器进行控制和操作。纹理缓存、共享缓存及寄存器则集成在GPU内部，分别供TMU和ALU(Arithmetic Logic Unit)控制及使用。
 
-#### 2.Chrome官方文档涉及的基础知识点
-<pre>
-bitmap:内存中像素值的缓冲区(主内存或者GPU的RAMA)
-texture:GPU中3D模型的一块bitmap   
-texture quad:其对应于一个四点多边形，比如正方形。如果你想要以平面矩形的方式去展示纹理的时候，可以是2D或者3D，这也是我们在合成的时候做的事情。
-invalidation:document中某一个区域被标注为脏数据，也就意味着它需要渲染(painting)。
-painting：渲染阶段，RenderObjects调用GraphicsContext的API去重新绘制自身的阶段
-rasterization：渲染阶段，当RenderLayers的bitmap的后端存储已经写好。在RenderObjects调用GraphicsContext的时候会被立即调用，但是如果在使用SkPicture监听渲染painting的时候可能延迟，而栅格化将交给SkPicture。
-compositing：将RenderLayer的纹理上传到最终的屏幕上作为图片(final screen image)显示的时候
-drawing：渲染的一个阶段，用于将像素绘制到屏幕上。即将最终的屏幕图像(final screen image)绘制到屏幕上。
-backbuffer:当使用双缓存的时候，代表需要写入的屏幕缓存，而不是当前正在展示的这个缓存
-frontbuffer:当使用双缓存的时候，代表正在展示的这个缓存，而不是需要写入的屏幕缓存
-swapbuffers:调换缓存
-Frame Buffer Object:OpenGL团队提供的机制能够在当前屏幕以外的地方写入，就像常规屏幕缓存一样(backbuffer)。这对于我们很有用，因为我们能够渲染到纹理中，然后合成这些纹理。
-damage:因为用户的操作或者程序原因(JS改变了style)导致屏幕的某一个区域已经失效(脏化)。这个区域在repaint的时候需要更新
-retained mode:图层系统通过该方法来维持一个将来用于渲染的对象的完整模式。web平台会保持对该模式下DOM的引用。平台(比如浏览器)会时刻监控DOM的状态以及相应的API(JS操作该DOM)能够修改或者查询当前的状态，浏览器能够在任何时候通过JS来修改该模式的数据。
-immediate mode:图层系统不会监听整个屏幕的状态，而是在接受到指令的时候立即执行并不在关注该指令。为了redraw整个场景，所有的命令都必须重新发送。Direct3D就是这种模式，因为它是Canvas2D
-context virtualization:GPU进程不会为每一个指定的命令缓冲区客户端创建一个驱动级别的GL上下文。多个客户端可能有一个共享的真实的上下文，同时在解析GL命令的时候将特定的客户端的GL状态保存为一个期望的状态。我们将这个阴影状态(shadowed state)叫做“virtual context”即虚拟上下文。这在Android平台上的某些驱动中能够避免很多bugs和一些性能问题(GL中慢上下文切换,多场景FBO渲染中的同步问题,使用共享组的crash)。Chrome在一些驱动中通过GPU黑名单文件启动了上下文虚拟化。
-</pre>
+显存作为**缓冲材质等大尺寸信息**的场合，一直以来都是显卡中最引人注目的性能指标之一。几乎与显卡同时出现的显存在经历了上古时代的EDO-RAM（Extend Data Output DRAM）甚至是FP-DRAM（Fast Page DRAM）向SDRAM的转变之后，其发展进入了GDDR的快车道。目前的中高端显卡多采用GDDR5显存，频率维持在4000MHz~5000MHz的范围内。充足的显存容量和显存带宽，是保证GPU材质性能以及最终渲染性能的重要要素之一。
+
+###### 2.10.2 纹理缓存
+和显存不同，由于`显卡最初的工作并不涉及材质工作`，所以纹理缓存的历史远没有显存来的悠久，它是在图形效果发展带来的纹理尺寸迅速增加之后才应需求出现的。诸如[mip-mapping](https://baike.baidu.com/item/MipMapping%EF%BC%88Mip%E8%B4%B4%E5%9B%BE%EF%BC%89/15270104)以及[Generating Lightmaps](https://en.wikipedia.org/wiki/Lightmap)之类的复杂纹理和操作也被更多的使用在了图形效果的表达过程中，这些操作让TMU获得一套更加快速有效的暂存系统的愿望变的迫切起来，于是**纹理缓存便开始充当显存到TMU单元**的有效缓冲了。下面是Generating Lightmaps操作过程:
+
+![](./images/light-map.jpg)
+
+###### 2.10.3 Shared共享缓存
+Shared的出现则要更晚一些。当图形API进化到DirectX 10之后，ALU面对的运算环境发生了本质的变化，大幅增加的运算灵活度要求硬件能够为ALU提供一个`方便调用且独立操作的临时暂存空间`，于是Shared便应运而生了。**Shared只读不可写**，它只需要为ALU临时释放结果提供服务即可。Shared的出现对Shader的执行有一定意义，但更多的作用还是在于通用计算及通用计算参与的后效处理领域。下面是Shared在GPU中的位置:
+
+![](./images/shared.jpg)
+
+###### 2.10.4 寄存器
+寄存器同显存一样，都是发源于CPU的重要缓冲组成部分。长期以来，寄存器都伴随在运算单元旁边，以**最及时的延迟和最大的带宽**为运算单元提供着指令寄存空间（IR）、程序计数缓冲（PC）以及累加器（ACC）等多方面的服务。寄存器具备最高的运行速度以及0t延迟的特性，其极高的晶体管成本令其在体系中的总量非常少。
+
+#### 第三部分.Chrome官方文档涉及的基础知识点
+#### 前言.Chrome相关概念解析
+- bitmap
+  
+  内存中像素值的缓冲区(包括主内存或者GPU的RAM)
+
+- texture
+   
+   GPU中3D模型的一块bitmap   
+
+- texture quad
+  
+  其对应于一个四点多边形，比如正方形。如果你想要以**平面矩形**的方式去展示纹理的时候可以使用(可以是2D或者3D)，这也是我们在合成的时候做的事情。
+
+- invalidation
+
+  document中某一个区域被标注为脏数据，也就意味着它需要渲染(painting)。
+
+- painting
+  
+  一个渲染阶段，RenderObjects调用GraphicsContext的API去**直观表示自身**的阶段
+
+- rasterization
+  
+  一个渲染阶段，当RenderLayers的bitmap的后端存储已经写好。在RenderObjects调用GraphicsContext的时候会被立即调用，但是如果在使用SkPicture监听渲染painting的时候可能延迟，而栅格化将交给SkPicture。
+
+- compositing
+  
+  将RenderLayer的纹理(是bitmap)**上传到最终的屏幕上**作为图片(final screen image)显示的阶段
+
+- drawing
+  
+  渲染的一个阶段，用于将**像素绘制到屏幕上**。即将最终的屏幕图像(final screen image)绘制到屏幕上。如果使用了GPU(合成器Compositor会代理对GPU的调用)，官方文档是这样说的:When a page renders via the compositor, all of its pixels are drawn (remember, drawing != painting) directly into the window’s **backbuffer** via the GPU process
+
+- backbuffer
+ 
+  当使用双缓存的时候，代表写入的屏幕缓存不是当前展示数据的缓存
+
+- frontbuffer
+
+  当使用双缓存的时候，代表的是当前正在展示数据的缓存
+
+- swapbuffers
+  
+  交换frontbufferbackbuffer
+
+- Frame Buffer Object
+  
+  OpenGL团队提供的机制能够在**当前屏幕以外**的缓存写入数据，就像常规屏幕缓存一样(backbuffer)。这对于我们很有用，因为我们能够渲染到纹理中，然后合成这些纹理。通过Frame Buffer Object，仿佛给WebGL提供了它自己的帧空间(frame)，它再也不用关心页面发生了什么。
+ 
+- damage
+  
+  表示因为**用户的操作或者程序原因**(JS改变了style)导致屏幕的某一个区域已经失效(脏化)。同时这个区域在repaint的时候需要更新
+
+- retained mode
+  
+  图层系统通过某个方法来维持一个**将来用于渲染**的对象的完整模式。Web平台会保持对该模式下DOM的引用,因为DOM就是数据。平台(比如浏览器)会时刻监控DOM的状态以及相应的能够修改或者查询当前的状态API(JS操作该DOM)，浏览器能够在任何时候通过JS来修改该模式的数据。
+
+- immediate mode
+  
+  图层系统不会监听整个屏幕的状态，而是在接受到指令的时候立即执行并不再关注该指令，因此为了redraw整个场景，**所有的命令都必须重新发送**。Direct3D就是这种模式，因为它是Canvas2D
+
+- context virtualization
+  
+  GPU进程不会为每一个指定的命令缓冲区客户端创建一个驱动层面的GL上下文。多个客户端可能有一个共享的真实的上下文，同时在解析GL命令的时候将特定的客户端的GL状态保存为一个期望的状态。我们将这个阴影状态(shadowed state)叫做“virtual context”即虚拟上下文。这在Android平台上的某些驱动中能够避免很多bugs和一些性能问题(GL中慢上下文切换,多场景FBO渲染中的同步问题,使用共享组的crash)。Chrome在一些驱动中通过GPU黑名单文件启动了上下文虚拟化。
 
 
 #### 1.Chrome的合成器
-Chrome的合成器是一个软件库，其用于管理GraphicsLayer树，同时协调**每一帧**的生命周期,它独立于Blink。我们知道渲染存在于两个阶段:首次渲染和合成。这允许合成器在每一个合成层的基础上做一些额外的工作。比如，合成器在合成bitmap之前通过css的transform为每一个合成层的bitmap实现相应的动画。而且，因为每一个合成层的渲染和合成操作是解耦的，某一些合成层失效只会造成这些失效的层的内容单独被渲染，然后和以前没有变化的合成层一起被合成。
+**Chrome的合成器(Chrome’s compositor)**是一个软件库，其用于**管理GraphicsLayer树**，同时协调**每一帧**的生命周期,它独立于Blink。我们知道渲染(Rendering)存在于两个阶段:首次渲染和合成。这允许合成器在每一个合成层的基础上做一些额外的工作。比如，合成器在合成bitmap之前通过css的transform为每一个合成层的bitmap实现相应的动画。而且，因为每一个合成层的渲染和合成操作是解耦的，某一些合成层失效只会造成这些失效的层内容单独被渲染，然后和以前没有变化的合成层一起被合成。
 
-每次浏览器需要一个新的帧的时候，合成器就会合成这些bitmap。这里指的**合成(drawing)**是:合成器将这些bitmap合成为屏幕上的最终图像，而**渲染(painting)**指的是:某一个层的后端存储被填充，例如bitmap的软件栅格化或者纹理的硬件栅格化。但是注意:最后生成的bitmap都是通过Browser进行绘制的。
+**每次浏览器需要一个新的帧的时候，合成器就会合成这些bitmap**。这里**合成(drawing)**
+指的是:合成器将这些bitmap合成为屏幕上的最终图像，而**渲染(painting)**指的是:某一个层的后端存储被填充，例如bitmap的软件栅格化或者纹理的硬件栅格化。但是注意:最后生成的bitmap都是通过Browser进程进行绘制的。你要查看[这个图](https://github.com/liangklfangl/react-article-bucket/blob/master/chrome-core/webCore/webkit-render-process.md#721-chrome%E4%B8%AD%E4%B8%BB%E8%A6%81%E8%BF%9B%E7%A8%8B),其中合成的操作是Webkit部分里面完成的,而且里面的每一个Renderer进程都有一个Compositor进程，但是整个浏览器只有一个GPU进程。
 
 #### 2 Chrome软件渲染通过[Browser进程完成](https://sites.google.com/a/chromium.org/dev/developers/design-documents/gpu-accelerated-compositing-in-chrome)
-Webkit在软件渲染网页的时候是从根层级遍历整个RenderLayer层级。而Webkit代码库包含两个不同的方式来渲染页面的内容，一个是软件路径还有一个硬件加速路径。软件路径是传统的渲染模式。
+Webkit在**软件渲染**网页的时候是从根层级遍历整个RenderLayer层级。而Webkit代码库包含两个不同的方式来渲染页面的内容，一个是软件路径还有一个硬件加速路径。软件路径是传统的渲染模式。
 
-软件路径是遵循**从后到前(先negative后positive)**的顺序渲染所有的RenderLayers，RenderLayer层级树是从顶层递归调用，然后在每一个节点上都会执行**RenderLayer::paintLayer()**方法，而该方法会执行下面的步骤:
+软件路径是遵循**从后到前(先negative后positive,back to front)**的顺序渲染所有的RenderLayers，RenderLayer层级树是从顶层递归调用，然后在每一个节点上都会执行**RenderLayer::paintLayer()**方法，而该方法会执行下面的步骤:
 <pre>
 1.判断该layer是否和已经变更的层级有重叠，如果没有重叠直接进行下面的步骤
 2.递归调用该层级的negZOrderList集合中每一个layer的paintLayer()方法
@@ -305,26 +385,32 @@ Webkit在软件渲染网页的时候是从根层级遍历整个RenderLayer层级
 4.递归调用该层级的posZOrderList集合中每一个layer的paintLayer()方法
 </pre>
 
-在这个模型中，RenderObjects将自己的内容绘制到目标bitmap是通过单个共享的GraphicsContext来完成(在Chrome中通过Skia完成)。注意:GraphicsContext本身没有层级的概念，但是为了正确绘制半透明的层级，我们需要知道:半透明的renderLayer下的RenderObjects绘制之前会调用GraphicsContext::beginTransparencyLayer()方法。在Skia的实现中,beginTransparencyLayer()调用后将会导致所有的后续绘制调用渲染到一个独立的bitmap中，这个独立的bitmap在半透明的RenderLayer下的所有RenderObjects被渲染后，同时调用了GraphicsContext的endTransparencyLayer()时将会和前一个bitmap合并。具体流程如下图:
+在这个模型中，RenderObjects**将自己的内容绘制到目标bitmap**是通过**单个共享的GraphicsContext**来完成(在Chrome中通过Skia完成)。注意:GraphicsContext本身没有层级的概念，但是为了正确绘制半透明的层级。我们需要知道:半透明的renderLayer下的RenderObjects绘制之前会调用GraphicsContext::beginTransparencyLayer()方法。在Skia的实现中,beginTransparencyLayer()调用后将会导致所有的后续绘制调用渲染到一个独立的bitmap中，这个独立的bitmap在半透明的RenderLayer下的所有RenderObjects被渲染后，同时调用了GraphicsContext的endTransparencyLayer()时将会和**前一个bitmap合并**。具体流程如下图:
 
 ![](./images/soft-rendering.png)
 
 当所有的RenderLayers都已经被绘制到一个**共享的bitmap**之后，bitmap依然需要被绘制到屏幕中。在chrome中bitmap存在于共享内存中，而对共享内存的控制是通过IPC传递给Browser进程的。**Browser进程通过OS的窗口API(比如window上的HWND)负责将这些bitmap绘制到指定的Tab或者窗口中**。
 
 #### 3.GPU渲染
-合成器可以使用GPU去绘制页面到屏幕上，这和传统的软件渲染有很大的区别，在传统的软件渲染中Renderer进程将将页面内容产生的bitmap通过IPC/共享内存传递给Browser进程，由Browser进程控制页面的展示。
+合成器可以使用GPU去绘制(drawing)，这和传统的软件渲染有很大的区别，在传统的软件渲染中Renderer进程
+会将页面内容产生的bitmap通过IPC/共享内存传递给Browser进程，由Browser进程控制页面的展示。
 
-在硬件加速模式下，合成操作在GPU中通过调用特定的3D APIs完成(在windows上是D3D，否则是GL)。渲染进程的合成器使用GPU绘制页面中的特定区域(所有合成层，都是相对于视口进行定位的)到一个特定的bitmap中，这个bitmap对应于最终的屏幕内容。不过，**但是**最后还是通过IPC传递给Browser进程去渲染。
+在硬件加速模式下，合成(**compositing**)操作在GPU中通过调用特定的3D APIs完成(在windows上是D3D，否则是GL)。渲染进程的合成器(**compositor**)使用GPU绘制页面中的特定区域(所有合成层，都是相对于视口进行定位的)到一个特定的bitmap中，这个bitmap对应于最终的屏幕内容。**但是**最后还是通过IPC传递给Browser进程去渲染。
 
 
 #### 4.GPU进程
-在我们深入研究合成器产生的GPU命令之前，我们需要理解渲染进程是如何向**GPU发送命令**的。在Chrome的多进程模型中，我们有一个独立的GPU进程。GPU进程之所以存在，主要是因为安全原因。而Android是一个特例，在Android中GPU进程是做一个**线程存**在于Browser进程中的，但是Android中该GPU线程和其他平台的原理是一样的。
+在我们深入研究合成器产生的GPU命令之前，我们需要理解渲染进程(Renderer Process)是如何向**GPU发送命令**的。在Chrome的多进程模型中，我们有一个独立的GPU进程。GPU进程之所以存在，主要是因为安全原因。而Android是一个特例，在Android中GPU进程是做一个**线程**于Browser进程中的，但是Android中该GPU线程和其他平台的原理是一样的。
 
-因为渲染线程的**sandbox特性**，渲染进程无法直接调用OS提供的3D APIs(GL / D3D)。而GPU进程能够在一个独立的进程中访问3D APIs，同时渲染进程虽然遵循sandbox特性，也将能够通过GPU进程访问它们。GPU进程遵循客户端-服务器(client-server)模式:
-<pre>
-client(渲染进程中执行的代码):不能直接访问3D APIs，产生命令并序列化放入到命令缓冲区。这个缓冲区是client/server进程共享的内存空间
-server(GPU进程，运行于相对宽松的sandbox环境,允许访问3D APIs):从共享内存中获取序列化的命令，解析它并调用特定的方法
-</pre>
+因为渲染线程的**sandbox特性**，渲染进程无法直接调用OS提供的3D APIs(GL / D3D)。而GPU进程能够在一个独立的进程中访问3D APIs，同时Render进程虽然遵循sandbox特性，也将能够通过GPU进程访问它们。GPU进程遵循客户端-服务器(client-server)模式:
+
+- client(渲染进程中执行的代码):
+  
+  不能直接访问3D APIs，产生命令并序列化放入到命令缓冲区。这个缓冲区是client/server进程共享的内存空间
+
+- server(GPU进程，运行于相对宽松的sandbox环境,允许访问3D APIs)
+  
+  从共享内存中获取序列化的命令，解析它并调用特定的方法
+
 
 模式如下图:
 
@@ -340,14 +426,16 @@ server(GPU进程，运行于相对宽松的sandbox环境,允许访问3D APIs):�
 
 - 资源共享与同步
 
-  除了为命令缓冲区提供存储空间,Chrome使用共享内存来解决在client与server端传递大量的资源，比如构建textures的bitmap,vertex arrays等。
+  除了为命令缓冲区提供存储空间,Chrome使用**共享内存**来解决在client与server端传递大量的资源，比如构建textures的bitmap,vertex arrays等。
 
 - 命令缓冲区多路复用(Command Buffer Multiplexing)
 
   当前Chrome实例只有单个GPU进程，它会处理所有来自于**渲染进程和插件进程**的请求。GPU进程能够在**多个命令缓冲区之间复用**，而此时每一个命令缓冲区都有自己独立的渲染上下文(Rendering Context)。
-  每一个渲染进程可以有多个GL来源，比如WebGL Canvas元素直接创建一个GL命令流。对于那些内容直接在GPU中创建的合成层来说他的工作原理如下:
- 他们的内容直接被渲染到纹理(texture,使用Frame Buffer Object)中，因此合成器可以在渲染GraphicsLayer时候直接使用它，而不是将它的内容直接渲染到后备缓冲区。
- 注意:为了让合成器的GL上下文能够直接访问非屏幕产生的GL context纹理(texture)，所有GPU进程使用的GL contexts在创建的时候就能够共享资源。如下图
+
+  每一个渲染进程(Renderer)可以有多个GL来源，比如WebGL Canvas元素直接创建一个`GL命令流`。对于那些内容直接在GPU中创建的合成层(**如下图的WebGL,Pepper3D等**)来说它的工作原理如下:
+ 内容直接被渲染到纹理(texture,使用Frame Buffer Object)中，因此合成器可以在渲染**GraphicsLayer**时候直接使用它，而不是将它的内容直接渲染到后备缓冲区。
+
+ 注意:为了让合成器的**GL/D3D**上下文能够直接访问离屏(offscreen)产生的GL context纹理(texture)，所有GPU进程使用的GL contexts在创建的时候就能够共享资源(注意其中的**Shared Resources**)。如下图
 
 
 ![](./images/buffer.png)
@@ -357,59 +445,129 @@ GPU进程设计模式有如下优点:
 安全(Security):所有的渲染逻辑依然在sanbox化的渲染进程中，对于3D APIs的访问只能通过GPU进程完成
 健壮性(Robustness):GPU进程的crash(错误的驱动)不会导致浏览器崩溃
 均匀性(Uniformity):以OpenGL ES 2.0标准作为浏览器渲染API,因此在不同OS平台上Chrome能够使用同一个易于维护的代码库。
-并行性(Parallelism):渲染进程能够很快的将命令发送到命令缓冲区并立即返回CPU密集型的活动。这样能更好的在多核机器上使用两个进程。
+并行性(Parallelism):渲染进程能够很快的将命令发送到命令缓冲区并立即返回执行CPU密集型的活动。这样能更好的在多核机器上使用两个进程。
 </pre>
 
-#### 5.线程化的合成器
-合成器是基于GL ES 2.0客户端库来实现的，它会代理对GPU进程的访问。如果一个页面是通过合成器渲染的,那么它所有的像素都是直接**通过GPU进程被渲染(drawing)到window的后端存储(drawing!=painting)(绘制到屏幕的过程依然是Browser进程做的)**。
+#### 5.线程化的合成器与cc LayerTree副本独立更新
+合成器(**compositor**)是基于GL ES 2.0客户端库来实现的，它会**代理**对GPU进程的访问。如果一个页面是通过合成器(compositor)渲染的,那么它所有的像素都是直接**通过GPU进程渲染(drawing)到window的后端存储backbuffer(drawing!=painting)(绘制到屏幕的过程依然是Browser进程做的)中**。
 
-理论上，每一个线程化的合成器能够从主线程获取足够的信息，进而独立的产生帧响应用户的输入，即使主线程处于繁忙状态，无法获取足够的信息。但是实际上也就意味着，它存有cc LayerTree的副本，SkPicture将会监听当前viewPort特定区域的RenderLayer的变化
+理论上，每一个线程化的合成器能够**从主线程**获取足够的信息，进而独立的产生帧响应用户的输入，即使主线程处于繁忙状态，无法获取足够的信息。但是实际上也就意味着，它存有cc LayerTree(cc = Chrome Compositor，该文档中指代GraphicsLayer tree)的副本，SkPicture将会监听当前ViewPort特定区域的RenderLayer的变化。
 
-- 监听:从Blink角度的重绘(painting)
-  我们关心的区域是视口中SkPictures监听的部分。当DOM改变的时候，比如某些元素的style和以前主线程帧中的值不一样，而且处于无效状态。Blink将会重绘无效的RenderLayer区域到基于SkPicture的GraphicsContext。这不会产生新的像素pixel，而是产生一系列的Skia命令，使用这些命令就可以产生这些新的像素pixel。这些Skia命令主要用于合成器调配。
-- 提交:交由合成线程
-  线程化的合成器的主要属性是对主线程状态的操作，这样为了产生一个新的帧就不需要询问主线程任何数据。线程化的合成器主要包括两个部分，主线程部分以及"impl"部分。主线程有一个LayerTreeHost，他是LayerTree的一个副本，而impl部分是LayerTreeHostImpl，其也是LayerTree的一个副本。
+##### 5.1 监听:从Blink的角度看重绘(painting)
+我们关心的区域是视口中**SkPictures**监听的部分。当DOM改变的时候，比如某些元素的style和以前主线程帧中的值不一样，而且处于无效状态。Blink将会**重绘无效的RenderLayer区域到基于SkPicture的GraphicsContext**。这不会产生新的像素pixel，而是产生一系列的Skia命令，使用这些命令就可以产生这些新的像素pixel。这些Skia命令主要用于合成器(compositor)调配。
 
-  概念上说两个LayerTree是独立的，合成器(impl)进程的数据副本能够产生帧，而且不需要和主线程产生任何交互。这也意味着:主线程能够长时间支持javascript，同时合成器能够重新绘制以前在GPU中提交的内容而不用打扰主进程。
+##### 5.2 提交:交由合成线程(Compositor Thread)
+线程化的合成器(compositor)的主要属性是对**主线程状态副本**的操作，这样为了产生一个新的帧就不需要询问主线程任何数据。线程化的合成器主要包括两个部分，主线程部分以及"impl"部分。**主线程**有一个LayerTreeHost，它是LayerTree的一个副本，而impl线程(即compositor线程)对应于的是LayerTreeHostImpl，其是LayerTreeHost的一个副本。
 
-  为了产生新的帧，合成线程需要知道如何修改他的状态，比如更新Layer的状态来响应浏览器的scroll事件。因此，一些input事件，比如scroll,需要从Browser进程传递到合成层，继而传递到渲染进程的主进程。因为input/output事件都是线程化的合成器来管理，其能够保证用户输入的视觉响应。除了滚动事件，合成器能够处理任何页面更新，而不需要询问Blink去重新绘制。因此，css动画或者css filter都可能造成合成器驱动的页面更新。
+概念上说两个LayerTree是独立的，合成器(impl)进程的**数据副本**能够产生帧，而且不需要和主线程产生任何交互。这也意味着:主线程能够长时间支持javascript，同时合成器(compositor)能够重新绘制以前在GPU中提交的内容而不用打扰主进程。
+
+为了产生新的帧，合成线程(compositor thread)需要知道如何修改它的状态，比如更新Layer的状态来响应浏览器的scroll事件。因此，一些input事件，比如scroll,`需要从Browser进程传递到合成器(compositor)，继而传递到渲染进程Renderer的主进程。因为input/output事件都是通过线程化的合成器来管理，其能够保证用户输入的视觉响应`。除了滚动事件，合成器能够处理任何页面更新，而不需要询问Blink去重新绘制。因此，css动画或者css filter都可能造成合成器驱动的页面更新。
   
-  两个LayerTree是通过一系列的消息机制，比如commit来保证内容的一致性，而内部是通过合成器的调度这来完成的。每次commit都能把主线程的状态转移到合成器的线程(包括更新后LayerTree,SkPicture的监听数据等等)，每次同步都会阻塞主线程。这是主线程更新特定的帧的最后一步，也是它唯一需要参与的一步。
+两个LayerTree(一个是主线程，一个是compositor)是通过一系列的**消息机制**，比如commit来保证内容的一致性，而内部是通过合成器的调度来完成的。每次commit都能把主线程的状态转移到合成器的线程(包括更新后LayerTree,SkPicture的监听数据等等)，**每次同步都会阻塞主线程。这是主线程更新特定的帧的最后一步，也是它唯一需要参与的一步**。
 
-  合成器在一个独立的线程中运行，这允许合成器自动更新LayerTree层级数据而不需要通过主线程来完成。但是主线程最终也是需要，比如scroll offset等数据(Javascript需要知道当前视口的滚动位置)。因此，commit也将负责将基于合成器线程的layerTree数据更新到主线程的树中，同时执行其他的任务。
+合成器在一个独立的线程中运行，这允许合成器`自动更新`LayerTree层级数据而不需要通过主线程来完成。但是主线程最终也是需要，比如scroll offset等数据(Javascript需要知道当前视口的滚动位置)。因此，**commit也将负责将基于合成器线程的layerTree数据更新到主线程的树中，同时执行其他的任务**。
 
-  有意思的是,这种架构使得Javascript的touch事件阻止合成层的滚动，但是scroll事件却不会。JS能够在touch事件中调用preventDefault()，但是在scroll事件中是不允许的。因此合成器在没有询问JS(主线程)之前是不能滚动页面的，如果这个JS将会取消接下来的touch事件。Scroll事件在另一方面，是不允许被阻止的，而且它是被异步发送到JS中的。因此，合成线程能够立即滚动，而不需要关心主进程是否立即处理scroll事件了。
+有意思的是,这种架构使得Javascript的touch事件阻止合成层(composited scrolls)的滚动，但是scroll事件却不会被阻止。`JS能够在touch事件中调用preventDefault()，但是在scroll事件中是不允许的`。因此合成器(compositor)在没有询问JS(主线程)之前是不能滚动页面的，因为这个JS可能会取消接下来的touch事件。**Scroll事件在另一方面，是不允许被阻止的，而且它是被异步发送到JS中的**。因此，合成线程(compositor thread)能够立即滚动，而不需要关心主进程是否立即处理scroll事件了。
 
-  - 树的激活(Tree Activation)
-    当合成线程从主线程获取到了一个新的LayerTree，它会检查这个新的树来看那一部分已经失效了，进而继续栅格化这部分LayerTree。此时处于活动态的树依然是先前的那一棵LayTree，而pending Tree指的就是当前的新的LayTree,也就是内容刚被栅格化的这个LayTree树。
-    为了保证展示的内容的一致性，pending Tree只有在它可见的时候(处于视口中)才会被激活。某一棵树从激活态被转化为pending态就是激活过程。等待栅格化的内容准备完成的过程中，用户能够看到少量的内容，但是这些内容很可能是过期的。如果没有内容可用，Chrome就会显示一个空页面。
-    需要注意，我们很可能滚动到一个已经处于激活态的栅格区域，因为Chrome只会监听RenderLayer的SkPictures部分。如果用户正在滚动到一个未被监听的区域，此时合成线程将会通知主线程去监听和提交额外的内容，但是如果这个新的内容不能在指定的时间被监听，提交和栅格化，用户将会看到checkerboard区域。
-    为了减少checkerboard出现的机会，Chrome能够为pending tree在获取到高分辨率的内容之前快速栅格化低分辨率的内容。如果当前pending tree视口中低分辨率的内容比当前视口中的内容要好，那么就会被替换。
-    这个架构将会使得栅格化和其他的帧的产生流分离。它启动了很多技术用于改善图层系统(graphics system)的响应性。图像解码和resize操作都是异步的，而这些操作在以前都是通过主线程在patting的时候产生的，而且是非常昂贵的。异步的纹理传输系统是在impl方实现的。
+##### 5.3 树的激活(Tree Activation) 
+当合成线程从主线程获取到了一个新的LayerTree，它会检查这个新的树来看那一部分已经失效了，**进而继续栅格化这部分LayerTree**。此时处于**活动态的树**依然是先前的那一棵LayTree，而Pending Tree指的就是当前的新的LayTree,也就是内容刚被栅格化的这个LayTree树。
+
+为了保证展示的内容的一致性，Pending Tree**只有在它可见的时候(处于视口中)才会被激活**。某一棵树从激活态被转化为pending态就是激活过程。等待栅格化的内容准备完成的过程中，用户能够看到少量的内容，但是这些内容很可能是过期的。如果没有内容可用，Chrome就会显示一个空页面。
+
+需要注意，我们很可能滚动到一个已经处于激活态的栅格区域，因为Chrome只会监听RenderLayer的SkPictures部分。`如果用户正在滚动到一个未被监听的区域，此时合成线程将会通知主线程去监听和提交额外的内容，但是如果这个新的内容不能在指定的时间被监听，提交和栅格化，用户将会看到[checkerboard(棋盘图案)](http://blog.csdn.net/wuxinliulei/article/details/9108349)区域`。
+
+为了减少Checkerboard出现的机会，Chrome能够为Pending Tree在获取到高分辨率的内容之前`快速栅格化低分辨率的内容`。如果当前Pending Tree视口中低分辨率的内容比当前视口中的内容要好，那么就会被替换。
+这个**架构**将会使得栅格化和其他的帧的产生流分离。它启动了很多技术用于改善图层系统(graphics system)的响应性。图像解码和Resize操作都是异步的，而这些操作在以前都是通过主线程在Patting的时候产生的，而且是非常昂贵的。异步的纹理传输系统是在impl方(compositor)实现的。
     
-  - Tiling
-    栅格化页面中所有的layer是很耗CPU和内存(RAM，每一个软件渲染的bitmap，VRAM用于纹理存储)的。为了避免栅格化整个页面，合成器将大多数的页面内容layer绘制为不同的tiles，然后基于每一个tile来栅格化layer层。
-    网页内容的层级tiles通过多个元素进行优先级排序，比如距离视口的距离和出现在屏幕中的大概时间。然后GPU内存根据这些指标进行分配。所有的tiles将会根据优先级从SkPicture的监听数据获取内存分配。注意：tiling对那些内容已经存在于GPU的不是必须的，比如硬件加速的video或者WebGL
+##### 5.4 Tiling与合成器输入输出
+栅格化页面中所有的layer是很耗CPU和内存(RAM，每一个软件渲染的bitmap，VRAM用于纹理存储)的。为了避免栅格化整个页面，`合成器将大多数的页面内容layer绘制为不同的tiles，然后基于每一个tile来栅格化layer层`。
 
-  - 栅格化:**渲染(painting)**从cc/Skia角度
-    SkPicture对于合成线程的监听会收到相应的GPU返回的bitmap主要通过两个方式:通过Skia’s软件渲染将它绘制到bitmap中，进而作为纹理上传到GPU中。还有一种方式就是通过Skia’s OpenGL的后端的存储，继而直接传递给GPU作为纹理。
-    对于Ganesh-rasterized的Layer来说，SkPicture和Ganesh一起，而产生的GL命令流将会通过GPU进程的命令缓存进行处理。任何时候，合成线程只要决定去栅格化任何tiles将会产生GL命令，这些tiles将会打包到一起进而避免在GPU中过高的栅格化开销。这部分内容可以查看GPU加速栅格化设计文档。
-    对于软件栅格化的Layer来说，整个渲染是以渲染进程和GPU进程的内存共享为基础的。Bitmap将会通过资源传送机制上传到GPU进程。因为软件栅格化是非常昂贵的，所以合成并不会通过合成线程自己完成(否则可能阻塞active Tree产生一个新的帧)，而是在一个合成栅格化的工作线程中。多个栅格化工作线程能够加速软件栅格化。每一个工作线程会从tile优先级队列的头部获取到数据。而完成以后的tiles将会作为渲染纹理传递给GPU。
-    bitmap产生的渲染纹理上传开销在内存带宽大的平台上是微不足道的。这回导致软件渲染Layer的性能低下，进而对于上传用于硬件栅格化bitmap产生一定的性能损耗(比如图片数据或者CPU渲染的遮罩)。以前Chrome有很多不同的纹理上传机制，而最成功的是异步传输，整个过程是在GPU进程的worker线程中完成的(或者Browser进程中的一个额外的线程)。
-    一个好的解决纹理传输问题的方法就是使用0复制的缓冲，整个缓冲区是CPU和GPU共享的，这是大多数设备以前统一的内存模式。而Chrome目前并没有使用该方式，未来可能会采用这种实现。更多内容可以[查看这里](https://docs.google.com/document/d/1SaTYTBvHWWDKA3MPJPpQ-79RNgdS4Xu4g3KiD39VQjU/edit?usp=sharing)。
-    同时你也需要注意:我们也可以采用第三种方式来处理，即采用GPU来栅格化。将每一个Layer的内容在painting的时候直接栅格化到一个后端缓冲区，而不是提前栅格化到一个纹理(texture)中。这种方式有利于节省内存空间，因为没有产生额外的中间纹理，同时也会提升性能(在painting的时候节省了后端缓冲中的纹理副本)。但是，这种方式对于性能也有损失，特别是当纹理texture有效缓存了Layer内容的情况下(因为现在它需要重绘re-paint每一个帧)。这种"直接写到后端缓存的情况"或者"直接写入到Ganesh的模式"在2014.5月之前并没有实现。你可以查看[GPU栅格化设计方案](https://docs.google.com/document/d/1Vi1WNJmAneu1IrVygX7Zd1fV7S_2wzWuGTcgGmZVRyE/edit)了解更多信息。
+网页内容的层级tiles通过多个元素进行`优先级排序`，比如:**距离视口的距离和出现在屏幕中的大概时间**。然后GPU内存根据这些指标进行分配。所有的tiles将会根据优先级从SkPicture的监听数据获取内存分配。注意:Tiling对那些内容`已经存在于`GPU的不是必须的，比如硬件加速的Video或者WebGL。
 
-![](./images/raster.png)
+合成器(Compositor)的作用是将多个合成层合成并输出一个最终的结果，所以**它的输入是多个待合成的合成层，每个层都有一些属性，如3d变形等，他的输出是一个后端存储，例如一个GPU的纹理缓冲区**。后端存储使用了瓦片状的存储。
 
-- 在GPU中合成(drawing), Tiling, and Quads
-  当所有的纹理已经填充了，渲染页面内容的过程就是深度遍历Layer层级的过程，同时发出GL命令去绘制每一个Layer的纹理到特定的帧缓冲中(Frame Buffer)。
-  合成(drawing)屏幕中的某一个层的过程其实就是合成页面中的每一个tiles。tiles其实就是2\*2的方格。合成器会产生quads和一系列的渲染passes(是一个简单的数据结构，其包括一系列的quads)。而真实合成的GL命令是针对quads来完成的。这是quad实现的抽象方式，因此针对合成器我们可以写入到non-GL的后端存储(一个显著的non-GL实现就是软件合成器)。为每一个render pass合成适量的quads来产生视口内容，进而产生动画(transform)，同时在render pass的quad集合中绘制每一个quad。
-  注意:通过深度优先遍历的方式能够为CC Layer产生正确的z-index顺序，同时cc Layer中的多个RenderLayers的z-index顺序是通过RenderLayer中的RenderObject的绘制顺序遍历来保证的。
+![](./images/tilesplus.png)
+
+为什么使用瓦片状的后端存储？
+
+**第一**:DOM树中HTML元素如果只是使用一个后端存储的话，那么需要一个很大的纹理对象，但是实际的GPU硬件可能只`支持非常有限`的纹理。
+
+**第二**:在一个比较大的合成层中，可能只是其中一部分发生变化，如果需要绘制整个层必然会产生额外的开销，使用瓦片的后端存储就只需要绘制一些存在更新的瓦片
+
+**第三**:当层发生滚动的时候，一些瓦片可能不再需要，然后Webkit需要一些新的瓦片来绘制新的区域，这些大小相同的后端存储很容易重复利用。
+
+##### 5.5 栅格化:**渲染(painting)**从cc/Skia角度
+SkPicture对合成线程(Compositor Thread)的监听而产生的bitmap会通过**两个方式**返回给GPU:
+
+- 方式1
+  
+  通过Skia’s软件渲染将它绘制到bitmap中，进而作为纹理上传到GPU中。
+
+- 方式2
+
+  还有一种方式就是通过S**kia’s OpenGL的后端的存储**，继而直接传递给GPU作为纹理。
+
+对于Ganesh-rasterized的Layer来说，SkPicture和Ganesh一起，而产生的GL命令流将会通过GPU进程的命令缓存进行处理。任何时候，合成线程只要决定去栅格化任何tiles将会产生GL命令，这些tiles将会打包到一起进而避免在GPU中过高的栅格化开销。
+
+对于软件栅格化的Layer来说，整个渲染是以**渲染进程和GPU进程的内存共享**为基础的。Bitmap将会通过资源传送机制上传到GPU进程。因为软件栅格化是非常昂贵的，所以合成并不会通过合成线程自己完成(否则可能阻塞active Tree产生一个新的帧)，而是在一个`合成栅格化的工作线程中`。多个栅格化工作线程能够加速软件栅格化。每一个工作线程会从tile**优先级队列的头部**获取到数据。而完成以后的tiles将会作为渲染纹理传递给GPU。
+
+Bitmap产生的`渲染纹理上传开销`在内存带宽大的平台上是微不足道的。如果内存带宽小的话,会导致软件渲染Layer的性能低下，进而对于上传用于硬件栅格化bitmap产生一定的性能损耗(比如图片数据或者CPU渲染的遮罩)。以前Chrome有很多不同的纹理上传机制，而最成功的是异步传输，整个过程是在GPU进程的worker线程中完成的(或者Browser进程中的一个额外的线程)。
+
+一个好的解决纹理传输问题的方法就是**使用0复制的缓冲( zero-copy)**，整个缓冲区是CPU和GPU共享的，这是大多数设备以前统一的内存模式。而Chrome目前并没有使用该方式，未来可能会采用这种实现。更多内容可以[查看这里](https://docs.google.com/document/d/1SaTYTBvHWWDKA3MPJPpQ-79RNgdS4Xu4g3KiD39VQjU/edit?usp=sharing)。
+
+同时你也需要注意:我们也可以采用第三种方式来处理，即采用GPU来栅格化。将每一个Layer的内容在Painting的时候直接栅格化到一个后端缓冲区，而不是提前栅格化到一个纹理(texture)中。这种方式有利于节省内存空间，因为没有产生额外的中间纹理，同时也会提升性能(在Painting的时候节省了后端缓冲中的纹理副本)。但是，这种方式对于性能也有损失，特别是当纹理Texture有效缓存了Layer内容的情况下(因为现在它需要重绘re-paint每一个帧)。这种"直接写到后端缓存的情况"或者"直接写入到Ganesh的模式"在2014.5月之前并没有实现。你可以查看[GPU栅格化设计方案](https://docs.google.com/document/d/1Vi1WNJmAneu1IrVygX7Zd1fV7S_2wzWuGTcgGmZVRyE/edit)了解更多信息。
+
+##### 5.6 在GPU中合成(drawing), Tiling, and Quads
+当所有的纹理已经填充了，渲染页面内容的过程就是深度遍历Layer层级的过程，同时发出GL命令去**绘制每一个Layer的纹理到特定的帧缓冲中(Frame Buffer)**。
+
+合成(drawing)屏幕中的某一个层的过程其实就是合成页面中的每一个tiles。tiles其实就是2\*2的方格。合成器会产生quads和一系列的渲染passes(是一个简单的数据结构，其包括一系列的quads)。而真实合成的GL命令是针对quads来完成的。这是quad实现的抽象方式，因此针对合成器我们可以写入到non-GL的后端存储(一个显著的non-GL实现就是软件合成器)。为每一个render pass合成适量的quads来产生视口内容，进而产生动画(transform)，同时在render pass的quad集合中绘制每一个quad。
+
+注意:**通过深度优先遍历的方式能够为CC Layer产生正确的z-index顺序，同时cc Layer中的多个RenderLayers的z-index顺序是通过RenderLayer中的RenderObject的绘制顺序遍历来保证的**。
 
 
+#### 6.[chromium合成过程](http://blog.csdn.net/liangklfang/article/details/51638130)
+##### 6.1 第一步
+首先:创建输出结果的目标对象‘Surface’，也就是合成结果的存储空间。
+
+然后:开始一个新的帧，包括计算滚动和缩放大小，动画计算，`重新计算网页的布局`，绘制每一个合成层等
+
+然后:将Layer树中包含的这些变动同步到**LayerImpl**树中
+
+最后:合成LayerImp树中的各个层并交换前后帧缓冲区，完成一帧的绘制和显示动作
+
+上面的步骤一是最开始的时间调用的，而且是**一次性**的动作。当后面出现网页动画或者js代码修改CSS样式或者DOM等情况的时候，一般会执行后面三个步骤，当然也可能只要修改步骤4。
+
+![](./images/compositor.png)
+
+在上图中，Compositor线程首先创建合成器需要输出结果的后端存储。在调度器执行该任务时候，该线程会将任务交给主线程来完成。主线程会创建后端存储并把它**传回**Compositor线程。
+
+##### 6.2 第二步
+**Compositor线程告诉主线程**需要开始绘制一个新的帧，通常是通过线程间通信来传递任务。当**主线程**收到该任务的时候，**需要做的事情非常多**。如执行动画操作，重新计算布局，以及绘制需要更新的合成层。在这之后，主线程会等待第三个步骤，当第三个步骤完成后，他通知主线程的LayerHost等类，这是因为步骤三需要阻塞主线程，需要同步Layer树。
+
+##### 6.3 第三步
+![](./images/layerhost.png)
+
+首先，当Layer树有变动的时候，他需要调用**setNeedsCommit**，这些任务是在渲染线程中的，随后他会提交到一个请求到Compositor线程
+
+其次，当该Compositor线程处理到该请求的时候，他会通过调度器的**setNeedsCommit**函数设置状态机的状态
+
+再次，调度器的setNeedsCommit会调用**ProcessScheduleActions**函数,它检查后面需要执行的任务
+
+然后，如果没有其他任务或者时间合适的话，状态机决定下面立刻执行该任务，他调用ThreadProxy的**ScheduledActionCommit**函数，该函数实际执行commit任务需要的具体流程
+
+最后，在ScheduledActionCommit函数中，他会调用LayerTreeHostImpl和LayerTreeHost中的相应函数来**完成同步两个树的工作，同步结束后他需要通知渲染线程**，因为事实上这一过程需要阻止主线程
+
+##### 6.4 父子合成器，Browser进程Render进程合成
+经过第三步后，**Compositor实际上已经不再需要主线程的参与就能够完成合成工作了**，这时候该线程有了需要合成这些层的所有资源。图中5.1.1到5.1.6这些子步骤就是合成各个层并交换前后缓冲区，这些过程是不需要主线程的参与的。**这样就能够解释渲染线程在做其他事情的时候，网页滚动等操作并不会受到渲染线程的影响，因为这时候合成器的工作线程仍然能够正常进行，合成器线程继续合成当前的各个合成层生成网页结果，虽然此时可能有些内容还没有更新，但是用户根本感觉不到网页被阻塞等问题，浏览器网页的用户体验更好**。
+
+Chromium的最新设计为了**合成网页和浏览器的用户界面**可能需要多个合成器。每个网页可能需要一个合成器，网页的iframe可能也需要一个合成器，整个网页和浏览器的合成也需要一个合成器，这些合成器构成一个层次化的合成器结构。
+
+![](./images/combine.png)
+
+上图中的根合成器是浏览器最高的合成器，该合成器**负责网页和浏览器用户界面**的合成。他有一个子女就是合成器2，根合成器会将合成器2的结果同用户界面合成起来，合成器2就是网页的合成器，而它也包含一个合成iframe内容的合成器3(子合成器)。这里，按理来说，合成器2/3是在Renderer进程中进行的，因为他们是网页相关的合成，而根合成器是在Browser进程中的，这样会增加内存带宽的使用。目前Chromium设计使用mailBox机制将Renderer进程中的合成器同步到Browser进程，根合成器可以使用这些结果。
 
 
- 参考资料:
+参考资料:
 
 [双缓冲(Double Buffer)原理和使用](http://blog.csdn.net/xiaohui_hubei/article/details/16319249)
 
@@ -458,3 +616,5 @@ GPU进程设计模式有如下优点:
 [GPU大百科全书 第三章:像素处理那点事儿](http://blog.csdn.net/pizi0475/article/details/7523494)
 
 [GPU大百科全书 第五章 桌面显卡的捍卫者](http://blog.csdn.net/pizi0475/article/details/7523497)
+
+[显卡的一些参数怎么看？](https://www.zhihu.com/question/51316424/answer/172878291)
