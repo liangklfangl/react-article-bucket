@@ -129,7 +129,7 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 </pre>
 下面是做的简单翻译：
 <pre>
-（1）dom树的document节点对应的renderview节点
+（1）dom树的document节点对应的RenderView节点
 （2）dom树中的document的子女节点，也就是html节点对应的renderblock节点
 （3）显式地指定css位置的RenderObject对象
 （4）有透明效果(transparent)的RenderObject对象
@@ -156,11 +156,11 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 
 ![](./images/backging.jpeg)
 
-那么为什么一个renderlayerbacking对象需要那么多层?**原因有很多**，例如webkit需要将滚动条独立开来称为一个层，需要两个容器层来表示renderlayer对应的z坐标为正数和z坐标为负数的子女，需要为滚动的内容建立新层，还可能需要剪裁层和反射层，这些层绘制和组织的顺序如下图（图中每一个层就是一个graphiclayer对象）:
+那么为什么一个renderlayerbacking对象需要那么多层?**原因有很多**，例如webkit需要将滚动条独立开来称为一个层，需要两个容器层来表示RenderLayer对应的z坐标为正数和z坐标为负数的子女，需要为滚动的内容建立新层，还可能需要剪裁层和反射层，这些层绘制和组织的顺序如下图（图中每一个层就是一个graphiclayer对象）:
 
 ![](./images/alllayer.png)
 
-对于每一个RenderLayerBacking对象来说，其主层肯定是存在的，其它层不一定存在，因为不是每一个RenderLayer对象都需要用到他们。管理这些层的工作是RenderLayerCompositor类，这个类可以说是大管家，它不仅决定哪些RenderLayer对象是合成层，而且为合成层创建GraphicLayer对象。每个RenderView对象包含一个RendeLayerCompositor，**这个对象仅在硬件加速机制下才会被创建**。RenderLayerCompositor类本身也类似于一个RenderLayerBacking,也就是说它也包含一些GraphicLayer对象，这些对象对应于整个网页所需要的后端存储。
+对于每一个RenderLayerBacking对象来说，其主层肯定是存在的，其它层不一定存在，因为不是每一个RenderLayer对象都需要用到他们。管理这些层的工作是RenderLayerCompositor类，这个类可以说是大管家，它不仅决定哪些RenderLayer对象是合成层，而且为合成层创建GraphicLayer对象。**每个RenderView对象包含一个RendeLayerCompositor，这个对象仅在硬件加速机制下才会被创建**。RenderLayerCompositor类本身也类似于一个RenderLayerBacking,也就是说它也包含一些GraphicLayer对象，这些对象对应于整个网页所需要的后端存储。
 
 在Chromium中，所有使用GPU硬件加速的操作都是由一个进程也就是GPU进程来完成的，这其中包括使用GPU硬件来进行绘图和合成。chromium是多进程的，每一个网页的Render进程都是将之前介绍的3d绘图和合成操作通过ipc传递给GPU进程，由他来统一调度和执行。事实上每一个Render进程都依赖GPU进程来渲染网页，当然browser进程也会同GPU进程进行通信，其作用是创建该进程并提供网页渲染过程最后绘制的目标存储。
 

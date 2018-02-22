@@ -1,4 +1,4 @@
-#### 1.defer,async与同步加载
+#### 1.defer,async与保证js加载完成后才调用的实现
 ```html
 <script src="script.js"></script>
 ```
@@ -17,9 +17,55 @@
 
 defer和async在`网络读取（下载）这块儿`是一样的，都是异步的（相较于 HTML 解析）
 它俩的差别在于脚本下载完之后何时执行，显然defer是最接近我们对于应用脚本加载和执行的要求的。
-async则是一个`乱序执行`的主，反正对它来说脚本的加载和执行是紧紧挨着的，先下载完成的脚本必先执行。然而，因为浏览器本身是[单线程，只有一个调用栈](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md)，所以当js下载完后执行的过程中页面DOM解析依然是阻塞的，不过它对于那些可以不依赖任何脚本或不被任何脚本依赖的脚本来说却是非常合适的，所以不管你声明的顺序如何，只要它加载完了就会立刻执行。，最典型的例子：`Google Analytics`。至于defer和async的支持情况可以使用[caniuse](https://caniuse.com/#search=defer)进行查看。
-
-https://caniuse.com/#search=defer
+async则是一个`乱序执行`的主，反正对它来说脚本的加载和执行是紧紧挨着的，先下载完成的脚本必先执行。然而，因为浏览器本身是[单线程，只有一个调用栈](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md)，所以当js下载完后执行的过程中页面DOM解析依然是阻塞的，不过它对于那些可以不依赖任何脚本或不被任何脚本依赖的脚本来说却是非常合适的，所以不管你声明的顺序如何，只要它加载完了就会立刻执行。最典型的例子：[`Google Analytics`](https://developers.google.cn/analytics/devguides/collection/analyticsjs/command-queue-reference#ready-callback)比如下面的例子:
+```js
+    // window,document,'script','//www.google-analytics.com/analytics.js','ga'
+    (function(i, s, o, g, r, a, m) {
+        i['GoogleAnalyticsObject'] = r;
+        // 1.window['GoogleAnalyticsObject'] =  'ga';
+        i[r] = i[r] || function() {
+            (i[r].q = i[r].q || []).push(arguments)
+        }, i[r].l = 1 * new Date();
+        /* 2. 在 JavaScript 中，函数也是对象，这意味着函数中也可以包含属性。跟踪代码段在 ga函数对象上定义了一个值为空数据的 q 属性。在 analytics.js 库尚未加载完成之前，调用 ga() 函数会将传递给 ga() 函数的参数列表附加到 q 数组的尾部。analytics.js 加载完成(onload)后，会立即查看 ga.q 数组的内容并依次执行每条命令。然后，ga() 函数将被重新定义以立即执行之后的调用。
+         * window['ga'] = window['ga'] || function(){
+         *   window['ga'].q = (window['ga'].q || []).push(arguments)
+         * },
+         * window['ga'].l = 1 * new Date();
+        */
+        a = s.createElement(o),
+            m = s.getElementsByTagName(o)[0];
+        /**3.
+         * a = document.createElement('script'),
+         * m = document.getElementsByTagName('script')[0]
+         */
+        a.async = 1;
+        /**4.async表示加载完成后就直接执行，此时DOM可能并没有解析完毕，可以继续往下解析。但是我们后续直接调用了create，send方法，此时后续分析代码可能并没有下载完成，所以会直接push到队列里面，如果onload触发了就会执行队列里面的回调并重置相应方法。
+         * script.async = 1;
+         */
+        a.src = g;
+        /**5.
+         * script.src = '//www.google-analytics.com/analytics.js'
+         */
+        m.parentNode.insertBefore(a, m)
+        /**6. Insert Analytics Script Before First Script Tag !
+         * document.getElementsByTagName('script')[0].parentNode.insertBefore(document.createElement('script'),document.getElementsByTagName('script')[0])
+         */
+    })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+    ga('create', 'UA-72788897-1', 'auto');
+    ga('send', 'pageview');
+    /**7.
+     * 在第一条命令中，create 接受了通过第二个、第三个和第四个可选参数指定的相应 trackingId、cookieDomain 和 name 字段。send 命令接受通过第二个可选参数指定的 hitType。
+     * 所有命令均接受普遍适用的 fieldsObject 参数，该这种参数可用于指定任何字段。例如，可将上述跟踪代码段中的两条命令改写为：
+      ga('create', {
+        trackingId: 'UA-XXXXX-Y',
+        cookieDomain: 'auto'
+      });
+      ga('send', {
+        hitType: 'pageview'
+      });
+     */
+```
+。至于defer和async的支持情况可以使用[caniuse](https://caniuse.com/#search=defer)进行查看。
 
 #### 2.遍历数组并删除项的时候要用splice而不是用delete
 ```js
