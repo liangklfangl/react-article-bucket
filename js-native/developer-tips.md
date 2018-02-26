@@ -106,6 +106,30 @@ function getIframeWindow(iframeElement){
 }
 ```
 
+#### 5.修改package.json的某个属性或者添加一个属性
+```js
+ fs.readFile(path.join(cwd, "./package.json"), (err, res) => {
+  if (err) {
+    this.log("发布该组件失败.....");
+    return;
+  }
+  pkg = JSON.parse(res);
+  // 这里是JSON.parse而不是stringify,虽然res是一个对象
+  pkg["std"] = true;
+  // 强制发布
+  fs.writeFile(
+    path.join(cwd, "./package.json"),
+    JSON.stringify(pkg, null, 10),
+    (err, res) => {
+      if (!err) {
+        this.log("发布该组件成功.....");
+      }
+    }
+  );
+});
+```
+当然上面的readFile也可以使用[readFileSync](https://nodejs.org/dist/latest-v9.x/docs/api/fs.html#fs_fs_readfilesync_path_options)来替换。
+
 参考资料:
 
 [new Function()](https://davidwalsh.name/new-function)

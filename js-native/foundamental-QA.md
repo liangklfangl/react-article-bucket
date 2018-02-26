@@ -1,4 +1,5 @@
-#### 1.defer,async与保证js加载完成后才调用的实现
+#### 1.defer与async的分析
+##### 1.1 defer,async与保证js加载完成后才调用的实现
 ```html
 <script src="script.js"></script>
 ```
@@ -66,6 +67,143 @@ async则是一个`乱序执行`的主，反正对它来说脚本的加载和执�
      */
 ```
 。至于defer和async的支持情况可以使用[caniuse](https://caniuse.com/#search=defer)进行查看。
+
+##### 1.2 单页面例子优化
+```html
+  <script type="text/javascript" src="www.ddd.com/0.0.1/prism.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/codemirror.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/mode/css/css.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/mode/javascript/javascript.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/mode/xml/xml.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/addon/edit/closetag.min.js"></script>
+  <script type="text/javascript" src="http://cdn.bootcss.com/codemirror/5.2.0/addon/edit/closebrackets.min.js"></script>
+  <script type="text/javascript" src="https://cdn.bootcss.com/react/15.4.2/react.min.js"></script>
+  <script type="text/javascript" src="https://cdn.bootcss.com/react/15.4.2/react-dom.min.js"></script>
+  <script type="text/javascript" src="https://cdn.bootcss.com/babel-standalone/6.22.1/babel.min.js"></script>
+  <script src="/common.js"></script>
+  <script src="/index.js"></script>
+```
+上面的例子常见于单页面应用，其中common.js和index.js来自于Webpack的打包文件，而上面的其他的js都是单页面的第三方类库，那么上面的资源加载顺序有没有问题呢？下面[分析](https://github.com/liangklfangl/react-article-bucket/blob/master/chrome-core/webCore/webkit-render-process.md#22-dom%E5%81%9C%E6%AD%A2%E6%9E%84%E5%BB%BA%E4%BD%86%E6%98%AF%E8%B5%84%E6%BA%90%E7%BB%A7%E7%BB%AD%E5%8A%A0%E8%BD%BD)下:
+<pre>
+1.推测加载策略在network面板很容易就看到了,所以js文件不阻塞后面js文件的加载
+2.除了react-dom,react是后续common.js和index.js渲染必须的资源以外，其他资源都可以异步加载，即非关键路径资源
+</pre>
+
+##### 1.3 前端性能
+- 白屏时间（first Paint Time）
+
+  用户从打开页面开始到页面开始有东西呈现为止。
+
+- 首屏时间
+  
+  用户浏览器首屏内`所有内容都呈现出来`所花费的时间
+
+- 用户可操作时间(dom Interactive)
+  
+  用户可以进行正常的点击、输入等操作，默认可以统计`domready`时间，因为通常会在这时候绑定事件操作
+
+- 总下载时间
+  
+  页面所有资源都加载完成并呈现出来所花的时间，即页面`onload`的时间
+
+##### 1.4 标签位置与页面呈现First Paint(web页面什么时候对用户可见)
+按照传统的做法，所有的script元素都应该放在页面的head元素中，例如:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <script type="text/javascript" src="index1.js"></script>
+  <script type="text/javascript" src="index2.js"></script>
+</head>
+<body>
+<!--这里放内容-->
+</body>
+</html>
+```
+这里做法的目的就是把所有的外部文件(CSS文件或者JS文件)的引用都放在相同的地方。可是，在文档的head元素中包含所有JS文件，意味着必须等到全部JS代码都被下载，解析和执行完成以后，才能开始呈现页面的内容(**浏览器在遇到\<body\>标签时才开始呈现内容**)。对于那些需要很多JS代码的页面来说，这无疑会导致浏览器在呈现页面时出现明显的延迟，而延迟期间的浏览器窗口中将是一片空白。为了避免这个问题，现在Web应用程序一般都把全部JS引用放在body元素中页面内容的后面，如下面的实例:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+<!--这里放内容-->
+<script type="text/javascript" src="index1.js"></script>
+<script type="text/javascript" src="index2.js"></script>
+</body>
+</html>
+```
+这样，**在解析包含的JS代码之前，页面的内容将完全呈现在浏览器中**。而用户也会因为浏览器窗口显示空白页面的时间缩短而感到打开页面的速度加快了。
+
+上面说过，浏览器在遇到\<body\>标签时才开始呈现内容，这个时机肯定是早于load事件，否则就不会存在下面说的页面呈现出来，但是[进度条一直处于loading的状态了](https://github.com/liangklfangl/react-article-bucket/blob/master/js-native/foundamental-QA.md#55-iframe%E9%98%BB%E5%A1%9E%E4%B8%BB%E9%A1%B5%E9%9D%A2onload%E4%BA%8B%E4%BB%B6%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95),这从另一方面证明了:**浏览器在显示网页内容给用户时候无需等待onload事件触发!**。那么有没有具体的**时机**来描述用户真实在浏览器中可以看到页面的呢？DOMContentLoaded还是 load的呢？其实它是早于DOMContentLoaded这个时机的!我们先回到以前页面优化的一个军规:**将css放在头部，将js文件放在尾部**。
+
+在面试的过程中，经常会有人在回答页面的优化中提到将js放到body标签底部，原因是因为浏览器生成DOM树的时候是一行一行读HTML代码的，script标签放在最后面就不会影响前面的页面的渲染。那么问题来了，既然DOM树完全生成好后页面才能渲染出来，浏览器又必须读完全部HTML才能生成完整的DOM树，**script标签不放在body底部是不是也一样**，因为DOM树的生成需要整个文档解析完毕。
+
+这里就需要引入一个**First Paint**的概念。现代浏览器为了更好的用户体验,渲染引擎将尝试尽快在屏幕上显示内容。它**不会**等到所有HTML解析之前开始构建和布局渲染树。部分的内容将被解析并显示。也就是说浏览器能够渲染不完整的DOM树和CSSOM，尽快的减少白屏的时间。假如我们将js放在header，js将阻塞解析DOM，DOM的内容会影响到First Paint，导致First Paint延后。所以说我们会将js放在后面，以减少First Paint的时间，**但是不会减少DOMContentLoaded被触发的时间**。
+
+那么First Paint相关时间能否从数字上得到衡量呢?在chrome中可以通过**window.chrome.loadTimes()**来测量，其返回如下的对象:
+```js
+{
+  "requestTime": 1519565893.88,
+  // 开始请求时间点
+  "startLoadTime": 1519565893.88,
+  // 开始加载时间点
+  "commitLoadTime": 1519565895.126,
+  "finishDocumentLoadTime": 1519565907.536,
+  "finishLoadTime": 1519565913.611,
+  "firstPaintTime": 1519566467.788,
+  // firstPaintTime就是首次渲染的时间，以s来测量
+  "firstPaintAfterLoadTime": 0,
+  "navigationType": "Other",
+  "wasFetchedViaSpdy": false,
+  "wasNpnNegotiated": false,
+  "npnNegotiatedProtocol": "unknown",
+  "wasAlternateProtocolAvailable": false,
+  "connectionInfo": "http/1.1"
+}
+```
+通过结合**window.performance.timing.navigationStart**(window.performance的更多时机可以[查看这里](http://blog.csdn.net/liangklfang/article/details/52074738)，我们可以测量从浏览器地址栏输入URL到First Paint的时间(兼容各种浏览器版本请[查看这里](https://github.com/axemclion/karma-telemetry/blob/master/src/scripts/benchmarks.js)):
+```js
+window.chrome.loadTimes().firstPaintTime * 1000 -
+  window.performance.timing.navigationStart
+```
+
+##### 1.4 defer(延迟脚本)与async(异步脚本) vs DOMContentLoaded vs load执行时机
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <script type="text/javascript" defer src="index1.js"></script>
+  <script type="text/javascript" defer src="index2.js"></script>
+</head>
+<body>
+  <!--这里是内容-->
+</body>
+</html>
+```
+在这个例子中，虽然我们把script元素放在了head元素中，但其中包含的脚本将**延迟到浏览器遇到<\/html>标签后再执行**。HTML5规范要求脚本按照出现的先后顺序执行，因此第一个延迟脚本会在第二个延迟脚本之前执行，而这两个脚本会先于DOMContentLoaded事件执行。在现实当中，**延迟脚本并不一定会按照顺序执行，也不一定会在DOMContentLoaded事件触发前执行，因此最好只包含一个延迟脚本**。
+
+上面说了defer延迟脚本的情况，而对于async脚本来说并不保证按照它们的先后顺序执行，比如:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title></title>
+  <script type="text/javascript" async src="index1.js"></script>
+  <script type="text/javascript" async src="index2.js"></script>
+</head>
+<body>
+<!--这里存放内容-->
+</body>
+</html>
+```
+在上面的例子中，第二个脚本文件可能会在第一个脚本之前执行。因此，确保两者之间不依赖非常重要。指定async属性的目的是不让页面等待两个脚本下载和执行，从而异步加载页面其他内容。为此建议异步脚本不要在加载期间修改DOM。
+
+**异步async脚本一定会在页面的load事件之前执行，但是可能会在DOMContentLoaded事件触发之前或者之后执行**。顺便插入一句:DOMContentLoaded触发的时候某些元素的[`尺寸获取可能不准确`](http://blog.csdn.net/ios0213/article/details/51760059)，比如图片的宽度和高度，因为图片可能需要等到onload事件触发的时候才会真实被插入到DOM中，从而导致整个文档重新渲染。
 
 #### 2.遍历数组并删除项的时候要用splice而不是用delete
 ```js
@@ -328,7 +466,7 @@ $(iframeDoc).ready(function (event) {
   })();
 </script>
 ```
-这里例子的详细说明可以参考[这里](http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6)。其实，这个方法不仅仅是js是并行加载的，你仔细查看[实例3](./examples/example3.html)，你会发现，在前面的jquery.js还没有加载完成的情况下，后面的image已经开始加载了，所以说，这种方法根本不会阻塞页面其他资源如image,stylesheet,iframe的同步加载。如下图(每次查看效果记得disable cache，同时查看的是[TTFB](../computer-QA/network-QA.md)):
+这里例子的详细说明可以参考[这里](http://blog.xuite.net/vexed/tech/21851083-%E7%94%A8+JavaScript+%E6%8A%8A+script+tag+%E5%A1%9E%E9%80%B2+iframe+%E5%8A%A0%E5%BF%AB%E7%B6%B2%E9%A0%81%E8%BC%89%E5%85%A5%E9%80%9F%E5%BA%A6)  。其实，这个方法不仅仅是js是并行加载的，你仔细查看[实例3](./examples/example3.html)，你会发现，在前面的jquery.js还没有加载完成的情况下，后面的image已经开始加载了，所以说，这种方法根本不会阻塞页面其他资源如image,stylesheet,iframe的同步加载。如下图(每次查看效果记得disable cache，同时查看的是[TTFB](../computer-QA/network-QA.md)):
 
 ![](./images/example3.png)
 
@@ -789,3 +927,11 @@ window.Messenger = (function(){
 [跨文档通信解决方案](https://github.com/biqing/MessengerJS)
 
 [Iframe loading techniques and performance](http://www.aaronpeters.nl/blog/iframe-loading-techniques-performance?utm_source=feedburner&utm_medium=feed&utm_campaign=Feed:+aaronpeters+(Aaron+Peters))
+
+[DOMContentLoaded与load的区别](https://www.cnblogs.com/caizhenbo/p/6679478.html)
+
+[Measuring First Paint Time in Chrome](http://www.tuanhuynh.com/blog/2015/measuring-first-paint-time-in-chrome/)
+
+[前端性能——监控起步](https://www.cnblogs.com/chuaWeb/p/PerformanceMonitoring.html)
+
+[利用performance统计网站的加载新能](https://www.jianshu.com/p/5f3968a5e7ee)
