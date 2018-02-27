@@ -642,6 +642,18 @@ co(function*(){
 
 `child_process.spawnSync(command, [args], [options])`这个方法不会立即返回，直到子线程完全被关闭。当出现了timeout或者收到了`killSignal`信号，这个方法也不会立即退出直到子线程完全退出才行。也就是说，如果当前线程在处理`SIGTERM`信号，还没有正常退出，那么当前进程就会一直等待它退出完成。sync-request也可以用于[浏览器中](https://github.com/liangklfangl/sync-request#how-is-this-possible)，因为xhr本身就是支持同步执行的。但是，并不建议这么做，因为该方法会阻塞。
 
+#### nodejs的require限制在特定的文件夹
+```js
+const ROOT = process.cwd();
+const DEFAULT_WEBPACK_MODULES_PATH = path.join(ROOT, "./node_modules");
+const TEST = /^\//.test(fullPath[i])
+        ? require.resolve(fullPath[i])
+        : require.resolve(fullPath[i], {
+            paths: [DEFAULT_WEBPACK_MODULES_PATH]
+          });
+```
+上面的例子展示了，指定paths属性，那么当你require一个模块，比如lodash将会严格限制在process.cwd下的node_modules目录。
+
 
 参考资料:
 
