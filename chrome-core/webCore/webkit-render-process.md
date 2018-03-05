@@ -140,7 +140,7 @@ Webkit会为网页的层次创建相应的RenderLayer对象。当某些类型的
 
 - 我对RenderLayer的理解
 
-  浏览器渲染引擎并不是直接使用RenderObject树进行绘制,虽然RenderObject树中每一个元素都明确的知道其具体的样式信息。但是为了方便处理 Positioning（定位），Clipping（裁剪），Overflow-scroll（页內滚动），CSS Transform/Opacity/Animation/Filter，Mask or Reflection，Z-indexing（Z排序）等，浏览器需要生成另外一棵树RenderLayer树。顾名思义:它是一棵**层级树(按照z-index排序的树)**!根据上面对于negZOrderList,posZOrderList的说明:首先是针对document创建了一个RenderLayer节点，然后将小于当前z-index的放在negZOrderList，而将大于当前z-index的元素放在了posZOrderList中，并依次按此处理子级的元素并创建RenderLayer。最后按照整棵RenderLayer树去渲染网页就能够有效的处理定位等元素重叠或者存在半透明的情况!
+  浏览器渲染引擎并不是直接使用RenderObject树进行绘制,虽然RenderObject树中每一个元素都明确的知道其具体的样式信息。但是为了方便处理 Positioning（定位），Clipping（裁剪），Overflow-scroll（页內滚动），CSS Transform/Opacity/Animation/Filter，Mask or Reflection，Z-indexing（Z排序）等，浏览器需要生成另外一棵树RenderLayer树。顾名思义:它是一棵**层级树(按照[z-index排序的树](http://web.jobbole.com/83409/),可以考虑下层叠上下文)**!根据上面对于negZOrderList,posZOrderList的说明:首先是针对document创建了一个RenderLayer节点，然后将小于当前z-index的放在negZOrderList，而将大于当前z-index的元素放在了posZOrderList中，并依次按此处理子级的元素并创建RenderLayer。最后按照整棵RenderLayer树去渲染网页就能够有效的处理定位等元素重叠或者存在半透明的情况!
 
 ![](./images/renderLayer.png)
 
@@ -907,3 +907,7 @@ RenderView接收到页面信息，会一边绘制一边等待更多的资源到�
 [Multi-process Resource Loading](https://sites.google.com/a/chromium.org/dev/developers/design-documents/multi-process-resource-loading)
 
 [GPU Accelerated Compositing in Chrome](https://sites.google.com/a/chromium.org/dev/developers/design-documents/gpu-accelerated-compositing-in-chrome)
+
+[Behind the scenes of modern web browsers](http://taligarsiel.com/Projects/howbrowserswork1.htm)
+
+[层叠上下文 Stacking Context](http://web.jobbole.com/83409/)

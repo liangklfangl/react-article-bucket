@@ -973,7 +973,7 @@ will-change指定的属性值为上面任意一个。
 
 其中关键信息如下:
 <pre>
-(1)位于最低水平的border/background指的是层叠上下文元素的边框和背景色(比如下例的box > div元素)。每一个层叠顺序规则适用于一个完整的层叠上下文元素。
+(1)位于最低水平的border/background指的是层叠上下文元素的边框和背景色(比如下例的box > div元素,可能是某一个层叠上下文的父级元素)。每一个层叠顺序规则适用于一个完整的层叠上下文元素。
 (2)inline-block和inline水平元素是同等level级别。
 (3)z-index:0实际上和z-index:auto单纯从层叠水平上看，是可以看成是一样的。注意这里的措辞——“单纯从层叠水平上看”，实际上，两者在层叠上下文领域有着根本性的差异。因为后者不会创建层叠上下文。
 </pre>
@@ -990,6 +990,7 @@ CSS样式为:
 ```css
 .box {  }
 .box > div { background-color: blue; z-index: 1; }    
+// 绘制顺序可以查看我下面推荐的另外一篇文章:实例一（同一层叠上下文中的时代）
 .box > div > img { 
   position: relative; z-index: -1; right: -150px; 
 }
@@ -1004,7 +1005,20 @@ CSS样式为:
   /* 注意这里是负值z-index */
 }
 ```
-因为.box>div是层叠上下文元素，而按照前面的层叠顺序图，最后一层是层叠上下文的背景色/border,然后才是负z-index，继而导致负z-index处于蓝色背景的前面。
+因为.box>div是层叠上下文元素，而按照前面的层叠顺序图，最后一层是层叠上下文的背景色/border,然后才是负z-index，继而导致负z-index处于蓝色背景的前面。这里再推荐一个[层叠上下文的文章](http://web.jobbole.com/83409/)。其将上面提到的层叠顺序图通过下面的方式更加细致的讲解出来:
+。其将上面提到的层叠顺序图通过下面的方式更加细致的讲解出来:
+
+<pre>
+1.创建层叠上下文的元素的背景和边界；
+2.z-index为负值的子元素，数值越小越早被绘制；
+3.同时满足“in-flow”、“non-inline-level”、“non-positioned”的后代元素；
+4.“non-positioned”的浮动元素；
+5.满足“in-flow”、“inline-level”、“non-positioned”的后代元素；
+6.层叠级数为0的子层叠上下文以及“positioned”且层叠级数为0的后代元素；
+7.层叠级数大于等于1的“positioned”子层叠上下文，数值越小越早被绘制；
+</pre>
+
+
 
 参考资料:
 
@@ -1046,3 +1060,5 @@ CSS样式为:
 [前端性能——监控起步](https://www.cnblogs.com/chuaWeb/p/PerformanceMonitoring.html)
 
 [利用performance统计网站的加载新能](https://www.jianshu.com/p/5f3968a5e7ee)
+
+[层叠上下文 Stacking Context](http://web.jobbole.com/83409/)
