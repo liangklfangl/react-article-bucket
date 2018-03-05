@@ -33,3 +33,7 @@
   浏览器在读取上一步接受到的服务器推送的数据
 - Data Transferred / Bytes In / Page Size
   你的网站的整体资源大小，当然是越精简越好。  
+
+#### Chrome的performance
+- Recalculate Style
+  与DOM解析不同，该时间线不显示单独的“Parse CSS”条目，而是在这一个事件下**一同捕获解析和 CSSOM树构建，以及计算的样式的递归计算**。  

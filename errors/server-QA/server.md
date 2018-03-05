@@ -37,6 +37,7 @@ Content-Type 主要设置你发送给服务器的格式，发送给服务器的�
 ##### 3.2 目前出现的原因
 
 - 1.没有代理
+
  比如superAgent有些情况就不走代理。于是就会出现上面的Method Not Allowd错误。当然，在传入的参数不正确的情况下也可能出现这种错误(一般情况下是**302**)。最后遇到的一种情况是与传入的JSON的key有关系。
 ```js
 cons submitData = {
@@ -54,6 +55,7 @@ ajax({
 })
 ```
 - contentType
+
  是否设置了contentType对返回结果也有很大影响，比如下面的代码就设置了contentType的值。
 ```js
 ajax({
@@ -69,6 +71,7 @@ ajax({
 ```
 
 - 传入的参数含有数组
+
   传入的参数含有数组的情况下有些框架不能正确处理(看请求发送出去的数据)，特别是`Post`请求的情况下。所以选择合适的ajax框架也很重要。
 ```js
 ajax({
@@ -89,7 +92,24 @@ ajax({
 })
 ```
 
+- 对象JSON.stringify异常导致post请求发送出去的数据异常
+
+  如果无法修改contentType，可以采用如下格式:
+
+```js
+const submitData = JSON.stringify({
+      userName: "1111",
+      pid: +business,
+      userId: "2222"
+    });
+IO.post("/xxxxx/add.do", {
+      data: submitData
+  })
+// 这里的key为data,stringify只处理后面的内容
+```
+
 - 端口号相关
+
   特别在走代理的情况下，有可能对代理本身的端口做了限制。也会出现method Not Allowed的情况!切换下代理服务器的端口试试。如果是GET接口可以在浏览器中直接打开试试看能够走通;分页接口是否传了pageNo等必填的字段
 
 

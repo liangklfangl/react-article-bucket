@@ -359,7 +359,7 @@ $(iframeDoc).ready(function (event) {
     var iframe = document.getElementById('_if1'),
       iframeWin = iframe.contentWindow || iframe ,
       iframDoc = iframeWin.document || iframe.contentDocument;
-    iframDoc.write('<html><head></head><body><script src="http://postpet.jp/webmail/blog/clock_v1_moco.js" ></sc' + 'ript><body></html>');
+    iframDoc.write('<html><head></head><body><script src="http://postpet.jp/webmail/blog/clock_v1_moco.js" ></sc' + 'ript></script></body></html>');
     // 1.写入脚本
     if(iframDoc.all) {
       // 3.以前用户判断IE，现在很多浏览器都支持
@@ -890,10 +890,121 @@ window.Messenger = (function(){
 
 ![](./images/baidu.png)
 
-在onload后依然有资源在加载，一般表示使用的是js动态加载的资源，而且这些资源并没有阻塞主页面的onload事件(比如上面iframe的onload未阻塞主页面onload的情况)。这些资源加载完成后会造成页面的重绘或者重排。所以，当在网速特别慢的情况下，你会发现页面部分绘制出来的情况。
+在onload后依然有资源在加载，一般表示使用的是**js动态加载的资源**，而且这些资源并没有阻塞主页面的onload事件(比如上面iframe的onload未阻塞主页面onload的情况)。这些资源加载完成后会造成页面的重绘或者重排。所以，当在网速特别慢的情况下，你会发现页面部分绘制出来的情况。
+
+#### 7.display:none的元素在DOM树中吗?
+答案:**在**!如果这个元素本身不在DOM树中，那么通过document.getElementById这种方式来获取它根本就获取不到。但是值得注意的是:该元素并[**不在渲染树中**](../chrome-core/webCore/webkit-render-process.md),渲染树中需要展示的是那些可见的元素，除了display:none以外，比如head等也不会出现在渲染树中。这样，当通过设置display:block让display:none的元素可见的时候，浏览器就需要重新计算每一个元素在页面中的位置，即产生回流reflow操作，因为元素的状态从不在渲染树改成需要出现在渲染树中了。
+
+讲到这里牵涉到了重绘和重排的概念，重排需要[**重新构建RenderObject树**](../chrome-core/webCore/webkit-render-process.md)(可能是DOM树改变或者[CSSOM](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model)，比如display改变了)，然后重新计算改变的元素在窗口中最新的位置，最后将合成的bitmap绘制到后端存储并上传到显存中由显示器进行绘制。而如果是重绘，比如背景色的改变，那么可以省去最新位置的计算，因为元素没有因为尺寸的变化而导致其具体的位置发生变化，这样就减少了更新元素位置从而导致的回流reflow操作。下面是某一个具体的CSSOM树:
+
+![](./images/cssom-tree.png)
+
+其对应的CSS为:
+```css
+body { font-size: 16px }
+p { font-weight: bold }
+span { color: red }
+p span { display: none }
+img { float: right }
+```
+其HTML结构为:
+```html
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link href="style.css" rel="stylesheet">
+    <title>Critical Path</title>
+  </head>
+  <body>
+    <p>Hello <span>web performance</span> students!</p>
+    <div><img src="awesome-photo.jpg"></div>
+  </body>
+</html>
+```
+你可能会问:CSSOM为何具有树结构？为页面上的任何对象计算最后一组样式时，浏览器都会先从适用于该节点的**最通用规则**开始（例如，如果该节点是body元素的子项，则应用所有body样式），然后通过应用更具体的规则（即规则“向下级联”）以递归方式优化计算的样式。
+
+以上面的 CSSOM 树为例进行更具体的阐述。span标记内包含的任何置于body元素内的文本都将具有16 像素字号，并且颜色为红色 — font-size指令从body向下级联至span。不过，如果某个span 标记是某个段落 (p) 标记的子项，则其内容将不会显示。
+
+还**请注意**，以上树并非完整的CSSOM树，它只显示了我们决定在样式表中替换的样式。每个浏览器都提供一组`默认样式`（也称为“User Agent样式”），即我们不提供任何自定义样式时所看到的样式，我们的样式只是替换这些默认样式。
 
 
+#### 8.table会导致多余的reflow
+http://www.stubbornella.org/content/2009/03/27/reflows-repaints-css-performance-making-your-javascript-slow/
 
+#### 9.层叠上下文
+你可以查看前端大佬张鑫旭的[深入理解CSS中的层叠上下文和层叠顺序](http://www.zhangxinxu.com/wordpress/2016/01/understand-css-stacking-context-order-z-index/)文章，通过这个文章，我学到了以下几点:
+
+##### 9.1 层叠上下文的比较
+普通元素的层叠水平**优先**由层叠上下文决定,因此,层叠水平的比较只有在当前层叠上下文元素中才有意义。换成好理解一点的例子:A官员家里的管家和B官员家里的管家做PK实际上是没有意义的,因为他们牛不牛逼完全由他们的主子决定的。比如下面的例子:
+```html
+<div id="horizontal" style="position:relative;display: block; border:2px solid red;z-index:0;">
+    <img src="./mm1.jpg" style="position:absolute; z-index:2;">
+  </div>
+<div id="vertical" style="position:relative; border:2px solid blue;z-index:0;">
+    <img src="./mm2.jpg" style="position:relative; z-index:1;">
+</div>
+```
+在通过z-index:0创建了层叠上下文的时候，我们不会关心内部img的z-index，因为对他们层叠上下文的比较是没有意义的，他们就像A和B官员家的管家一样，主要受到他们主子也就是div#horizontal,div#vertical的元素决定。
+
+##### 9.2 层叠上下文的创建
+###### 9.2.1 **根层叠上下文**
+指的是页面根元素，也就是滚动条的默认的始作俑者<html>元素。这就是为什么，绝对定位元素在left/top等值定位的时候，如果没有其他定位元素限制，会相对浏览器窗口定位的原因。
+
+###### 9.2.2 **定位元素与传统层叠上下文**
+对于包含有position:relative/position:absolute的定位元素，以及FireFox/IE浏览器（不包括Chrome等webkit内核浏览器）（目前，也就是2016年初是这样）下含有position:fixed声明的定位元素，当其`z-index值不是auto的时候`，会创建层叠上下文。
+
+###### 9.2.3 **CSS3与新时代的层叠上下文**:
+下面的CSS3属性都会创建自己的层叠上下文:
+<pre>
+z-index值不为auto的flex项(父元素display:flex|inline-flex).
+元素的opacity值不是1.
+元素的transform值不是none.
+元素mix-blend-mode值不是normal.
+元素的filter值不是none.
+元素的isolation值是isolate.
+will-change指定的属性值为上面任意一个。
+元素的-webkit-overflow-scrolling设为touch.
+</pre>
+
+##### 9.3 父子关系与层叠顺序
+层叠顺序表示元素发生**层叠时候有着特定的垂直显示顺序**:
+
+![](./images/cdsx.png)
+
+其中关键信息如下:
+<pre>
+(1)位于最低水平的border/background指的是层叠上下文元素的边框和背景色(比如下例的box > div元素)。每一个层叠顺序规则适用于一个完整的层叠上下文元素。
+(2)inline-block和inline水平元素是同等level级别。
+(3)z-index:0实际上和z-index:auto单纯从层叠水平上看，是可以看成是一样的。注意这里的措辞——“单纯从层叠水平上看”，实际上，两者在层叠上下文领域有着根本性的差异。因为后者不会创建层叠上下文。
+</pre>
+
+既然表示的是发生重叠时候的顺序，那么对于**父子元素**本身也会存在此类情况，比如下面的例子:
+```html
+<div class="box">
+    <div>
+      <img src="./mm1.jpg">
+    </div>
+</div>
+```
+CSS样式为:
+```css
+.box {  }
+.box > div { background-color: blue; z-index: 1; }    
+.box > div > img { 
+  position: relative; z-index: -1; right: -150px; 
+}
+```
+因为.box>div元素本身并不是层叠上下文元素，它只是一个普通的元素，所以它不会影响内部.box>div>div元素。按照上面的层叠顺序图:**block块状水平盒子(用于布局)>负z-index**的值,所以导致.box>div元素处于.box>div>img元素的上面。而如果将css调整为如下内容:
+```css
+.box { display: flex; }
+.box > div { background-color: blue; z-index: 1; }   
+/* 此时该div是层叠上下文元素，同时z-index生效 */
+.box > div > img { 
+  position: relative; z-index: -1; right: -150px;     
+  /* 注意这里是负值z-index */
+}
+```
+因为.box>div是层叠上下文元素，而按照前面的层叠顺序图，最后一层是层叠上下文的背景色/border,然后才是负z-index，继而导致负z-index处于蓝色背景的前面。
 
 参考资料:
 

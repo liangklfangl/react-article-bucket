@@ -116,6 +116,8 @@
 
 [前端计算机图形学基础知识](./chrome-core/webCore/chrome-compositor.md)
 
+[计算机基础知识，如字节码机器码等](./computer-QA/other-QA.md)
+
 [markdown开发中遇到问题](./others/markdown-QA/readme.md)
 
 [浏览器高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md)
