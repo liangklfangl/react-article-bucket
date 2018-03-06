@@ -195,6 +195,18 @@ void main()
 
 我们通过反射法向量周围光的方向计算反射向量。然后我们计算反射向量和视线方向的角度，**如果之间的角度越小，那么镜面光的作用就会越大**。它的作用效果就是，当我们去看光被物体所反射的那个方向的时候，我们会看到一个高光。
 
+##### 1.11 Chrome浏览器的[RenderView](http://www.ha97.com/2912.html)
+一个[Process一个Tab](http://www.ha97.com/2908.html)，只是Chrome的广告用语。实际上，每一个Web页面内容(**包括在Tab中的和在弹出窗口中的**),在Chrome中，用**RenderView**表示一个Web页面，每一个RenderView可以寄宿在任一一个RenderProcess中，它只是依托 RenderProcess帮助它进行**通信**。每一个RenderProcess进程都可以有1到N个RenderView实例。
+
+Chrome支持不同的进程模型，可以一个tab一个进程，一个site instance一个进程等等。但基本模式都是一致的，当需要创建一个新的RenderView的时候，Chrome会尝试进行选择或者是创建进程。比如，在one site one process的模式下，如果存在此site，就会选择一个已有的RenderProcessHost，让它管理这个新的RenderView，否则，会 创建一个RenderProcessHost（**同时也就创建了一个Process**），把RenderView交给它。
+
+在默认的one site instance one process的模式中，Chrome会为每个新的site instance创建一个进程（从一个页面链开来的页面，属于同一个site instance），但，Render进程总数是有个上限的。这个上限，根据内存大小的不同而异，比如，在我的机器上（2G内存），最多可以容纳20个Render进程，当达到这个上限后，你再开新的网站，**Chrome会随机为你选择一个已有的进程**，把这个网站对应的RenderView给扔进去。
+
+每一次你新输入一个站点信息，在默认模式下，都必然导致一个进程的诞生，同时也很可能，伴随着另一个进程的死亡（如果这个进程没有其他承载的RenderView的话，它就自然死亡了，RenderView的个数，就相当于这个进程的引用计数）。比如，你打开一个新标签页的时候，系统为你创造了一个进程来承载这个新标签页，你输入http:\/\/www.baidu.com，于是新标签页进程死亡，承载http:\/\/www.baidu.com的进程诞生。你用baidu搜索了一下，毫无疑问，你基本对它的搜索结果很失望，于是你重新输入http:\/\/www.google.com，老的承载baidu的进程死亡，承载google的进程被构建出来。这时候你想回退到之前baidu的搜索结果，一个新的承载baidu的进程被创造，之前Google的进程死亡。同样，你再次点击前进，又来到Google搜索结果的时候，一个新的进程又取代老的进程出现了。
+
+总结来说:Chrome并没有做啥**进程池**之类的特殊机制，而是简单的履行**有就创建、没有就销毁的策略**。
+
+
 #### 第二部分.深入GPU百科全书
 ##### 2.1 方程与几何
 对于图形学来说，外形的改变就是多边形的改变，进一步来讲就是**顶点坐标**的变化。而顶点坐标的变化，是可以通过方程来描述的。只要通过改变这些方程的参量,就能够产生不同的图形。
@@ -454,7 +466,9 @@ Shared的出现则要更晚一些。当图形API进化到DirectX 10之后，ALU�
 **Chrome的合成器(Chrome’s compositor)**是一个软件库，其用于**管理GraphicsLayer树**，同时协调**每一帧**的生命周期。我们知道渲染(Rendering)存在于两个阶段:首次渲染和合成。这允许合成器在每一个合成层的基础上做一些额外的工作。比如，合成器在合成bitmap之前通过css的transform为每一个合成层的bitmap实现相应的动画。而且，因为每一个合成层的渲染和合成操作是解耦的，某一些合成层失效只会造成这些失效的层内容单独被渲染，然后和以前没有变化的合成层一起被合成。
 
 **每次浏览器需要一个新的帧的时候，合成器就会合成这些bitmap**。这里**合成(drawing)**
-指的是:合成器将这些bitmap合成为屏幕上的最终图像，而**渲染(painting)**指的是:某一个层的后端存储被填充，例如bitmap的软件栅格化或者纹理的硬件栅格化。但是注意:最后生成的bitmap都是通过Browser进程进行绘制的。你要查看[这个图](https://github.com/liangklfangl/react-article-bucket/blob/master/chrome-core/webCore/webkit-render-process.md#721-chrome%E4%B8%AD%E4%B8%BB%E8%A6%81%E8%BF%9B%E7%A8%8B),其中合成的操作是Webkit部分里面完成的,而且里面的每一个Renderer进程都有一个Compositor进程，但是整个浏览器只有一个GPU进程。
+指的是:合成器将这些bitmap合成为屏幕上的最终图像，而**渲染(painting)**指的是:某一个层的后端存储被填充，例如bitmap的软件栅格化或者纹理的硬件栅格化。但是注意:最后生成的bitmap都是通过Browser进程进行绘制的。你要查看[这个图](https://github.com/liangklfangl/react-article-bucket/blob/master/chrome-core/webCore/webkit-render-process.md#721-chrome%E4%B8%AD%E4%B8%BB%E8%A6%81%E8%BF%9B%E7%A8%8B),其中合成的操作是Webkit部分里面完成的,里面的每一个Renderer进程都有一个Compositor进程(每一个Tab对应于一个Renderer进程)，但是整个浏览器只有一个GPU进程。
+
+![](./images/shd.png)
 
 #### 2 Chrome软件渲染通过[Browser进程完成](https://sites.google.com/a/chromium.org/dev/developers/design-documents/gpu-accelerated-compositing-in-chrome)
 Webkit在**软件渲染**网页的时候是从根层级遍历整个RenderLayer层级。而Webkit代码库包含两个不同的方式来渲染页面的内容，一个是软件路径还有一个硬件加速路径。软件路径是传统的渲染模式。
