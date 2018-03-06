@@ -610,7 +610,6 @@ setTimeout()和setInterval() 与浏览器中API是一致的，分别用于单次
   当调用nodejs的API时候，真实I/O的操作并没有完成，而是立即返回，进而继续运行下面的代码。因此一般需要select/poll方法查询当前的状态
 </pre>
 
-
 #### 在for循环中依赖上一次数据库的查询状态
 假如有下面的伪代码:
 ```js
@@ -653,6 +652,76 @@ const TEST = /^\//.test(fullPath[i])
           });
 ```
 上面的例子展示了，指定paths属性，那么当你require一个模块，比如lodash将会严格限制在process.cwd下的node_modules目录。
+
+#### nodejs如何并发读取多个文件
+其实还是通过async.parallel来完成:
+```js
+const DEFAULT_FOLDER_PATH = path.join(process.cwd(), "./src");
+// imports是相对于src目录的相对路径
+ const indexExposeModules = imports.map((item, index) => {
+      return path.join(DEFAULT_FOLDER_PATH, item.source);
+  });
+  const functionPools = [],componentInfoArray = [];
+      // 产生函数数组
+    for (let i = 0, len = indexExposeModules.length; i < len; i++) {
+        const localFunc = function(callback) {
+          return fs.readFile(indexExposeModules[i], "utf8", (err, data) => {
+            if (err) {
+              console.log(`读取文件${indexExposeModules[i]}失败!`);
+            }
+            callback(null, data);
+          });
+        };
+        functionPools.push(localFunc);
+      }
+      // 并行执行,里面全部是异步操作，所以对于componentInfoArray的打印必须是回调中
+      async.parallel(functionPools, (err, results) => {
+        if (err) {
+          console.log(`并发读取文件失败,程序将会退出!`);
+        }
+        // react-docgen解析js文件产生内容
+        results.reduce((prev, cur) => {
+          const documentation = reactDocs.parse(cur);
+          componentInfoArray.push(documentation);
+        });
+         console.log("内容为:" + JSON.stringify(componentInfoArray));
+      });
+      // 准备生成表格内容
+    });
+```
+但是有一点需要注意:async.parallel里面封装的是**异步的**文件读取操作，所以必须在callback里面才能获取到完整的处理后的数据内容，然后对每一个文件的内容进行react-docgen操作。即下面的代码是不行的:
+```js
+ async.parallel(functionPools, (err, results) => {
+    if (err) {
+      console.log(`并发读取文件失败,程序将会退出!`);
+    }
+    // react-docgen解析js文件产生内容
+    results.reduce((prev, cur) => {
+      const documentation = reactDocs.parse(cur);
+      componentInfoArray.push(documentation);
+    });
+ });
+ // callback里面才能获取到componentInfoArray完整内容
+ // 这句代码会立即执行
+console.log("内容为:" + JSON.stringify(componentInfoArray));
+```
+
+#### nodejs的fs.readFile返回值
+因为fs.readFile是异步的，其返回值为undefined，这和fs.readFileSync是不一样的，后者返回的是一个Buffer对象:
+```js
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+const INDEX =  path.join(process.cwd(),'./src/lib/AutoSeekCtr/index.js');
+const reactDocs = require("react-docgen");
+const fsReturnValue = fs.readFile(INDEX,'utf8',(err,data)=>{
+  const documentation = reactDocs.parse(data);
+});
+// 其中fsReturnValue为undefined，如果是readFileSync将会得到完整的Buffer对象
+console.log('fsReturnValue=='+util.inspect(fsReturnValue,{showHidden:true,depth:2}));
+
+```
+
 
 
 参考资料:
