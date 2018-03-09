@@ -148,6 +148,20 @@ function example() {
 }
 ```
 
+#### 4.不要在for循环中删除对象
+```js
+function filterNotExportedLib(imports, exportNames) {
+  const localImports = [];
+  for (let t = 0, len = imports.length; t < len; t++) {
+    if (exportNames.indexOf(imports[t]&&imports[t].name) != -1) {
+      localImports.push(imports[t]);
+      //imports.splice(t, 1);
+      // for循环里面不要调用删除操作，应该使用局部变量
+    }
+  }
+  return localImports
+}
+```
 
 参考资料:
 
