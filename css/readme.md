@@ -120,6 +120,35 @@ UED出图的时候一般要么是640的，要么是750的两种。如果是640�
   }
 ```
 
+问题4:列表li前面添加三角形
+```css
+ul {
+    margin: 0.75em 0;
+    padding: 0 1em;
+    list-style: none;
+}
+li:before { 
+    content: "";
+    border-color: transparent #111;
+    border-style: solid;
+    border-width: 0.35em 0 0.35em 0.45em;
+    display: block;
+    height: 0;
+    width: 0;
+    left: -1em;
+    top: 0.9em;
+    position: relative;
+}
+```
+DOM为:
+```html
+<ul>
+   <li>Lorem ipsum dolor sit amet, consectetuer adipiscing elit.</li>
+   <li>Aliquam tincidunt mauris eu risus.</li>
+   <li>Vestibulum auctor dapibus neque.</li>
+</ul>
+```
+
 参考资料:
 
 [多行文本溢出显示省略号 #15](https://github.com/ShuyunXIANFESchool/FE-problem-collection/issues/15)

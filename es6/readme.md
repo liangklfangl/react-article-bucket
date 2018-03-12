@@ -1385,7 +1385,11 @@ var anotherRequest = new Request(myRequest,myInit);
 ```
 这个很有用，因为request和response bodies只能被使用一次（这里的意思是因为设计成了 stream 的方式，所以它们只能被读取一次,参见上面的response.json()）。创建一个拷贝就可以再次使用 request/response 了，当然也可以使用不同的init参数。以上内容来自[使用 Fetch](https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API/Using_Fetch)。
 
-
+#### 6.如果不加入babel-plugin-add-export-default
+可以通过如下的代码来完成,参见[element](https://github.com/ElemeFE/element/tree/dev/packages)的用法:
+```js
+module.exports.default = module.exports;
+```
 
 
 
