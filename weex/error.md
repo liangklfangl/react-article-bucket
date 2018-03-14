@@ -24,6 +24,12 @@ npm install weex-toolkit -g
 - weex-previewer : v1.4.8
 </pre>
 
+如果还是没有解决，可以查看你的node_modules目录下的webpack版本是否和package.json中的一致，即webpack版本加载的问题。我发现package.json中依赖的webpack版本为:
+```js
+   "webpack": "1.14.0"
+```
+但是我node_modules下安装了1.15.0和3.x的版本，我把后面两个版本删除以后，一切恢复正常了!
+
 #### 2.运行weex compile的时候babel-core不存在
 报错信息如下:
 <pre>
@@ -72,3 +78,36 @@ lsof -i:8082
 weex preview ./index.vue --port 8088
 ```
 此时发现一切正常。
+
+#### 4.nodejs中的ENOENT错误
+报错信息如下：
+<pre>
+events.js:183
+      throw er; // Unhandled 'error' event
+      ^
+Error: spawn ./node_modules/weex-previewer/bin/weex-previewer ENOENT
+    at _errnoException (util.js:1022:11)
+    at Process.ChildProcess._handle.onexit (internal/child_process.js:190:19)
+    at onErrorNT (internal/child_process.js:372:16)
+    at _combinedTickCallback (internal/process/next_tick.js:138:11)
+    at process._tickCallback (internal/process/next_tick.js:180:9)
+</pre>
+
+遇到这个问题我也是醉了，我直接运行了下面的命令:
+```shell
+pwd
+#获取当前文档，然后我把pwd和./node_modules/weex-previewer/bin/weex-previewer路径
+# 结合了起来，在浏览器中打开它，发现确实打不开，也报错说找不到文件。但是如果加上.js后缀
+# 又能够在浏览器中正常打开了
+```
+所以我就就想到在VSCode中搜索spawn(我知道到spawn惹的祸)，最后在项目下找到如下的代码:
+```js
+util.spawn('node ./node_modules/weex-devtool/bin/weex-devtool src/' + pageName + '/index.vue -M' + debugPorts);
+util.spawn('./node_modules/weex-previewer/bin/weex-previewer src/' + pageName + '/index.vue --np' + previewPorts);
+```
+很显然是第二句代码惹的祸，所以我直接加上后缀.js:
+```js
+util.spawn('node ./node_modules/weex-devtool/bin/weex-devtool src/' + pageName + '/index.vue -M' + debugPorts);
+util.spawn('./node_modules/weex-previewer/bin/weex-previewer.js src/' + pageName + '/index.vue --np' + previewPorts);
+```
+此时一切正常!关于代码中如何避免这个错误可以[点击这里](https://stackoverflow.com/questions/27688804/how-do-i-debug-error-spawn-enoent-on-node-js)。
