@@ -1018,6 +1018,16 @@ CSS样式为:
 7.层叠级数大于等于1的“positioned”子层叠上下文，数值越小越早被绘制；
 </pre>
 
+##### 10.事件处理函数中的[passive:true](http://blog.csdn.net/shenlei19911210/article/details/70198771)配置
+由于浏览器无法预先知道一个事件处理函数中会不会调用preventDefault()，它需要**等到事件处理函数执行完后，才能去执行默认行为**，然而事件处理函数执行是要耗时的，这样一来就会导致页面卡顿，可以动手试试，比如在事件处理函数里面写一个耗时的循环。
+
+其实passive就是为此而生的。设置了passive:true的情况下，即使滚动事件里面写了一个死循环，浏览器也能够正常处理页面的滑动。在DOM的最新规范中，事件处理函数的第三个参数变成了一个对象:
+```js
+target.addEventListener(type, listener[, options]);
+```
+我们可以通过传递passive为true来明确告诉浏览器，事件处理程序不会调用preventDefault来阻止默认滑动行为。此时浏览器就能**快速生成事件(滚动事件)**，从而提升页面性能，而不用等待滚动事件处理完成后才触发。
+
+
 
 
 参考资料:
@@ -1062,3 +1072,5 @@ CSS样式为:
 [利用performance统计网站的加载新能](https://www.jianshu.com/p/5f3968a5e7ee)
 
 [层叠上下文 Stacking Context](http://web.jobbole.com/83409/)
+
+[移动端Web界面滚动性能优化: Passive event listeners](http://blog.csdn.net/shenlei19911210/article/details/70198771)

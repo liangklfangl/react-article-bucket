@@ -140,6 +140,12 @@
 
 [waterfull vs parallel vs series异步方法详解](./async-programing/async-js/readme.md)
 
+##### 2.6 weex与vue部分
+
+[关于vue文档的进一步细化](./vue/basic.md)
+
+[weex遇到的那些坑](./weex/error.md)
+
 #### 3.运行说明
 对于每一个文件下都是一个单独的项目可以运行，你只要cd到这个目录下，运行下面的命令即可:
 

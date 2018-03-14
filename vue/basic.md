@@ -802,8 +802,161 @@ export default {
 ```
 插槽，也就是slot，**是组件的一块HTML模板**，这块模板显示不显示、以及怎样显示由父组件来决定。 实际上，一个slot最核心的两个问题这里就点出来了，是**显示不显示**和**怎样显示**。
 
+#### 17.Vue中的computed与watch
+##### 17.1 为什么要引入计算属性
+模板内的表达式非常便利，但是设计它们的初衷是用于简单运算的。在模板中放入太多的逻辑会让模板过重且难以维护。例如：
+```html
+<div id="example">
+  {{ message.split('').reverse().join('') }}
+</div>
+```
+在这个地方，模板**不再是简单的声明式逻辑**。你必须看一段时间才能意识到，这里是想要显示变量 message的翻转字符串。当你想要在模板中多次引用此处的翻转字符串时，就会更加难以处理。所以，对于任何复杂逻辑，你都应当使用**计算属性**。
+
+##### 17.2 [计算属性的特点](https://cn.vuejs.org/v2/guide/computed.html)
+```html
+<div id="example">
+  <p>Original message: "{{ message }}"</p>
+  <p>Computed reversed message: "{{ reversedMessage }}"</p>
+</div>
+```
+下面是组件:
+```js
+var vm = new Vue({
+  el: '#example',
+  data: {
+    message: 'Hello'
+  },
+  computed: {
+    // 计算属性的 getter
+    reversedMessage: function () {
+      // `this` 指向 vm 实例
+      return this.message.split('').reverse().join('')
+    }
+  }
+})
+```
+(1)我们已经以声明的方式创建了这种依赖关系：计算属性的getter函数是**没有副作用** (side effect) 的，这使它更易于测试和理解。**watch**选项允许我们执行异步操作 (访问一个 API)，限制我们执行该操作的频率，并在我们得到最终结果前，设置中间状态。这些都是计算属性无法做到的。
+
+(2)计算属性是**基于依赖进行缓存**的。计算属性只有在它的相关依赖发生改变时才会重新求值。这就意味着只要 message还没有发生改变，多次访问reversedMessage计算属性会立即返回之前的计算结果，而不必再次执行函数。但是如果在模板中直接`调用方法`，那么结果并不会缓存。同时也需要注意:计算属性也是可以提供setter方法的。
+
+
+#### 18.Vue中的过滤器
+Vue.js允许你自定义过滤器，**可被用于一些常见的文本格式化**。过滤器可以用在两个地方：**双花括号插值**和**v-bind 表达式** (后者从 2.1.0+ 开始支持)。过滤器应该被添加在JavaScript表达式的尾部，由“管道”符号指示:
+```js
+<!-- 在双花括号中 -->
+{{ message | capitalize }}
+<!-- 在 `v-bind` 中 -->
+<div v-bind:id="rawId | formatId"><\/div>
+```
+添加过滤器可以通过如下两种方式来完成,包括`本地过滤器`和全局过滤器:
+```js
+filters: {
+  capitalize: function (value) {
+    if (!value) return ''
+    value = value.toString()
+    return value.charAt(0).toUpperCase() + value.slice(1)
+  }
+}
+```
+`全局过滤器`可以通过如下方法定义:
+```js
+Vue.filter('capitalize', function (value) {
+  if (!value) return ''
+  value = value.toString()
+  return value.charAt(0).toUpperCase() + value.slice(1)
+})
+new Vue({
+})
+```
+
+#### 19.Vue的响应式原理
+当你把一个普通的JavaScript对象传给Vue实例的data选项，Vue将遍历此对象所有的属性，并使用 **Object.defineProperty**把这些属性全部转为getter/setter。Object.defineProperty 是 ES5中一个无法shim的特性，这也就是为什么Vue不支持 IE8 以及更低版本浏览器的原因。用户看不到getter/setter，但是在内部它们让Vue追踪依赖，在属性被访问和修改时通知变化。
+
+**每个组件实例都有相应的watcher实例对象**，它会在组件渲染的过程中把属性记录为依赖，之后当依赖项的setter被调用时，会通知watcher 重新计算，从而致使它关联的组件得以更新。
+
+![](./images/watcher.png)
+
+受现代JavaScript的限制 (以及废弃 Object.observe)，Vue不能检测到对象属性的添加或删除。由于Vue会在初始化实例时对属性执行 getter/setter 转化过程，所以**属性必须在data对象上存在才能让Vue转换它，这样才能让它是响应的**。例如：
+```JS
+var vm = new Vue({
+  data:{
+  a:1
+  }
+})
+// `vm.a` 是响应的
+vm.b = 2
+// `vm.b` 是非响应的
+```
+Vue**不允许在已经创建的实例上动态添加新的根级响应式属性**(root-level reactive property)。然而它可以使用Vue.set(object, key, value)方法将响应属性添加到嵌套的对象上：
+```js
+Vue.set(vm.someObject, 'b', 2)
+```
+您还可以使用vm.$set实例方法，这也是全局Vue.set方法的别名：
+```js
+this.$set(this.someObject,'b',2);
+```
+有时你想向已有对象上添加一些属性，例如使用Object.assign()或 \_.extend()方法来添加属性。但是，添加到对象上的新属性不会触发更新。在这种情况下可以创**建一个新的对象**，让它包含原对象的属性和新的属性：
+```js
+// 代替 `Object.assign(this.someObject, { a: 1, b: 2 })`
+this.someObject = Object.assign({}, this.someObject, { a: 1, b: 2 })
+```
+
+#### 20.Vue[异步更新队列](https://cn.vuejs.org/v2/guide/reactivity.html)
+可能你还没有注意到，Vue异步执行 DOM 更新。只要观察到数据变化，Vue将**开启一个队列，并缓冲在同一事件循环中发生的所有数据改变**。如果同一个 watcher被多次触发，只会被推入到队列中一次。这种在缓冲时去除重复数据对于避免不必要的计算和 DOM操作上非常重要。然后，在下一个的事件循环“tick”中，Vue刷新队列并执行实际 (已去重的) 工作。Vue在内部尝试对异步队列使用原生的 Promise.then 和 MessageChannel，如果执行环境不支持，会采用 setTimeout(fn, 0) 代替。
+
+例如，当你设置vm.someData = 'new value',该组件**不会立即重新渲染**。当刷新队列时，组件会在事件循环队列清空时的下一个“tick”更新。多数情况我们不需要关心这个过程，但是如果你想在DOM状态更新后做点什么，这就可能会有些棘手。虽然Vue.js通常鼓励开发人员沿着“数据驱动”的方式思考，避免直接接触DOM，但是有时我们确实要这么做。为了在数据变化之后等待Vue完成更新DOM，可以在数据变化之后立即使用Vue.nextTick(callback)。**这样回调函数在DOM更新完成后就会调用**。例如：
+```js
+<div id="example">{{message}}<\/div>
+var vm = new Vue({
+  el: '#example',
+  data: {
+    message: '123'
+  }
+})
+vm.message = 'new message' ;
+// 更改数据
+vm.$el.textContent === 'new message';
+// false
+Vue.nextTick(function () {
+  vm.$el.textContent === 'new message' 
+// true
+})
+```
+在组件内使用[vm.$nextTick()](https://www.zhihu.com/question/50879936)实例方法特别方便，因为它不需要全局Vue ，并且回调函数中的this将自动绑定到当前的Vue实例上：
+```js
+Vue.component('example', {
+  template: '<span>{{ message }}</span>',
+  data: function () {
+    return {
+      message: '没有更新'
+    }
+  },
+  methods: {
+    updateMessage: function () {
+      this.message = '更新完成'
+      console.log(this.$el.textContent) // => '没有更新'
+      this.$nextTick(function () {
+        console.log(this.$el.textContent) // => '更新完成'
+      })
+    }
+  }
+})
+```
+关于Vue异步更新的原理你可以[查看](https://www.zhihu.com/collection/226172852)这个文章。
+
+#### Vue 中如何使用 MutationObserver 做批量处理？
+https://www.zhihu.com/question/55364497/answer/144215284
+
+
 
 
 参考资料:
 
 [Vue.js 定义组件模板的七种方式](https://www.w3cplus.com/vue/seven-ways-to-define-a-component-template-by-vuejs.html)
+
+[深入理解vue中的slot与slot-scope](https://segmentfault.com/a/1190000012996217)
+
+[Vue中你不知道但却很实用的黑科技](https://div.io/topic/1880)
+
+[你不知道的Vuejs - 深入浅出响应式系统](https://juejin.im/post/5a744fd06fb9a0634051e28f)
+
