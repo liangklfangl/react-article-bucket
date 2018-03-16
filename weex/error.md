@@ -111,3 +111,15 @@ util.spawn('node ./node_modules/weex-devtool/bin/weex-devtool src/' + pageName +
 util.spawn('./node_modules/weex-previewer/bin/weex-previewer.js src/' + pageName + '/index.vue --np' + previewPorts);
 ```
 此时一切正常!关于代码中如何避免这个错误可以[点击这里](https://stackoverflow.com/questions/27688804/how-do-i-debug-error-spawn-enoent-on-node-js)。
+
+#### 5.weex preview报错
+报错信息如下:
+<pre>
+Error: Cannot find module 'xtoolkit'
+    at Function.Module._resolveFilename (module.js:538:15)
+    at Function.Module._load (module.js:468:25)
+    at Module.require (module.js:587:17)
+    at require (internal/module.js:11:18)
+    at Object.<anonymous> (/usr/local/lib/node_modules/weex-toolkit/bin/weex.js:4:18)
+</pre>
+我删除了weex-toolkit然后重新安装了下

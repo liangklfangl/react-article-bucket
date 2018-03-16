@@ -944,8 +944,104 @@ Vue.component('example', {
 ```
 关于Vue异步更新的原理你可以[查看](https://www.zhihu.com/collection/226172852)这个文章。
 
-#### Vue 中如何使用 MutationObserver 做批量处理？
-https://www.zhihu.com/question/55364497/answer/144215284
+
+#### 21.Vue中的elem元素
+提供一个在页面上已存在的DOM元素作为**Vue实例的挂载目标**。可以是CSS选择器，也可以是一个 HTMLElement实例。在实例挂载之后，元素可以用vm.$el访问。如果这个选项在实例化时有作用，实例将`立即进入编译过程`，否则，需要显式调用 vm.$mount()手动开启编译。对于ele有以下几个注意点:
+
+(1)提供的元素**只能作为挂载点**。不同于Vue 1.x，所有的挂载元素会被Vue生成的DOM 替换。因此不推荐挂载root实例到<html>或者<body> 上。比如我有下面的挂载代码:
+```js
+new Vue({
+  el: "#app",
+  router,
+  components: { App },
+  // 其中App组件内容为<template><div>我是内容元素</div></template>
+  template: "<App/>"
+});
+```
+我的index.html(用于HtmlWebpackPlugin)结构为:
+```html
+  <div id="app"></div>
+```
+此时挂载后的Element面板里面产生的DOM为:
+```html
+<div>
+   我是内容元素
+</div>
+```
+刷新你会发现，首先Vue组件还`未挂载`的一瞬间，该div#app元素是在页面中的，而当Vue组件挂载完成后，所有的DOM都会被该组件替换掉了。
+
+(2)如果render函数和template属性都不存在，`挂载DOM元素的HTML会被提取出来用作模板`，此时，必须使用 Runtime + Compiler(编译器+运行时)构建的Vue库。**编译器**：用来将模板字符串编译成为JavaScript渲染函数的代码。**运行时**：用来创建Vue 实例、渲染并处理虚拟DOM等的代码。基本上就是除去编译器的其它一切。假如我的htmlTemplate为:
+```html
+ <div id="app">
+      <div>我是标题</div>
+      <div>
+          <div>{{name}}</div>
+      </div>
+      <div>我是footer</div>
+  </div>
+```
+而在webpack的入口文件中的代码(没有template和render)如下:
+```js
+new Vue({
+  el: "#app",
+  router,
+  data:function(){
+    return {name:'qingtian'}
+  },
+  components: { App },
+});
+```
+此时你会发现最后生成的DOM结构为:
+```html
+<div id="app">
+  <div>我是标题</div> 
+  <div>
+    <div>qingtian</div>
+  </div>
+ <div>我是footer</div>
+</div>
+```
+此时你发现el并没有被替换掉，其实在生命周期中也明确指出了是拿着outerHTML作为template的，所以div#app并没有被替换掉:
+
+![](./images/vue-lifecycle.png)
+
+#### 22.Vue中[函数式组件](https://cn.vuejs.org/v2/guide/render-function.html#%E5%87%BD%E6%95%B0%E5%BC%8F%E7%BB%84%E4%BB%B6)
+一个函数式组件可以通过如下方式来定义:
+```js
+Vue.component('my-component', {
+  functional: true,
+  // 为了弥补缺少的实例
+  // 提供第二个参数作为上下文
+  render: function (createElement, context) {
+    // 向createElement通过传入context.data 作为第二个参数，我们就把 my-functional-button 上面所有的特性和事件监听器都传递下去了。事实上这是非常透明的，那些事件甚至并不要求 .native 修饰符。
+    return createElement('button', context.data, context.children)
+  },
+  // Props 可选
+  props: {
+    // ...
+  }
+})
+```
+组件需要的一切都是通过**上下文(context)**传递，包括：
+<pre>
+props：提供 props的对象
+children: VNode子节点的数组
+slots: slots对象
+data：传递给组件的data对象
+parent：对父组件的引用
+listeners: (2.3.0+)一个包含了组件上所注册的**v-on**侦听器的对象。这只是一个指向data.on 的别名。
+injections: (2.3.0+) 如果使用了inject选项，则该对象包含了应当被注入的属性。
+</pre>
+
+在添加**functional: true**之后，组件的render函数增加context参数，this.$slots.default 更新为context.children，之后this.level更新为context.props.level。因为函数式组件只是一个函数，所以渲染开销也低很多。然而，对`持久化实例的缺乏也意味着函数式组件不会出现在Vue devtools的组件树`里。
+
+#### 23.Vue中的render方法和template
+当Vue选项对象中**有**render渲染函数时，Vue构造函数将直接使用渲染函数渲染DOM树，当选项对象中**没有**render渲染函数时，Vue构造函数首先通过将template模板生成render函数，然后再渲染DOM树，而当选项对象中既没有render渲染函数，也没有template模板时，会通过**el**属性获取挂载元素的outerHTML来作为模板，并编译生成渲染函数。在进行DOM渲染的时候，**render函数优先级最高，template和el次之**。
+
+render方法是字符串模板的代替方案，允许你发挥JavaScript最大的编程能力。该渲染函数接收一个`createElement方法`作为第一个参数用来创建VNode。如果组件是一个函数组件，渲染函数还会接收一个`额外的 context参数`，为没有实例的函数组件提供上下文信息。详见[官方文档](https://cn.vuejs.org/v2/api/#render)。
+
+
+
 
 
 
