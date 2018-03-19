@@ -1040,9 +1040,166 @@ injections: (2.3.0+) 如果使用了inject选项，则该对象包含了应当�
 
 render方法是字符串模板的代替方案，允许你发挥JavaScript最大的编程能力。该渲染函数接收一个`createElement方法`作为第一个参数用来创建VNode。如果组件是一个函数组件，渲染函数还会接收一个`额外的 context参数`，为没有实例的函数组件提供上下文信息。详见[官方文档](https://cn.vuejs.org/v2/api/#render)。
 
+#### 24.Vue中的ref
+##### 24.1 ref的用法
+ref被用来给元素或子组件注册引用信息。引用信息将会注册在**父组件的$refs对象上**。如果在普通的 DOM元素上使用，引用指向的就是DOM元素；如果用在子组件上，引用就指向组件实例：
+```html
+<!-- vm.$refs.p will be the DOM node -->
+<p ref="p">hello</p>
 
+<!-- vm.$refs.child will be the child comp instance -->
+<child-comp ref="child"></child-comp>
+```
+当v-for用于元素或组件的时候，引用信息将是包含DOM节点或组件实例的数组。关于**ref注册时间**的重要说明：因为ref本身是作为渲染结果被创建的，在初始渲染的时候你不能访问它们-它们还不存在！$refs 也不是响应式的，因此你不应该试图用它在模板中做数据绑定。
 
+$refs只在组件渲染完成后才填充，并且它是非响应式的。它仅仅是一个直接操作子组件的应急方案——应当`避免在模板或计算属性中使用$refs`。
 
+##### 24.2 ref和document.getElementById都能获取到DOM
+```js
+<template>
+    <div id="name">
+        <input type="text" ref="input1" id="input1" />
+        <button @click="add">添加</button>
+    </div>
+</template>
+<script>
+console.log('$ref被实例化');
+export default {
+    methods: {
+        add: function() {
+            this.$refs.input1.value = "22";
+            console.log(this.$refs.input1);
+            console.log(document.getElementById('input1'));
+        }
+    }
+}
+</script>
+```
+ref或者document.getElementById都能够获取到dom,而$refs相对document.getElementById的方法，会减少获取dom节点的消耗。
+
+##### 24.3 为子组件指定一个ref来获取到vue组件实例
+比如下面的例子:
+```js
+<template>
+    <div id="name">
+        <input type="text" ref="input1" id="input1" />
+        <button @click="add">添加</button>
+        <foo ref="foo"/>
+        <!-- 该组件在main.js中已经注册了 -->
+    </div>
+</template>
+<script>
+console.log('$ref被实例化');
+export default {
+    methods: {
+        add: function() {
+            this.$refs.input1.value = "22";
+            console.log(this.$refs.input1);
+            console.log(document.getElementById('input1'));
+            console.log(this.$refs.foo);
+            // this.$refs.foo获取到子组件
+        }
+    }
+}
+<\/script>
+```
+可以通过 this.$refs.foo获取到子组件实例对象。下面是组件打印的log:
+
+![](./images/foo.png)
+
+当然你也可以通过如下方式来获取子组件实例:
+```js
+<div id="parent">
+  <foo ref="foo"></foo>
+</div>  
+```
+下面是获取到组件实例的代码:
+```js
+var parent = new Vue({el:"#parent"});
+var child = parent.$refs.foo
+```
+
+##### 24.4 ref和v-for共存的情况
+这种情况，因为ref的值无法从迭代出来的对象中的某个属性中获取，所以当你指定一个固定的值的时候可以**获取到一个数组**:
+```js
+<template>
+    <div id="name">
+        <input type="text" ref="input1" id="input1" />
+        <button @click="add">添加</button>
+        <foo ref="foo" />
+        <!-- 该组件在main.js中已经注册了 -->
+        <ul v-for="item in list">
+            <li ref="item">姓名:{{item.name}},性别{{item.sex}}</li>
+        </ul>
+    </div>
+</template>
+<script>
+console.log('$ref被实例化');
+export default {
+    data:function(){
+        return {
+            list:[{
+                name:'覃亮',
+                sex:'男'
+            },{
+                name:'高山上的鱼',
+                sex:'男'
+            },{
+                name:'liangklfang',
+                sex:'男'
+            }]
+        }
+    },
+    methods: {
+        add: function() {
+            this.$refs.input1.value = "22";
+            // ref或者document.getElementById都能够获取到dom,而$refs相对document.getElementById的方法，会减少获取dom节点的消耗。
+            console.log(this.$refs.input1);
+            console.log(document.getElementById('input1'));
+            console.log(this.$refs.foo);
+            // this.$refs.foo获取到子组件
+            console.log(this.$refs);
+        }
+    }
+}
+<\/script>
+```
+此时打印出来的结果如下:
+
+![](./images/v-for.png)
+
+例子的详细代码可以[点击](https://github.com/liangklfangl/Vue-Demo/blob/master/src/components/%24ref.vue)这里。
+
+##### 24.5 子组件获取到父组件的实例对象
+其实可以通过传递一个函数的方式来完成，比如父组件的例子:
+```js
+<template>
+      <span ref="reference">text</span>
+      <c-child v-bind:target="passRef2Child"></c-child>
+    </div>
+</template>
+```
+假如子组件c-child要获取到父组件的ref为reference的实例，可以通过传递一个函数到子组件中:
+```js
+methods: {
+      passRef2Child(callback) {
+          return callback(this.$refs.reference)
+      }
+  }
+```
+此时在子组件中可以调用这个this.target的方法，该方法会被传入父组件中ref为reference的值作为参数:
+```js
+Vue.component("c-child", {
+  props: ["target"],
+  mounted() {
+    this.target(function(t){
+      console.log('子组件调用了父组件的this.target方法',t);
+    });
+  },
+  template: "<div>我是c-child组件</div>"
+});
+```
+详细代码可以[点击](https://github.com/liangklfangl/Vue-Demo/blob/master/src/components/%24ref.vue)这里。
 
 
 
@@ -1056,3 +1213,6 @@ render方法是字符串模板的代替方案，允许你发挥JavaScript最大�
 
 [你不知道的Vuejs - 深入浅出响应式系统](https://juejin.im/post/5a744fd06fb9a0634051e28f)
 
+[vue中的 ref 和 $refs](https://www.cnblogs.com/xumqfaith/p/7743387.html)
+
+[vue2 组件ref引用传递和生命周期的问题](https://segmentfault.com/q/1010000007807385)
