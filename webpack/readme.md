@@ -299,7 +299,16 @@ const a = require('./index.js'); // error, no default member found in a
 a();
 ```
 
-
+#### 15.加载的chunk是低版本的动态chunk而不是最新chunk解决方法
+你需要弄懂webpack的assetsRoot,assetsSubDirectory,assetsPublicPath等概念:
+```js
+ assetsRoot: path.resolve(__dirname, '../dist'),
+ // 构建输出目录 也就是构建后的东西都扔这里
+ assetsSubDirectory: 'static',
+ // 资源子目录 除了index.html，其余的js img css都分在这里
+ assetsPublicPath: '//www.baidu.com/bundle/1.0.22/'
+```
+对于publicPath不懂的请[查看](https://github.com/liangklfangl/webpack-dev-server)这里。这里的assetsPublicPath也差不多是同样的道理，即//www.baidu.com/bundle/1.0.22/对应的assetsRoot的目录。比如dist/static/css/app.css的文件就会被映射到//www.baidu.com/bundle/1.0.22/static/css/app.css这个真实的资源路径。
 
 
 参考文献:

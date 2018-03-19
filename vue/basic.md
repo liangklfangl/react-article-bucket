@@ -185,7 +185,8 @@ new Vue({
 ```
 用法你可以[点击](https://segmentfault.com/q/1010000007826464)这里。
 
-#### 6.Vue的template指定为一个特定的id与[slot](https://segmentfault.com/q/1010000008547170)
+#### 6.Vue的slot学习
+##### 6.1 Vue的template指定为一个特定的id与[slot](https://segmentfault.com/q/1010000008547170)
 比如在index.html中指定了一个特定的template:
 ```js
  // 在index.html中使用type="text/x-template"定义vue的template 
@@ -279,6 +280,39 @@ Vue.component("child", {
     </div>
 </div>
 ```
+
+##### 6.2 通过elm获取到slot对应的DOM
+```js
+Vue.component("c-child", {
+  props: ["target"],
+  mounted() {
+    // this.target会或获取到父组件的一个实例
+    this.target(function(t) {
+      console.log("子组件调用了父组件的this.target方法", t);
+    });
+    console.log("this.$slots.reference==",this.$slots.reference[0].elm);
+  },
+  template: `<div>我是c-child组件<slot name="reference"></slot></div>`
+});
+```
+上面定义了一个组件c-child，我们看看如何使用这个c-child组件:
+```html
+<c-child v-bind:target="passRef2Child">
+    <span slot="reference">我是slot的子级元素</span>
+</c-child>
+```
+此时你可以看到c-child组件在mounted中通过$slots获取到了真实的DOM，而获取方法如下:
+```js
+this.$slots.reference[0].elm
+```
+这里你可以看到reference获取到的是一个**数组**，所以你可以通过如下方式来使用c-child组件:
+```html
+<c-child v-bind:target="passRef2Child">
+    <span slot="reference">我是slot的子级元素</span>
+    <span slot="reference">我是slot的2子级元素</span>
+</c-child>
+```
+而此时两个slot为reference的span都会被添加到slot="reference"指定的元素中。例子代码可以[点击](https://github.com/liangklfangl/Vue-Demo/blob/master/src/components/%24ref.vue)这里获取。
 
 #### 7.使用inline-template取消slot
 比如在main.js中注册如下内容:
@@ -1201,6 +1235,233 @@ Vue.component("c-child", {
 ```
 详细代码可以[点击](https://github.com/liangklfangl/Vue-Demo/blob/master/src/components/%24ref.vue)这里。
 
+#### 25.Vue中自定义指令
+##### 25.1 Vue中指令的基本概念
+除了核心功能默认内置的指令 (v-model 和 v-show)，Vue 也允许注册自定义指令。注意，在 Vue2.0 中，代码复用和抽象的主要形式是组件。然而，有的情况下，你**仍然需要对普通DOM元素进行底层操作，这时候就会用到自定义指令**。举个聚焦输入框的例子，如下：当页面加载时，该元素将获得焦点。事实上，只要你在打开这个页面后还没点击过任何内容，这个输入框就应当还是处于聚焦状态。现在让我们用指令来实现这个功能：
+```js
+// 注册一个全局自定义指令 `v-focus`
+Vue.directive('focus', {
+  // 当被绑定的元素插入到 DOM 中时……
+  inserted: function (el) {
+    // 聚焦元素
+    el.focus()
+  }
+})
+```
+如果想注册**局部指令**，组件中也接受一个 directives 的选项：
+```js
+directives: {
+  focus: {
+    // 指令的定义
+    inserted: function (el) {
+      el.focus()
+    }
+  }
+}
+```
+然后你可以在模板中任何元素上使用新的 v-focus 属性，如下：
+```html
+<input v-focus>
+```
+
+##### 25.2 指令中钩子函数与参数
+一个指令定义对象可以提供如下几个钩子函数 (均为可选)：
+- bind
+
+  只调用一次，指令第一次绑定到元素时调用。在这里可以进行一次性的初始化设置。
+
+- inserted
+  
+  被绑定元素插入父节点时调用 (**仅保证父节点存在，但不一定已被插入文档中**)。
+
+- update
+
+  所在组件的VNode更新时调用，**但是可能发生在其子VNode更新之前**。指令的值可能发生了改变，也可能没有。但是你可以通过比较更新前后的值来忽略不必要的模板更新 (详细的钩子函数参数见下)。
+
+- componentUpdated
+  
+  指令所在组件的VNode及其子VNode全部更新后调用。
+
+- unbind
+  
+  只调用一次，指令与元素解绑时调用。
+
+接下来我们来看一下**钩子函数的参数(即 el、binding、vnode 和 oldVnode)**。指令钩子函数会被传入以下参数：
+
+- el
+  
+  指令所绑定的元素，可以用来直接操作DOM。
+- binding
+  
+  一个对象，包含以下属性：
+  
+  - name：指令名，不包括 v- 前缀。
+  - value：指令的绑定值，例如：v-my-directive="1 + 1" 中，绑定值为 2。
+  - oldValue：指令绑定的前一个值，仅在 update 和 componentUpdated 钩子中可用。无论值是否改变都可用。
+  - expression：字符串形式的指令表达式。例如 v-my-directive="1 + 1" 中，表达式为 "1 + 1"。
+  - arg：传给指令的参数，可选。例如 v-my-directive:foo 中，参数为 "foo"。
+  - modifiers：一个包含修饰符的对象。例如：v-my-directive.foo.bar 中，修饰符对象为 { foo: true, bar: true }。
+  - vnode：Vue编译生成的虚拟节点。移步[VNode API](https://github.com/vuejs/vue/blob/dev/src/core/vdom/vnode.js)来了解更多详情。
+  - oldVnode：上一个虚拟节点，仅在 update 和 componentUpdated 钩子中可用。
+除了el之外，**其它参数都应该是只读的，切勿进行修改**。如果需要在钩子之间共享数据，建议通过元素的dataset来进行。这是一个使用了这些属性的自定义钩子样例：
+```js
+<div id="hook-arguments-example" v-demo:foo.a.b="message"><\/div>
+Vue.directive('demo', {
+  bind: function (el, binding, vnode) {
+    var s = JSON.stringify
+    el.innerHTML =
+      'name: '       + s(binding.name) + '<br>' +
+      'value: '      + s(binding.value) + '<br>' +
+      'expression: ' + s(binding.expression) + '<br>' +
+      'argument: '   + s(binding.arg) + '<br>' +
+      'modifiers: '  + s(binding.modifiers) + '<br>' +
+      'vnode keys: ' + Object.keys(vnode).join(', ')
+  }
+})
+new Vue({
+  el: '#hook-arguments-example',
+  data: {
+    message: 'hello!'
+  }
+})
+```
+打印的内容如下:
+
+![](./images/directive.png)
+
+该部分内容可以[查看](https://cn.vuejs.org/v2/guide/custom-directive.html#ad)官方文档。
+
+##### 25.3 element-ui中指令[popover](https://github.com/liangklfang/element/blob/dev/packages/popover/src/main.vue#L33)详解
+下面是v-popover指令的内容:
+```js
+export default {
+  bind(el, binding, vnode) {
+    // vue中v-popover:argument 和 v-popover="variate|| expression"得到的binding数据是不同的。后者可以指向动态popver组件，可以极大的增强popover指令的灵活程度。
+    const _ref = binding.expression ? binding.value : binding.arg;
+    // 上一部分已经详细说了binding.value和binding.arg
+    vnode.context.$refs[_ref].$refs.reference = el;
+    // 1.$refs请看上面的ref部分，从这里可以看到$refs是可以赋值的
+    // 2.vnode.context.$refs[_ref]获取到的是特定ref的v-popover对象
+    // vnode.context.$refs[_ref].$refs.reference=el表示为v-popover的$refs.reference赋值为v-popover修饰的DOM
+  }
+};
+```
+vnode.context可以获取到[当前Vue的实例](https://stackoverflow.com/questions/43081391/vue-directive-to-access-the-vue-instance)，而vnode.context.$refs[\_ref\_]获取到的是通过如下方式指定的el-popover:
+```html
+ <span v-popover:popover1>帮助支持</span>
+```
+即ref="popover1"的el-popover对象:
+```html
+<el-popover ref="popover1" placement="top-start" popper-class="env-clss" title="" width="160" trigger="hover">
+    <div class="ant-popover-inner">
+        <div>
+            <div class="ant-popover-inner-content">
+                <div>
+                    <i class="anticon anticon-dingding" style="margin-right: 2px;"></i>
+                    答疑
+                </div><img width="140" src="//">
+                <div class="doc">
+                    <i class="iconfont icon-shake" style="margin-right: 2px;"></i>
+                    <a target="_blank" href="">问题反馈</a>
+                </div>
+                <div class="doc">
+                    <i class="iconfont icon-solution" style="margin-right: 2px;"></i>
+                    <a target="_blank" href="">说明文档</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</el-popover>
+```
+通过设置vnode.context.$refs[\_ref].$refs.reference = el可以将el-popover指定一个ref="reference"的元素，该元素就是指向了我们的如下元素:
+```js
+<span v-popover:popover1>帮助支持<\/span>
+```
+而el-popover的主要template代码如下:
+```html
+<template>
+  <span>
+    <transition :name="transition" @after-enter="handleAfterEnter" @after-leave="handleAfterLeave">
+      <!-- 这里是ref="popper"的元素 -->
+      <div class="el-popover el-popper" :class="[popperClass, content && 'el-popover--plain']" ref="popper" v-show="!disabled && showPopper" :style="{ width: width + 'px' }" role="tooltip" :id="tooltipId" :aria-hidden="(disabled || !showPopper) ? 'true' : 'false'">
+        <div class="el-popover__title" v-if="title" v-text="title"></div>
+        <slot>{{ content }}</slot>
+        <!-- 通过slot插入content的值 -->
+      </div>
+    </transition>
+    <!-- 这里是slot为reference的元素 -->
+    <slot name="reference"></slot>
+  </span>
+</template>
+```
+而具体的逻辑代码如下:
+```js
+let reference = this.referenceElm = this.reference || this.$refs.reference;
+    //  vnode.context.$refs[_ref].$refs.reference = el;
+    // 这里是获取到我们的  <span v-popover:popover1>帮助支持</span>即v-popover指令指定的元素
+    if (!reference && this.$slots.reference && this.$slots.reference[0]) {
+      reference = this.referenceElm = this.$slots.reference[0].elm;
+      // 上面$slot部分已经讲过可以通过elm获取到需要触发事件的DOM
+    }
+    // 如果采用的是如下的方式使用el-popover，那么通过this.$slots.reference[0].elm来获取到原生的DOM元素
+    // <el-popover
+    //   placement="right"
+    //   title="标题"
+    //   width="200"
+    //   trigger="focus"
+    //   content="这是一段内容,这是一段内容,这是一段内容,这是一段内容。">
+    //   <el-button slot="reference">focus 激活</el-button>
+    // </el-popover>
+    // 可访问性
+```
+通过给reference添加hover,click,focus等事件来产生具体的效果。
+
+#### 26.Vue中的mixins
+mixin的基本用法如下:
+```js
+var mixin = {
+  created: function () { console.log(1) }
+}
+var vm = new Vue({
+  created: function () { console.log(2) },
+  mixins: [mixin]
+})
+```
+局部mixin用于mounted, destroyed等组件中的生成**周期方法与mixin是合并(即放到一个数组中)**，而对于methods中的方法是被覆盖的。比如下面的例子:
+```js
+//mixin
+const hi = {
+  methods: {
+    sayHello: function() {
+      console.log('hello from mixin!')
+    }
+  },
+  mounted() {
+    this.sayHello()
+  }
+}
+//vue instance or component
+new Vue({
+  el: '#app',
+  mixins: [hi],
+  methods: {
+    sayHello: function() {
+      console.log('hello from Vue instance!')
+    }
+  },
+  mounted() {
+    this.sayHello()
+  }
+})
+// hello from Vue instance!
+// hello from Vue instance!
+```
+mixin中methods的sayHello被组件的sayHello覆盖了，而mounted**生命周期中**的sayHello方法其实被调用了两次。
+
+#### 27.Vue中$attr,$props
+attrs指的是那些没有被声明为props的属性，所以在渲染函数中还需要添加props参数。
+
+
 
 
 参考资料:
@@ -1216,3 +1477,7 @@ Vue.component("c-child", {
 [vue中的 ref 和 $refs](https://www.cnblogs.com/xumqfaith/p/7743387.html)
 
 [vue2 组件ref引用传递和生命周期的问题](https://segmentfault.com/q/1010000007807385)
+
+[Vue中的mixins思考](https://juejin.im/entry/595ba0ebf265da6c30652036)
+
+[在Vue.js中使用Mixin —— CSS-Tricks](http://zcfy.cc/article/using-mixins-in-vue-js-css-tricks-3257.html)
