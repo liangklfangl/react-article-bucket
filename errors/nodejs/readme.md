@@ -95,6 +95,7 @@ rules.push({
         });
       }
 ```
+最后，**强刷下**保证你页面远程js是最新的，特别是当你推送远程的情况下。最后的最后，请确保你的**页面没有外链的react,react-dom**，有可能是本地你自己的react-dom,react没有expose出去，而用了外链的react,react-dom脚本导致的问题!!
 
 #### 2.npm publish出现sill字样
 解决方法是将https替换为http即可:
