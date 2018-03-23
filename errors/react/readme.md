@@ -1,3 +1,6 @@
+##### 写在前面的话
+这个部分主要写一些自己在React学习中遇到的那些蛋疼，花了很长时间，但是最后解决的问题。希望自己以后React开发遇到问题时候能够快速解决。
+
 ##### 1.react-docgen报错
 错误信息为:
 <pre>
@@ -120,4 +123,32 @@ import ReactDOM from "react-dom";
 ```
 
 (2)删除页面通过script标签引入的特定版本的ReactDOM。如果不是出于特定原因，我们可以把React,ReactDOM直接打包到最后的bundle中。这样，即使有多个版本的React也不会出现问题。比如我的组件依赖于0.9.1版本的React，同时依赖于A组件，A组件依赖于B版本的React\@15.4.0。那么如果是直接打包，那么我组件使用0.9.1版本的React，同时A组件使用B版本的React即可，因为它们只会使用特定版本的API，所以并没有什么关系。但是如果你使用script引入React，那么就是全局的，可能会B版本的冲突，从而出现上面的问题。
+
+##### 4.React版本冲突的问题
+报错信息如下:
+<pre>
+Trigger.render(): A valid React element (or null) must be returned. You may have returned undefined, an array or some other invalid object.
+</pre>
+
+这个问题首先想到的是以前自己写的这段话:
+
+![](./images/duplicate.png)
+
+但是由于代码较多，而且**同一份代码在别人的机器上是没有问题的，在我的机器上运行命令就是不ok**，所以又开始了我的艰难之旅。下面是我的问题查找的思路(太深刻了,记录下以后还能回忆下):
+
+- 首先
+  
+  是不是忘了装某个babel插件，比如add-module-exports，导致我现在的打包工具不认识里面的某种语法？最后我对比了下，排除了这个可能性。
+
+- 接着
+ 
+  因为我使用的是[wcf](https://github.com/liangklfangl/wcf)而不是[silk](https://github.com/shaozj/silk),那我猜测有可能是silk server和wcf --dev --devServer的webpack配置不一致导致的。但是最后也不一而终。
+
+- 然后
+  
+  回去想了想，不会和上面的问题一样是React版本的问题，导致别人安装了高版本的React，然后使用了里面的新特性，而我外部通过script标签引入的React版本和其不匹配导致的呢？最后我果断删除了外链的js，最后真是如此。
+
+总结一下原因:上一个问题是外链的react和内部打包到bundle里面的react版本不一致导致的，因为外链的js是全局的,从而对内部打包到bundle里面的js产生了影响，导致版本冲突。而这个问题的原因在于，开发者自己安装了react,react-dom，然后webpack的[external](https://github.com/liangklfangl/react-article-bucket)配置要求外部加载react,react-dom，而恰巧我又外链了react,react-dom以为这样就万事大吉了。**但是其实不是的**!开发者用了React@16.\✖的新特性，然后开发完成后预览都是OK，因为本地他的react,react-dom️至少是存在于node_modules里面的(dependencies,devDepencies,peerDependencies),而当你为了防止react,react-dom在页面中多次引用而导致页面加载较慢的问题，所以你决定全网加载一个react,react-dom版本，即外链的react,react-dom。**问题来了**：刚才开发者预览的效果是依赖于本地的react,react-dom版本的，而你现在统一引入的可能是一个React@15.\✖的版本，这样开发者打包的这个组件里面很多新特性可能都没法用了,导致直接抛出错误(因为里面可能有用到版本react@16的API而react@15的版本根本不存在)。️最后我采用了这种方案:
+
+**开发者必须在js中import本地安装的React,ReactDOM,然后我自己使用expose-loader并挂载到window上，这样全局的React,ReactDOM就一定是你本地的版本。Everything is Done!**
 

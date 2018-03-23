@@ -76,8 +76,65 @@ function encodeLink(str){
 }
 ```
 
+#### 5.使用codeMirror报错
+报错信息如下:
+<pre>
+Uncaught TypeError: Cannot read property 'value' of null
+    at Function.H.fromTextArea (codemirror.min.js:1)
+    at MarkdownEdit._this.mountedMdEditor (MarkdownEdit.js:96)
+    at MarkdownEdit.componentDidMount (MarkdownEdit.js:148)
+    at ReactCompositeComponent.js:264
+    at measureLifeCyclePerf (ReactCompositeComponent.js:75)
+    at ReactCompositeComponent.js:263
+    at CallbackQueue.notifyAll (CallbackQueue.js:76)
+    at ReactReconcileTransaction.close (ReactReconcileTransaction.js:80)
+    at ReactReconcileTransaction.closeAll (Transaction.js:209)
+    at ReactReconcileTransaction.perform (Transaction.js:156)
+</pre>
 
-
+一开始我猜测是我没有给textarea设置value或者defaultValue：
+```js
+<textarea
+    name="markdownRaw"
+    id="markdownRaw"
+    style={{ width: "100%", display: "none" }}
+/>
+```
+最后发现不是这么回事，而是我将这个textarea放到Modal里面，导致Modal没有展示的时候无法获取到这个textarea，所以修改为如下内容即可:
+```js
+<Modal
+  title="你在编辑在线文档"
+  width={"90%"}
+  height={"calc(100vh - 60px)"}
+  visible={this.state.isEditMd}
+  onOk={this.handleOk}
+  onCancel={this.handleCancel}
+>
+  <div
+    id="iframewrapper"
+    style={{ height: "100%", width: "100%" }}
+  />
+</Modal>
+<textarea
+  name="markdownRaw"
+  id="markdownRaw"
+  style={{ width: "100%", display: "none" }}
+/>
+<\/Col>
+```
+这里使用codeMirror遇到的问题都是与Modal有关，所以一般我们都是完成一定的操作后Modal显示了，然后做特定的操作，如下:
+```js
+editMarkdown = source => {
+  this.setState(
+    {
+      isEditMd: true
+    },
+    () => {
+      this.submitTryit();
+    }
+  );
+};
+```
 
 
 
