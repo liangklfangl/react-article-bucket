@@ -510,7 +510,14 @@ import {sortBy} from "lodash";
   }
 }.call(this));
 ```
-所以，实际上tree-shaking是无法完成的!所以，上面说的babel-minify-webpack-plugin其实在这里根本不能起作用，因为他的第一步就是去掉ES6中没有用到的代码然后打包成为ES5，但是这里的代码压根就不是ES6，所以它也就没有魔力了。对第三方包来说也是，应当使用 ES6 模块。幸运的是，越来越多的包作者同时发布CommonJS 格式和ES6格式的模块。ES6 模块的入口由 package.json的字段module指定。
+所以，实际上tree-shaking是无法完成的!所以，上面说的babel-minify-webpack-plugin其实在这里根本不能起作用，因为他的第一步就是去掉ES6中没有用到的代码然后打包成为ES5，但是这里的代码压根就不是ES6，所以它也就没有魔力了。对第三方包来说也是，应当使用ES6 模块规范。幸运的是，越来越多的包作者同时发布CommonJS和ES6模块规范两种格式(**比如antd也已经支持了**)。ES6模块的入口由 package.json的字段[module指定](http://loveky.github.io/2018/02/26/tree-shaking-and-pkg.module/)。其最后生成的package.json结构是如下的形式:
+```js
+{
+  "main": "dist/dist.js",
+  "module": "dist/dist.es.js"
+}
+```
+基于ES6模块规范是为了用户在使用我们的包时可以享受Tree Shaking带来的好处,比如webpack在处理之前代码是**ES6模块规范**的，而不是commonjs规范的；使用**ES5语法**书写是为了用户在配置babel插件时可以放心的屏蔽node_modules目录。这样当打包工具，比如Webpack遇到我们的包的时候，如果它已经支持pkg.module字段则会优先使用ES6 模块规范的版本，这样可以启用Tree Shaking机制。
 
 对 ES6 模块，未使用的函数会被移除，但 class 并不一定会。只有当包内的 class 定义也为 ES6 格式时，babili-webpack-plugin才能将其移除。很少有包能够以这种格式发布，但有的做到了（比如说 lodash 的 lodash-es）(本段文字来自于[如何在 Webpack 2 中使用 tree-shaking](https://mp.weixin.qq.com/s?__biz=MjM5MTA1MjAxMQ==&mid=2651226843&idx=1&sn=8ce859bb0ccaa2351c5f8231cc016052&chksm=bd495b5f8a3ed249bb2d967e27f5e0ac20b42f42698fdfd0d671012782ce0074a21129e5f224&mpshare=1&scene=1&srcid=08241S5UYwTpLwk1N2s51tXG&key=adf9313632dd72f547280f783810492f9adb79ab0d4163835d8f16b9ef1ba0b666c3253ebf73fcbd10842f39091c3775a8bcb7ebf2f1613b0baadc517bd3a3f871c02aa3495fa42b3e960fd7f99357e0&ascene=0&uin=MTkwNTY4NjMxOQ%3D%3D&devicetype=iMac+MacBookAir7%2C2+OSX+OSX+10.12+build(16A323)&version=12020810&nettype=WIFI&fontScale=100&pass_ticket=Kwkar2P9YwiWaPYmrcaqYmEqAigrP8I305SDCp6p05cCbna5znl6Uz%2FMx75BskRL)),你可以可以参考[如何评价 Webpack 2 新引入的 Tree-shaking 代码优化技术？](https://www.zhihu.com/question/41922432)尤雨溪的回答:
 <p>
@@ -546,3 +553,5 @@ require.resolve("babel-plugin-import"),
 [webpack2 的 tree-shaking 好用吗？](http://www.imweb.io/topic/58666d57b3ce6d8e3f9f99b0)
 
 [如何评价 Webpack 2 新引入的 Tree-shaking 代码优化技术？](https://www.zhihu.com/question/41922432)
+
+[聊聊 package.json 文件中的 module 字段](http://loveky.github.io/2018/02/26/tree-shaking-and-pkg.module/)

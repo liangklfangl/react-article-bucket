@@ -1,7 +1,8 @@
 #### 前言
 这部分主要讲解脚手架打包项目时候遇到的一些问题，拿走不谢。如果喜欢可以帮忙star，如果有问题记得issue。
 
-#### 1.发现使用了expose-loader但是没有暴露到window
+#### 1.expose-loader暴露变量到window的问题
+##### 1.1 webpack打包之前的最终配置不正确
 后面我得到了打包前的webpack配置进行了分析:
 ```js
 rules": [{
@@ -96,6 +97,54 @@ rules.push({
       }
 ```
 最后，**强刷下**保证你页面远程js是最新的，特别是当你推送远程的情况下。最后的最后，请确保你的**页面没有外链的react,react-dom**，有可能是本地你自己的react-dom,react没有expose出去，而用了外链的react,react-dom脚本导致的问题!!
+
+##### 1.2 webpack打包之前的最终配置正确未能expose模块antd
+后面又遇到一种问题，就是webpack在打包之前的最终配置是正确的，但是还是没有expose到window上，最后又花了很多时间去解决。而且这种情况在我试过的所有第三方类库中只有antd没有暴露成功。我的入口文件只有简单的几行，就是不正确:
+```js
+import React from  'react';
+import ReactDOM from 'react-dom';
+const antd = require("antd");
+const jquery = require('jquery');
+const _ = require('lodash');
+import {Button} from "antd";
+const antd = require('antd');
+```
+上面的例子中react-dom,react,jquery,lodash都已经暴露到window上，但是antd就是不成功。于是我绞尽脑汁，就想知道打包后的这个bundle中到底引入的antd是什么。我们首先必须有一点假设:**我们require进来的这个antd没有被expose-loader处理，进而没有暴露出去**。于是我想到以前自己写的[一篇文章](https://github.com/liangklfangl/commonsChunkPlugin_Config)，通过运行如下命令就知道自己打包后的bundle包含的各个模块以及模块的依赖关系:
+```shell
+ webpack --profile --json > stats.json
+```
+只需要把stats.json上传到[这个地址](http://webpack.github.io/analyse/#modules)分析就可以了。针对我的情况，我直接在所有的模块中搜索了antd，最后得到了如下的结果:
+
+![](./images/antd.png)
+
+此时我只想说一句fuck,为什么路径是./node_modules/_antd@3.3.1@antd/es/index.js，即目录是**es**目录了，而我在脚手架里面require.resolve得到的明明是如下的地址啊,即lib目录?
+
+<pre>
+/Users/qinliang.ql/Desktop/expose-loader-hoc/node_modules/antd/lib/index.js
+</pre>
+
+于是我急着去看了antd的文件组织目录结构，还真有es目录，那么此时立马回想，es目录是干嘛的啊？此时直接进入到package.json中一探究竟，看到了如下惊人的事实:
+```js
+  "main": "lib/index.js",
+  "module": "es/index.js",
+  "files": [
+    "dist",
+    "lib",
+    "es"
+  ],
+```
+原来如此，我们的require.resolve得到的结果是相对于**main配置**来说的。而此时多了一个module配置，又开始想module配置是干么的？最后google到了[聊聊 package.json 文件中的 module 字段](http://loveky.github.io/2018/02/26/tree-shaking-and-pkg.module/)，原来是为了引入tree-shaking的。当打包工具遇到如下的内容时:
+```js
+{
+  "main": "dist/dist.js",
+  "module": "dist/dist.es.js"
+}
+```
+1.如果它**已经支持**pkg.module字段则会优先使用ES6模块规范的版本，这样可以启用Tree Shaking机制。
+
+2.如果它还**不识别**pkg.module字段则会使用我们已经编译成CommonJS规范的版本，也不会阻碍打包流程。
+
+
 
 #### 2.npm publish出现sill字样
 解决方法是将https替换为http即可:

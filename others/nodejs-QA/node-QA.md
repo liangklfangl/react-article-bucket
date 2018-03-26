@@ -707,7 +707,7 @@ console.log("内容为:" + JSON.stringify(componentInfoArray));
 ```
 
 #### nodejs的fs.readFile返回值
-因为fs.readFile是异步的，其返回值为undefined，这和fs.readFileSync是不一样的，后者返回的是一个Buffer对象:
+因为fs.readFile是异步的，其**返回值为undefined**，这和fs.readFileSync是不一样的，后者返回的是一个Buffer对象:
 ```js
 const fs = require('fs');
 const path = require('path');
@@ -721,6 +721,127 @@ const fsReturnValue = fs.readFile(INDEX,'utf8',(err,data)=>{
 console.log('fsReturnValue=='+util.inspect(fsReturnValue,{showHidden:true,depth:2}));
 
 ```
+
+#### nodejs中打包工具Generator中的require.resolve
+使用nodejs开发了一个[silk](https://github.com/shaozj/silk)命令,那么在silk的某个generator里面调用了require.resolve方法:
+```js
+const indexTestJS = path.join(process.cwd(), "./src/index.test.js");
+// silk命令打包处理的当前工程的index.test.js
+entry = {
+  main: require.resolve(indexTestJS)
+};
+// webpack配置的entry
+```
+如果require.resolve本身是一个绝对路径，那么没有问题，然而如果require.resolve是一个第三方的类库，那么此时require.resolve将会相对当前Generator来解析，而不是silk打包的当前工程，所以很可能出现类库找不到的情况。所以就要用到第二个参数:
+```js
+const resolve = require("resolve");
+ rules.push({
+    test: require.resolve(
+      resolve.sync(fullPath[i], {
+        basedir: DEFAULT_WEBPACK_MODULES_PATH
+      })
+    ),
+    use: [
+      {
+        loader: require.resolve("expose-loader"),
+        options: specifier
+      }
+    ]
+  });
+```
+那么require.resolve的解析路径到底是怎么样的呢？我们这里来深入了解下,下面是[官网的说明](https://nodejs.org/api/modules.html#modules_all_together):
+
+<pre>
+require(X) from module at path Y
+1. If X is a core module,
+   a. return the core module
+   b. STOP
+2. If X begins with '/'
+   a. set Y to be the filesystem root
+3. If X begins with './' or '/' or '../'
+   a. LOAD_AS_FILE(Y + X)
+   b. LOAD_AS_DIRECTORY(Y + X)
+4. LOAD_NODE_MODULES(X, dirname(Y))
+5. THROW "not found"
+
+LOAD_AS_FILE(X)
+1. If X is a file, load X as JavaScript text.  STOP
+2. If X.js is a file, load X.js as JavaScript text.  STOP
+3. If X.json is a file, parse X.json to a JavaScript Object.  STOP
+4. If X.node is a file, load X.node as binary addon.  STOP
+
+LOAD_INDEX(X)
+1. If X/index.js is a file, load X/index.js as JavaScript text.  STOP
+2. If X/index.json is a file, parse X/index.json to a JavaScript object. STOP
+3. If X/index.node is a file, load X/index.node as binary addon.  STOP
+
+LOAD_AS_DIRECTORY(X)
+1. If X/package.json is a file,
+   a. Parse X/package.json, and look for "main" field.
+   b. let M = X + (json main field)
+   c. LOAD_AS_FILE(M)
+   d. LOAD_INDEX(M)
+2. LOAD_INDEX(X)
+
+LOAD_NODE_MODULES(X, START)
+1. let DIRS=NODE_MODULES_PATHS(START)
+2. for each DIR in DIRS:
+   a. LOAD_AS_FILE(DIR/X)
+   b. LOAD_AS_DIRECTORY(DIR/X)
+
+NODE_MODULES_PATHS(START)
+1. let PARTS = path split(START)
+2. let I = count of PARTS - 1
+3. let DIRS = []
+4. while I >= 0,
+   a. if PARTS[I] = "node_modules" CONTINUE
+   b. DIR = path join(PARTS[0 .. I] + "node_modules")
+   c. DIRS = DIRS + DIR
+   d. let I = I - 1
+5. return DIRS
+</pre>
+
+其中有几个点需要注意的：
+
+- 参照点
+
+  在**目录Y**下require一个模块，此时参考点就是目录Y!
+
+- node_modules是递归的
+
+  **NODE_MODULES_PATHS函数**其实将目录Y做了一个切割。请看下面的例子:
+
+当前脚本文件/home/ry/projects/foo.js执行了require('bar')。Node内部运行过程如下:
+
+首先，确定x的绝对路径可能是下面这些位置，[**依次搜索每一个目录**](http://www.ruanyifeng.com/blog/2015/05/require.html)。
+
+<pre>
+/home/ry/projects/node_modules/bar
+/home/ry/node_modules/bar
+/home/node_modules/bar
+/node_modules/bar
+</pre>
+
+搜索时，Node先将bar当成文件名，依次尝试加载下面这些文件，只要有一个成功就返回。
+
+<pre>
+bar
+bar.js
+bar.json
+bar.node
+</pre>
+
+**如果都不成功，说明bar可能是目录名**，于是依次尝试加载下面这些文件。
+
+<pre>
+bar/package.json（main字段）
+bar/index.js
+bar/index.json
+bar/index.node
+</pre>
+
+如果在所有目录中，都无法找到bar对应的文件或目录，就抛出一个错误。
+
 
 
 
@@ -747,3 +868,5 @@ console.log('fsReturnValue=='+util.inspect(fsReturnValue,{showHidden:true,depth:
 [Linux下的I/O复用与epoll详解](https://www.cnblogs.com/lojunren/p/3856290.html)
 
 [Is NodeJs Single Threaded – Let’s Find Out](https://www.tuicool.com/articles/vyM77n)
+
+[require() 源码解读](http://www.ruanyifeng.com/blog/2015/05/require.html)
