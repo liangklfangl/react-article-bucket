@@ -13,4 +13,16 @@ defaults write com.apple.finder AppleShowAllFiles -bool true;
 KillAll Finder
 ```
 
+#### 无法推送信息到远程（前提是添加了ssh key）
+修改当前目录下的**隐藏目录下的config文件**，内容如下：
+```shell
+url = https://liangklfangl@github.com/liangklfangl/webpack-compiler-and-compilation.git
+```
 
+#### email在公司里面验证不通过
+直接运行：
+```shell
+git config --global user.name "你的花名"
+git config --global user.email "你的公司邮箱"
+git commit --amend --reset-author
+```

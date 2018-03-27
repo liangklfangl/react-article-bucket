@@ -253,4 +253,18 @@ Error: No suitable component definition found.
 ```js
 SearchForm = Form.create()(SearchForm);
 ```
-你可以查看这个[issue](https://github.com/reactjs/react-docgen/issues/107)。
+你可以查看这个[issue](https://github.com/reactjs/react-docgen/issues/107)。当前前提是你的组件正常的被**export出去**了。
+
+#### 6.react-docgen未能抽取出description
+他和React组件是用createClass还是extends React.Component方式来构建的没有关系，只要你是满足docBlock的注释就可以了。下面是docBlock注释的[解析文件](https://github.com/reactjs/react-docgen/blob/master/src/utils/docblock.js)内容:
+```js
+var DOCLET_PATTERN = /^@(\w+)(?:$|\s((?:[^](?!^@\w))*))/gmi;
+function parseDocblock(str) {
+  var lines = str.split('\n');
+  for (var i = 0, l = lines.length; i < l; i++) {
+    lines[i] = lines[i].replace(/^\s*\*\s?/, '');
+  }
+  return lines.join('\n').trim();
+}
+let DOCBLOCK_HEADER = /^\*\s/;
+```
