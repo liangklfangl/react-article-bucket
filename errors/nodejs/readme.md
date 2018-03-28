@@ -268,3 +268,83 @@ function parseDocblock(str) {
 }
 let DOCBLOCK_HEADER = /^\*\s/;
 ```
+
+#### 7.react-docgen无法处理特定格式的注释
+<pre>
+/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/utils/parseJsDoc.js:26
+  return { name: tag.type.name ? tag.type.name : tag.type.expression.name };
+                                                                    ^
+
+TypeError: Cannot read property 'name' of undefined
+    at getType (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/utils/parseJsDoc.js:26:69)
+    at /Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/utils/parseJsDoc.js:70:13
+    at Array.map (native)
+    at getParamsJsDoc (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/utils/parseJsDoc.js:66:6)
+    at parseJsDoc (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/utils/parseJsDoc.js:81:13)
+    at /Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/handlers/componentMethodsJsDocHandler.js:58:42
+    at Array.map (native)
+    at componentMethodsJsDocHandler (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/handlers/componentMethodsJsDocHandler.js:53:21)
+    at /Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/parse.js:45:14
+    at Array.forEach (native)
+    at /Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/parse.js:44:14
+    at Array.map (native)
+    at executeHandlers (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/parse.js:42:31)
+    at parse (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/parse.js:81:12)
+    at Object.defaultParse [as parse] (/Users/qinliang.ql/Desktop/silk/node_modules/_react-docgen@2.20.1@react-docgen/dist/main.js:66:30)
+    at async.parallel (/Users/qinliang.ql/Desktop/silk/src/generator/generators/readme/utils/build.js:298:45)
+</pre>
+仔细查看docBlock格式的注释看看是否符合一定的规范,比如下面的注释是符合规范的:
+<pre>
+/**
+  *  拖动的时候关系改变的时候触发。每次拖拽或者修改了关系这里都会触发，所以每次都会更新state中的constructRelationship
+  * 但是我们将修改之前的state状态保存起来，这样当用户在弹窗中点击了取消的时候我还可以恢复到编辑之前的状态
+  * @param  {[type]}  [description]
+  * @return {[type]}              [description]
+  */
+</pre>
+
+但是下面的注释就不符合规范，react-docgen就会报上面的错误:
+<pre>
+/**
+  *  拖动的时候关系改变的时候触发。每次拖拽或者修改了关系这里都会触发，所以每次都会更新state中的constructRelationship
+  * 但是我们将修改之前的state状态保存起来，这样当用户在弹窗中点击了取消的时候我还可以恢复到编辑之前的状态
+  * @param  {[type]}  e [description]
+  * @return {[type]}    eee          [description]
+  */
+</pre>
+
+所以，如果看到类似的错误应该是**注释格式**的问题。还有就是因为报错的代码集中在**如下的函数**:
+```js
+function getType(tag) {
+  if (!tag.type) {
+    return null;
+  } else if (tag.type.type === 'UnionType') {
+    // union type
+    return { name: 'union', value: tag.type.elements.map(function (element) {
+        return element.name;
+      }) };
+  } else if (tag.type.type === 'AllLiteral') {
+    // return {*}
+    return { name: 'mixed' };
+  }
+  return { name: tag.type.name ? tag.type.name : tag.type.expression.name };
+}
+```
+而你写的propTypes是如下的格式:
+```js
+Object2Relationship.propTypes = {
+  /**
+   * 点击某一条规则的时候触发，通知外层组件
+   */
+  onEdit: PropTypes.func.required,
+  /**
+   * 弹窗编辑然后保存的时候通知外层组件
+   */
+  onSave: PropTypes.func.required,
+  /**
+   * 原始万象关系对象
+   */
+  data: PropTypes.object.required
+};
+```
+你可能怀疑是否这里的required不支持，我要告诉**你是支持的**,这个错误的最终原因就是**注释的格式**问题。

@@ -450,18 +450,256 @@ console.log(8);
 2.第一步执行完后执行_runMicrotasks函数，执行microtask中的部分(promise.then注册的回调)
 所以很明显，**process.nextTick > promise.then**。
 
+更多的可以查看[这个](https://www.baidu.com/s?ie=utf-8&f=8&rsv_bp=1&rsv_idx=2&tn=baiduhome_pg&wd=process.nextTick%E4%B8%8Ethen%E9%A1%BA%E5%BA%8F&rsv_spt=1&oq=promise%25E5%25AF%25B9%25E8%25B1%25A1&rsv_pq=ae9bb44c0000afbc&rsv_t=3cddA%2BF8iuavK8CqgJm9SDXHQYy3H041oK1Neoi%2FOOf%2BdLpTpK8c30UFm3uCqdI9W4hq&rqlang=cn&rsv_enter=1&inputT=6448&rsv_sug3=54&rsv_sug2=0&rsv_sug4=6448)文章以及[知乎问答](https://www.zhihu.com/question/36972010/answer/71338002)
 
-
-
-https://www.baidu.com/s?ie=utf-8&f=8&rsv_bp=1&rsv_idx=2&tn=baiduhome_pg&wd=process.nextTick%E4%B8%8Ethen%E9%A1%BA%E5%BA%8F&rsv_spt=1&oq=promise%25E5%25AF%25B9%25E8%25B1%25A1&rsv_pq=ae9bb44c0000afbc&rsv_t=3cddA%2BF8iuavK8CqgJm9SDXHQYy3H041oK1Neoi%2FOOf%2BdLpTpK8c30UFm3uCqdI9W4hq&rqlang=cn&rsv_enter=1&inputT=6448&rsv_sug3=54&rsv_sug2=0&rsv_sug4=6448
-
-https://www.zhihu.com/question/36972010/answer/71338002
 #### 12.什么是Nodejs的bindings
 在理解Nodejs的binding之前，我们需要理解什么是binding。比如你要写一个Nodejs的Web应用:(1)接受客户端的请求 (2)查询数据库 (3)对查询的结果排序 (4)将结果返回给客户端。在这种情况下，所有的代码都是你写的。然而，忽然有一天你知道第三步有一个非常好的库可以完成，唯一的问题是该库是使用了系统编程语言，比如C/C++编写的，而你的代码是通过JS编写的。一般情况下你无法在你的代码中使用该库，因为他们的编程语言是完全不同的，但是使用binding你就可以!
 
 Bindings常用于"bind"两种不同的编程语言。通过一种语言编写的代码可以在另一种语言中使用，这样就不会存在你想使用一个库，但是该库使用了和你当前不同的语言的困境。还有一种动机是:你可以**集成不同编程语言的优点**。比如，C/C++一般都是比JavaScript要快的，因此使用C/C++也能够提升代码的性能。
 
 V8引擎是通过C++编写的，而libuv创建一个抽象层，其提供了很多异步IO相关的内容，是通过C来编写的。而Nodejs中的核心模块，比如网络，数据查询，文件系统IO是通过Javascript编写的。而且，你自己的代码也是通过Javascript编写的。因此，为了让不同的库能够相互融合，你就必须将他们binding起来。这就是Nodejs bindings!
+
+#### 13.nodejs中模块缓存
+假如main.js内容如下:
+```js
+function Test1(){}
+function Test2(){}
+console.log('---start----');
+module.exports = {
+  Test1,
+  Test2
+}
+console.log('---end----');
+```
+入口文件(test.js)如下:
+```js
+const require1 = require('./main');
+const require2 = require('./main');
+console.log('require1==require2 ? '+(require2==require1));
+```
+此时执行node test.js，你会看到如下的输出:
+<pre>
+---start----
+---end----
+require1==require2 ? true
+</pre>
+
+**首先**:在nodejs中require一个模块后该模块代码会立即执行。**然后**:多次require同一个模块后获取到的是同一个对象。**最后**:虽然多次require了同一个模块main.js，但是main.js中start,end的代码只会执行一次，即该模块代码只会执行一次，这一点一定要注意!下面还有几个需要注意的点:
+
+1.Node模块缓存是**基于解析后的文件名**(require.resolve)的,文件名不同那么返回对象也不同
+
+2.在大小写不敏感的文件系统或者操作系统上，对于**大小写文件返回的对象是不一样的**，而与文件路径是否相同无关。比如下面的代码将会返回false:
+```js
+const require1 = require('./main');
+const require2 = require('./MAIN');
+console.log('require1==require2 ? '+(require2==require1));
+```
+
+3.**Node核心模块，即使多次调用返回的对象也是不一样的**
+```js
+// fs,http,cluster等都是返回false
+const util = require('http');
+const util1 = require('http');
+console.log('util1===util'+util==util1);
+```
+
+#### 14.nodejs中模块循环引用
+比如main.js内容如下:
+```js
+console.log('main starting');
+const a = require('./a.js');
+const b = require('./b.js');
+console.log('in main, a.done=%j, b.done=%j', a.done, b.done);
+```
+然后a.js内容如下:
+```js
+console.log('a starting');
+exports.done = false;
+// a.js已经执行到这里了然后去执行b.js，后续的代码必须等到b.js执行完毕才能执行
+// 所以b.js再次引入a.js得到的就是a.js中已经执行的代码的exports对象
+const b = require('./b.js');
+console.log('in a, b.done = %j', b.done);
+exports.done = true;
+console.log('a done');
+```
+而b.js内容如下:
+```js
+console.log('b starting');
+exports.done = false;
+const a = require('./a.js');
+//1.此时监听到循环引用b模块立即去require我们的a模块,此时将a模块已经执行的内容的exports返回过来
+// 并结束a模块的加载。所以此时得到的a模块的exports.done=false
+// 2.在b.js立即加载a.js，后者不会再执行一次
+console.log('in b, a.done = %j', a.done);
+exports.done = true;
+console.log('b done');
+```
+此时输入的结果如下:
+
+<pre>
+main starting
+a starting
+b starting
+in b, a.done = false
+b done
+in a, b.done = true
+a done
+in main, a.done=true, b.done=true
+</pre>
+
+#### 15.nodejs中node_modules模块加载
+如果传递给**require**方法的不是一个内置模块，同时**也不是以"/",'../','./'**开头，此时Nodejs将会从**当前目录的父级目录**开始，在父级目录后面添加node_modules,然后从这里加载特定的模块。如果没有发现当前模块，就会继续往父级目录搜索，**直到文件系统的根目录**。
+
+比如'/home/ry/projects/foo.js'调用了require('bar.js')，此时Nodejs的模块搜索路径将会按照下面的路径进行:
+
+<pre>
+/home/ry/projects/node_modules/bar.js
+/home/ry/node_modules/bar.js
+/home/node_modules/bar.js
+/node_modules/bar.js
+</pre>
+
+而且也可以按照下面这种**方式加载模块**:
+```js
+const webpack = require('webpackcc/lib/build');
+```
+此时将会在模块webpackcc下的路径"/lib/build"下加载资源。
+
+#### 16.Nodejs模块包裹函数
+```js
+(function(exports, require, module, __filename, __dirname) {
+// Module code actually lives in here
+});
+```
+通过这种函数包裹的方式，在模块中定义的var,const,let变量将会被**限制到模块内部而不是全局变量**。同时也提供了一些该模块中全局的变量，比如module,exports可以用于将模块的值导出。而\__dirname,\__filename表示了模块的目录与地址。此处添加一个[require.paths](https://stackoverflow.com/questions/5390886/nodejs-require-paths-resolve-problem)的问题可以学习下。
+
+#### 17.require.resolve的包查询机制
+```js
+var path = require('path');
+var fs = require('fs');
+var parse = path.parse || require('path-parse');
+/**
+ * start:表示从哪个路径开始解析
+ * opts.moduleDirectory:如果指定，那么就从这个目录开始搜索
+ */
+function nodeModulesPaths(start, opts) {
+    var modules = opts && opts.moduleDirectory
+        ? [].concat(opts.moduleDirectory)
+        : ['node_modules'];
+    var absoluteStart = path.resolve(start);
+    //开始搜索的绝对路径 /Users/qinliang.ql/Desktop/test/src
+    var prefix = '/';
+    if (/^([A-Za-z]:)/.test(absoluteStart)) {
+        prefix = '';
+    } else if (/^\\\\/.test(absoluteStart)) {
+        prefix = '\\\\';
+    }
+    var paths = [absoluteStart];
+    // paths搜索路径["/Users/qinliang.ql/Desktop/test/src"]
+    // 开始解析的路径
+    // var pathParse = require('path-parse');
+    // pathParse('/home/user/dir/file.txt');
+    //=> {
+    //       root : "/",
+    //       dir : "/home/user/dir",
+    //       base : "file.txt",
+    //       ext : ".txt",
+    //       name : "file"
+    //   }
+    var parsed = parse(absoluteStart);
+    // 符号"/"的dir也是"/"，此时退出循环
+    while (parsed.dir !== paths[paths.length - 1]) {
+        paths.push(parsed.dir);
+        parsed = parse(parsed.dir);
+    }
+    // ["/Users/qinliang.ql/Desktop/test/src","/Users/qinliang.ql/Desktop/test","/Users/qinliang.ql/Desktop","/Users/qinliang.ql","/Users","/"]
+    var dirs = paths.reduce(function (dirs, aPath) {
+        // dirs表示已经获取到的目录,即(prev,cur)
+        return dirs.concat(modules.map(function (moduleDir) {
+            // aPath表示就是当前的reduce循环的cur变量
+            return path.join(prefix, aPath, moduleDir);
+        }));
+    }, []);
+    return opts && opts.paths ? dirs.concat(opts.paths) : dirs;
+};
+const t = nodeModulesPaths(path.join(__dirname,"./src"),{moduleDirectory:'module',paths:[path.join(__dirname,'./demo')]});
+console.log('t==='+JSON.stringify(t));
+//["/Users/qinliang.ql/Desktop/test/src/module","/Users/qinliang.ql/Desktop/test/module","/Users/qinliang.ql/Desktop/module","/Users/qinliang.ql/module","/Users/module","/module","/Users/qinliang.ql/Desktop/test/demo"]
+```
+源代码来自于[resolve](https://github.com/browserify/resolve/blob/master/lib/node-modules-paths.js)模块的包查询机制。从这个源码你应该要知道:
+
+- **opts.basedir**
+  
+  表示从这个字段指定的路径开始解析模块。
+
+- **opts.moduleDirectory**
+  
+  默认和Nodejs一样，逐级从node_modules查找模块。比如上面我的例子指定的是module，所以所有的查询路径后面都是module后缀而不是node_modules。
+
+- **opts.paths**
+   
+   如果通过opts.moduleDirectory递归遍历没有查询到模块就会从这个数组指定的路径中查找。比如上面的例子我指定了path.join(\__dirname,'./demo')。
+
+#### 18.module.exports和exports比较
+##### 18.1 module.exports和exports比较
+**exports变量是存在于文件级别的作用域的，而且在模块执行之前它会设置为module.exports的值**。所以exports变量是一种更加简便的module.exports的表现方式。 module.exports.f = ...这种形式即可以通过exports.f = ....来表示。但是，一定要注意:和其他变量一样，如果为exports对象赋值为一个新的值，那么它将不再指向module.exports了:
+```js
+module.exports.hello = true; 
+//require这个模块的时候将会被导出
+exports = { hello: false };  
+//exports被重新赋值，它只会在当前模块里面有效
+```
+所以当module.exports被重新赋值为一个新的对象的时候，我们一般也会同时为exports赋值:
+```js
+module.exports = exports = function Constructor() {
+  // ... etc.
+};
+```
+我们可以将require方法理解为如下的形式:
+```js
+function require(/* ... */) {
+  const module = { exports: {} };
+  ((module, exports) => {
+    // 这里相当于模块代码，此处是一个函数
+    function someFunc() {}
+    exports = someFunc;
+    // 此时exports不再是module.exports的简写了，但是模块还是会导出一个空对象
+    // 因为module.exports依然存在
+    module.exports = someFunc;
+    // 此时，模块将会导出一个函数而不是默认的{}
+  })(module, module.exports);
+  return module.exports;
+}
+```
+
+##### 18.2 module.exports与exports的例子
+比如如下的模块exports.js:
+```js
+exports = {name:'qinliang',sex:'男'};
+// 此时exports被重新赋值，其值不再是module.exports了，但是后者依然导出{}
+```
+下面对该模块进行引用:
+```js
+const data = require('./exports.js');
+console.log(JSON.stringify(data));
+// 此时得到一个空的对象
+```
+上面的JSON.stringify的结果是一个**空对象**。如果将exports.js内容修改为:
+```js
+exports = {name:'qinliang',sex:'男'};
+// 此时exports被重新赋值，其值不再是module.exports了，但是后者依然导出{}
+module.exports = {
+  name:'liangklfangl',
+  sex:'男'
+}
+```
+上面的JSON.stringify将会是完整的module.exports的值。即:
+```js
+{
+  name:'liangklfangl',
+  sex:'男'
+}
+```
 
 #### 13.Nodejs中的轮转法(Round Robin)
 [轮转法(Round Robin)](https://baike.baidu.com/item/调度算法/3017645)

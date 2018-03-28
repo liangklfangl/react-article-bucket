@@ -163,6 +163,20 @@ function filterNotExportedLib(imports, exportNames) {
 }
 ```
 
+#### 5.reduce+concat对数组进行操作
+```js
+// ["/Users/qinliang.ql/Desktop/test/src","/Users/qinliang.ql/Desktop/test","/Users/qinliang.ql/Desktop","/Users/qinliang.ql","/Users","/"]
+var dirs = paths.reduce(function (dirs, aPath) {
+      // dirs表示已经获取到的目录,即(prev,cur)
+      return dirs.concat(modules.map(function (moduleDir) {
+          // aPath表示就是当前的reduce循环的cur变量
+          return path.join(prefix, aPath, moduleDir);
+      }));
+}, []);
+```
+
+
+
 参考资料:
 
 [如何跳出forEach遍历](http://annvov.github.io/forEach.html)

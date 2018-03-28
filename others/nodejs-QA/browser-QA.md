@@ -53,6 +53,7 @@ while(true){
 }
 ```
 #### 2.浏览器的事件循环深入详解（Event Loop）？
+##### 2.1 浏览器事件循环详解
 一个事件循环有一个或者多个任务队列（task queues）。任务队列是task的有序列表，这些task是以下工作的对应算法：`Events(比如下面的例子中的click事件的触发就是Task)`，Parsing，Callbacks，Using a resource，Reacting to DOM manipulation。
 
 每一个任务都来自一个特定的`任务源`（task source）。所有来自一个特定任务源并且属于特定事件循环的任务，通常必须被加入到同一个任务队列中，但是来自不同任务源的任务可能会放在不同的任务队列中。
@@ -91,6 +92,10 @@ macrotasks: script(整体代码), setTimeout, setInterval, setImmediate, I/O, UI
 microtasks: process.nextTick, Promises, Object.observe(废弃), MutationObserver
 </pre>
 
+关于事件循环还要注意一点,你可以查看[为什么Vue使用MutationObserver做批量处理？](https://github.com/liangklfangl/react-article-bucket/blob/master/vue/inner-core-concept.md#2%E4%B8%BA%E4%BB%80%E4%B9%88vue%E4%BD%BF%E7%94%A8mutationobserver%E5%81%9A%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86),即:每次macrotask执行完成后会进行UI更新，所以**为了使得界面更快更新，我们应该使用microtask而不是macrotask**。
+
+##### 2.2 浏览器事件循环详细例子
+###### 2.2.1 Promise+setTimeout例子
 比如下面例子:
 ```js
 console.log('script start');
@@ -124,6 +129,28 @@ setTimeout
 
 4.此时microtask队列为空了，进入下一个事件循环，检查task队列发现了setTimeout的回调函数，立即执行回调函数输出'setTimeout'，代码执行完毕。
 
+###### 2.2.2 上面的例子只是保证Promise.then里面的代码提前执行而已
+知乎上有一个很热的帖子[Promise的队列与setTimeout的队列有何关联？](https://www.zhihu.com/question/36972010),它给出了和上文类似的代码:
+```js
+setTimeout(function() {
+    console.log(4)
+},0);
+// macrotask
+new Promise(function(resolve) {
+    console.log(1) 
+    for (var i = 0; i < 10000; i++) {
+        i == 9999 && resolve()
+    }
+    console.log(2)
+}).then(function() {
+    console.log(5)
+});
+console.log(3);
+// 此时当前的macrotask被执行完毕，才会去检查microtask队列
+```
+此时的打印结果是"1;2;3;5;4"。它和上面的例子唯一不同的地方在于Promise的构造函数，**这里不是直接调用Promise.resolve方法**，因此**new Promise里面传入的函数会立即执行，而不会被放到macrotask或者microtask里面，其就相当于普通的代码而已**。这一点一定要分清楚。
+
+###### 2.2.3 MutationObserver与事件回调
 下面再给出一个例子:
 ```html
 <div class="outer">
@@ -132,17 +159,15 @@ setTimeout
 ```
 下面是js代码:
 ```js
-// Let's get hold of those elements
 var outer = document.querySelector('.outer');
 var inner = document.querySelector('.inner');
-// Let's listen for attribute changes on the
-// outer element
+// 监听outer元素的属性改变
 new MutationObserver(function() {
   console.log('mutate');
 }).observe(outer, {
   attributes: true
 });
-// Here's a click listener…
+//DOM的click监听器
 function onClick() {
   console.log('click');
   setTimeout(function() {
@@ -153,7 +178,7 @@ function onClick() {
   });
   outer.setAttribute('data-random', Math.random());
 }
-// …which we'll attach to both elements
+//outer和inner都监听click事件
 inner.addEventListener('click', onClick);
 outer.addEventListener('click', onClick);
 ```
@@ -170,7 +195,7 @@ timeout
 </pre>
 解释一下过程：
 
-点击inner输出'click'，Promise和设置outer属性会依次把Promise和MutationObserver推入microtask队列，setTimeout则会推入task队列。此时`执行栈为空`，虽然后面还有冒泡触发，但是此时microtask队列会先执行，所以依次输入'promise'和'mutate'。接下来事件冒泡再次触发事件，过程和开始一样。接着代码执行完毕，此时进入下一次事件循环，执行task队列中的任务，输出两个'timeout'。
+点击inner输出'click'，Promise和设置outer属性会依次把Promise和MutationObserver推入microtask队列，setTimeout则会推入task队列。此时`执行栈为空`，**虽然后面还有冒泡触发，但是此时microtask队列会先执行**，所以依次输入'promise'和'mutate'。接下来事件冒泡再次触发事件，过程和开始一样。接着代码执行完毕，此时进入下一次事件循环，执行task队列中的任务，输出两个'timeout'。
 
 好了，如果你理解了这个，那么现在换一下事件触发的方式。在上面的代码后面加上
 ```js
@@ -186,7 +211,7 @@ promise
 timeout
 timeout
 </pre>
-造成这个差异的结果是什么呢？在前面的例子中，微任务是在事件处理函数之间来执行的。但是，如果你直接调用了`.click()`函数，那么事件是`同步触发`的，因此，此时调用`click()`方法的代码在多次回调的时候一直是在执行栈中的。这样，我们能够保证我们在执行js代码的时候不会被微任务打断。这样，我们在多次回调函数的过程中也就不会触发微任务的执行，微任务的执行被推迟到多个事件处理函数执行之后。上面对于执行过程的分析，可能会有如下的图表:
+造成这个差异的结果是什么呢？在前面的例子中，**微任务是在事件处理函数之间来执行的!!!**。但是，如果你直接调用了`.click()`函数，那么事件是`同步触发`的，因此，此时调用`click()`方法的代码在多次回调的时候一直是在执行栈中的。这样，我们能够保证在执行js代码的时候不会被微任务打断。这也意味着，我们在多次回调函数的过程中也就不会触发微任务的执行，微任务的执行被推迟到多个事件处理函数执行之后。上面对于执行过程的分析，可能会有如下的图表:
 
 ![](./images/stack.png)
 
@@ -206,7 +231,9 @@ timeout
 
 ![](./images/stack5.png)
 
-即:"因为JS Stack没有处于空的状态，所以无法执行微任务，而本质原因在于此时`事件的触发是同步的`!"。
+即:"因为JS Stack没有处于空的状态，所以无法执行微任务，而本质原因在于此时**事件的触发是同步的**!"。还有一点不知道你有没有注意到:**上面的MutationEvent只执行了一次**，这是因为**第一次MutationEvent还处于pending状态，所以不会再次添加**!
+
+![](./images/pending.png)
 
 
 #### 3.代码角度理解浏览器的事件循环？
@@ -737,7 +764,7 @@ function a() {
         console.log(obj);
     }
 }
-//正常情况下，a函数执行完毕 obj占用的内存会被回收，但是此处a函数返回了一个函数表达式（见Tom大叔的博客函数表达式和函数声明），其中obj因为js的作用域的特殊性一直存在，所以我们可以说b引用了obj。
+//正常情况下，a函数执行完毕obj占用的内存会被回收，但是此处a函数返回了一个函数表达式（见Tom大叔的博客函数表达式和函数声明），其中obj因为js的作用域的特殊性一直存在，所以我们可以说b引用了obj。
 var b = a();
 //每次执行b函数的时候都可以访问到obj，说明内存未被回收 所以对于obj来说直接占用内存[1,2,....n], 而b依赖obj，所obj是b的最大内存。
 b()
