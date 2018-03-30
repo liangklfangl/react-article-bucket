@@ -702,9 +702,36 @@ module.exports = {
 ```
 
 #### 13.Nodejs中的轮转法(Round Robin)
+##### 13.1 Round Robin的引入
+- Node.js v0.8和v0.10中连接分配算法
+
+当**工人进程调用**http.Server#listen()或net.Server#listen()时，**Node.js会给主进程发送一条消息，让它创建一个服务器socket，绑定好，并分享给这个工人进程**。如果已经有绑定好的socket了，主进程就会跳过“创建和绑定”那一步，只需分享已有的socket就可以了。也就是说所有的工人进程监听的都是同一个socket。有新连接进来时，**操作系统会唤醒**一个工人进程。被唤醒的工人进程就会接受连接，开始提供服务。一切都还不错。操作系统会针对`运行中的进程收集大量的指标，所以应该最有资格决定唤醒哪个进程`。
+
+现在，我们进入了理论与杂乱的现实相遇的环节，因为它慢慢地水落石出了，**操作系统并不能总是跟程序员想得一样做到‘最好’**。特别是在某些情况下，我们观测到–特别是在Linux和Solaris中–大多数连接最终都落在了两或三个进程里。
+
+从操作系统的角度来看这是可以理解的：上下文切换是相当昂贵的操作。如果你有n个进程全都等在同一个socket上，那么**唤醒最近被阻塞的进程**是明智之举，因为那样可以最大限度地**避免上下文切换**。（当然，调度器是一种复杂而又多变的野兽；上面只是对真实情况泛泛的解释。基本前提是那些得到优待的进程会仍然受到优待）。并不是所有的程序都会受到这个怪癖的影响，实际上大多数都不会，但那些确实会受到影响的会出现非常不均衡的负载。
+
+- Node.js v0.11.2的round-robin方式
+ 
+ **新连接由主进程接受**，然后由它选择(**而不是操作系统**)一个工人进程把连接交出去。现在这个选择工人进程的算法还不是特别精巧。就像它的名字一样，它用的是轮转法。**只是拿起下一个可用的工人进程**–，但经过核心开发人员和用户的测试，证明它很好用：连接在工人进程之间分配得很均衡。
+
+##### 13.2 Round Robin处理方式
+假如进程有如下的时间分配:
+
+![](./images/robin.png)
+
+此时进程的处理过程将会如下:
+
+![](./images/process.jpg)
+
+注意:在190ms的时候，虽然进程p2,p3刚被推入进程队列，但是因为随后队列中在p1后面的进程是p0,所以200ms的时候继续处理的将会是p0进程!关于Round Robin的进一步理解你可以查看[Round-robin scheduling](https://en.wikipedia.org/wiki/Round-robin_scheduling) 
+
+
+
+
+参考资料:
+
 [轮转法(Round Robin)](https://baike.baidu.com/item/调度算法/3017645)
-
-
 
 [Linux Programmer's Manual AIO(7)](http://man7.org/linux/man-pages/man7/aio.7.html)
 
@@ -741,3 +768,7 @@ module.exports = {
 [Promise method](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise)
 
 [Is NodeJs Single Threaded – Let’s Find Out](https://www.tuicool.com/articles/vyM77n)
+
+[Node.js V0.12新特性之Cluster轮转法负载均衡](http://www.infoq.com/cn/articles/nodejs-cluster-round-robin-load-balancing)
+
+[Round-robin scheduling](https://en.wikipedia.org/wiki/Round-robin_scheduling)
