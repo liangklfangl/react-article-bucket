@@ -1336,6 +1336,8 @@ var nextTick =(function () {
 ```
 关于domain模块的使用你可以[查看这里](../others/nodejs-QA/node-core/domain.md)
 
+#### 15.postMessage与macrotask
+
 
 
 
