@@ -192,7 +192,7 @@ I/O设备完成一项任务，就在"任务队列"中*添加一个事件*，表�
 
 ![](./loop.png)
 
-##### 7.4 异步任务与定时器
+##### 7.4 异步任务与定时器setTimeout/setInterval
 除了放置异步任务的事件，"任务队列"还可以放置*定时事件*，即指定某些代码在多少时间之后执行。这叫做"定时器"（timer）功能，也就是定时执行的代码。
 定时器功能主要由setTimeout()和setInterval()这两个函数来完成，它们的内部运行机制完全一样，区别在于前者指定的代码是一次性执行，后者则为反复执行。以下主要讨论setTimeout()。
 setTimeout()接受两个参数，第一个是回调函数，第二个是推迟执行的毫秒数。
@@ -211,18 +211,14 @@ console.log(2);
 总之，setTimeout(fn,0)的含义是，指定某个任务在*主线程最早可得的空闲时间*执行，也就是说，尽可能早得执行。它在"任务队列"的尾部添加一个事件，因此要等到*同步任务*和*"任务队列"现有的事件*都处理完，才会得到执行。
 
 HTML5标准规定了setTimeout()的第二个参数的最小值（最短间隔），不得低于4毫秒，如果低于这个值，就会`自动增加`。在此之前，老版本的浏览器都将最短间隔设为`10`毫秒。另外，对于那些DOM的变动（尤其是涉及页面重新渲染的部分），通常不会立即执行，而是每16毫秒执行一次。这时使用requestAnimationFrame()的效果要好于setTimeout()。
-需要注意的是，setTimeout()只是将事件插入了"任务队列"，必须等到当前代码（*执行栈*）执行完，主线程才会去执行它指定的回调函数。要是当前代码耗时很长，有可能要等很久，所以并没有办法保证，回调函数一定会在setTimeout()指定的时间执行。
+需要注意的是，setTimeout()只是将事件插入了"任务队列"，必须等到当前代码（*执行栈*）执行完，主线程才会去执行它指定的回调函数。要是当前代码耗时很长，有可能要等很久，所以并没有办法保证，回调函数一定会在setTimeout()指定的时间执行。具体你可以[查看](https://github.com/liangklfangl/react-article-bucket/blob/master/js-native/foundamental-QA.md#3%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3settimeout%E4%B8%8Esetinterval) 我的这一篇文章。
 
 ##### 7.5 nodejs中的事件循环与异步非阻塞I/O
 如下图:
 
 ![](./images/nodejs-loop.png)
 
-上面的图有一点问题:OS Operation不在那个位置，而是在event loop的后面，event queue在event loop中间。所以整个流程大致如下:
-<pre>
-  js —> v8 —> node binding —> (event loop) —> worker threads/poll —> blocking operation
-   <—     <—                   <——  (event loop)<—————— event  <——————
-</pre>
+朴灵说上面的图有一点问题:OS Operation不在那个位置，而是在event loop的后面(个人理解:调用IOCP等都是通过liuv实现的，所以朴灵认为它在后面)，event queue在event loop中间(来自朴灵评注阮一峰的文章)。
 
 根据上图，Node.js的运行机制如下。
 
@@ -245,9 +241,10 @@ HTML5标准规定了setTimeout()的第二个参数的最小值（最短间隔）
 【然后下一个事件，继续循环】
 </pre>
 
+##### 7.5.1 process.nextTick和setTimeout(0)
 除了setTimeout和setInterval这两个方法，Node.js还提供了另外两个与"任务队列"有关的方法：process.nextTick和setImmediate。它们可以帮助我们加深对"任务队列"的理解。
 
-process.nextTick方法可以在*当前"执行栈"的尾部*----下一次Event Loop（*主线程读取"任务队列"*）之前----触发回调函数。也就是说，它指定的任务总是发生在所有异步任务之`前`。setImmediate方法则是在当前"任务队列"的尾部添加事件，也就是说，它指定的任务总是在`下一次Event Loop时执行`，这与setTimeout(fn, 0)很像。请看下面的例子:
+process.nextTick方法可以在*当前"执行栈"的尾部*,下一次Event Loop（**主线程读取"任务队列"**）之前触发回调函数。也就是说，它指定的任务总是发生在所有异步任务之`前`(我的理解为microtask)。setImmediate方法则是在当前"任务队列"(我的理解是macrotask)的尾部添加事件，也就是说，**它指定的任务总是在下一次Event Loop时执行**，这与setTimeout(fn, 0)很像。请看下面的例子:
 ```js
 process.nextTick(function A() {
   console.log(1);
@@ -260,19 +257,21 @@ setTimeout(function timeout() {
 // 2
 // TIMEOUT FIRED
 ```
-上面代码中，由于process.nextTick方法指定的回调函数，总是在当前"执行栈"的尾部触发，所以不仅函数A比setTimeout指定的回调函数timeout先执行，而且函数B也比timeout先执行。这说明，如果有多个process.nextTick语句（`不管它们是否嵌套`），将全部在当前"执行栈"执行。现在，再看setImmediate。
+上面代码中，由于process.nextTick方法指定的回调函数，总是在当前"执行栈"的尾部触发，所以不仅函数A比setTimeout指定的回调函数timeout先执行，而且函数B也比timeout先执行。这说明，如果有多个process.nextTick语句（`不管它们是否嵌套`），将全部在当前"执行栈"执行。
+
+##### 7.5.2 setImmediate与setTimeout(func,0)的不确定关系
+现在，再看setImmediate。
 ```js
 setImmediate(function A() {
   console.log(1);
   setImmediate(function B(){console.log(2);});
 });
-
 setTimeout(function timeout() {
   console.log('TIMEOUT FIRED');
 }, 0);
 ```
-上面代码中，setImmediate与setTimeout(fn,0)各自添加了一个回调函数A和timeout，都是在下一次Event Loop触发。那么，哪个回调函数先执行呢？答案是不确定。运行结果可能是1--TIMEOUT FIRED--2，也可能是TIMEOUT FIRED--1--2。
-令人困惑的是，Node.js文档中称，setImmediate指定的回调函数，总是排在setTimeout前面。实际上，这种情况只发生在递归调用的时候。
+上面代码中，setImmediate与setTimeout(fn,0)各自添加了一个回调函数A和timeout，都是在下一次Event Loop触发。那么，哪个回调函数先执行呢？**答案是不确定(node v6.9.5上已经验证为不确定)!!**。运行结果可能是1--TIMEOUT FIRED--2，也可能是TIMEOUT FIRED--1--2。
+令人困惑的是，Node.js文档中称，setImmediate指定的回调函数，总是排在setTimeout前面。实际上，这种情况只发生在递归调用的时候(**这也是阮一峰老师给的答案，但是我在node v6.9.5上得出的结果和他完全相反**)。
 ```js
 setImmediate(function (){
   setImmediate(function A() {
@@ -287,18 +286,54 @@ setImmediate(function (){
 // TIMEOUT FIRED
 // 2
 ```
-上面代码中，setImmediate和setTimeout被封装在一个setImmediate里面，它的运行结果总是1--TIMEOUT FIRED--2，这时函数A一定在timeout前面触发。至于2排在TIMEOUT FIRED的后面（即函数B在timeout后面触发），是因为setImmediate总是将事件注册到下一轮Event Loop，所以函数A和timeout是在同一轮Loop执行，而函数B在下一轮Loop执行。
-我们由此得到了process.nextTick和setImmediate的一个重要区别：多个process.nextTick语句总是在当前"执行栈"一次执行完，多个setImmediate可能则需要多次loop才能执行完。事实上，这正是Node.js 10.0版添加setImmediate方法的原因，否则像下面这样的递归调用process.nextTick，将会没完没了，主线程根本不会去读取"事件队列"！
+阮一峰老师说:上面的结果总是固定的，即"1,TIMEOUT FIRED,2"但是我得出的结果仍然是有可能为"TIMEOUT FIRED,1,2"!这也就是告诉我们**setImmediate与setTimeout(func,0)的关系是不确定的，而process.nextTick与setTimeout(func,0)前者执行时间要早于后者**。Node官网给出了setImmediate早于setTimeout(func,0)的情况:
+```js
+// timeout_vs_immediate.js
+const fs = require('fs');
+fs.readFile(__filename, () => {
+  setTimeout(() => {
+    console.log('timeout');
+  }, 0);
+  setImmediate(() => {
+    console.log('immediate');
+  });
+});
+```
+此时输出结果**始终是setImmediate早于setTimeout**:
+<pre>
+$ node timeout_vs_immediate.js
+immediate
+timeout
+
+$ node timeout_vs_immediate.js
+immediate
+timeout
+</pre>
+
+而[知乎上](https://www.zhihu.com/question/56310675)遇到的另外一个问题:
+```js
+setImmediate(function() {
+  console.log('setImmediate111');
+});
+setTimeout(function() {
+  console.log('setTimeout111');
+}, 0);
+console.log('正常执行11');
+```
+作者运行了代码很多次，但是最终结果都是setTimeout早于setImmediate。此时我也不知道如何去解释它，只有按照官网的说法认为他们的关系是不确定的，只是运行的有限次数中，setTimeout早于setImmediate了。
+
+事实上，这正是Node.js v0.9.1版添加setImmediate方法的原因，否则像下面这样的递归调用process.nextTick，将会没完没了，主线程根本不会去读取"事件队列"！
 ```js
 process.nextTick(function foo() {
   process.nextTick(foo);
 });
 ```
-事实上，现在要是你写出递归的process.nextTick，Node.js会抛出一个警告，要求你改成setImmediate。另外，由于process.nextTick指定的回调函数是在本次"事件循环"触发，而setImmediate指定的是在下次"事件循环"触发，所以很显然，前者总是比后者发生得早，而且执行效率也高（因为不用检查"任务队列"）。
+现在要是你写出递归的process.nextTick，Node.js会抛出一个警告，要求你改成setImmediate。另外，由于process.nextTick指定的回调函数是在本次"事件循环"触发，而setImmediate指定的是在下次"事件循环"触发，所以很显然，前者总是比后者发生得早，而且执行效率也高（因为不用检查"任务队列"）。
 
+##### 7.5.3 process.nextTick与promise.then的关系
 这里突然想到知乎上讨论的两个问题:
 
-- process.nextTick也会放入microtask quque，为什么优先级比promise.then高呢？
+- process.nextTick也会放入microtask队列，为什么优先级比promise.then高呢？
   
   process.nextTick永远大于promise.then原因其实很简单。在Node中，\_tickCallback在每一次执行完**TaskQueue中的一个任务后(可以认为是macrotask)**被调用，而这个\_tickCallback中实质上干了两件事：
 
@@ -306,10 +341,15 @@ process.nextTick(function foo() {
 
   2.执行_runMicrotasks函数，执行microtask中的部分(promise.then注册的回调)所以很明显process.nextTick > promise.then”
 
+##### 7.5.4 setTimeout最小延迟4ms
 
 - 到底setTimeout有没有一个依赖实现的最小延迟？4ms？
-
-
+<pre>
+1.IE8及更早版本的计时器精度为15.625ms
+2.IE9及更晚版本的计时器精度为4ms
+3.Firefox和Safari的计时器精度大约为10ms
+4.Chrome的计时器精度为4ms
+</pre>
 
 ##### 7.6 异步和事件循环Event Loop的区别
 

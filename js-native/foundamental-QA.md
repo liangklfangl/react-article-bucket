@@ -261,10 +261,10 @@ console.log('result===',result)
 
 - 1.事件队列顺序执行
 
-所有进入事件队列里面的函数都是顺序执行的，比如10ms Timer Starts,Mouse Click Occurs,10ms Interval Starts等，先进入到队列里面的往往按顺序先执行。因此当10ms的Timer执行完毕以后，等待在队列里面的只有Mouse Click和10ms的Interval，而鼠标事件先被推入到事件队列，因此会被先执行。但是要注意:图上Mouse Click Callback并不是要等到10ms后才能执行，而是当调用栈空的时候会立即执行。如果在Mouse Click Callback执行的时候10ms Interval时间到了，也要求执行，此时10ms的Interval只有`排队等待`了，而如果Mouse Click Callback执行时间超过了10ms，那么10ms的Interval又要求执行了，那么此时必须注意，10ms Interval根本不会插入，而是会`直接丢掉`，因为事件队列中已经有一个回调函数等待执行了!在图中采用的是30ms的时候,10ms Interval在执行的时候，又要求插入一个新的定时器，这种情况和前面的有一点不同，因为上次的定时器已经在执行了，因此事件队列中的这个setInterval回调其实已经被移出事件队列了，所以可以继续插入而不是直接drop(这是我自己的理解,原文你可以[点击这里](https://johnresig.com/blog/how-javascript-timers-work/#postcomment)),但是该文章是为了告诉我们:队列中最多有一个回调函数等待执行(执行的那个已经不在队列中，而是在调用栈中了)，那么。下面是对setInterval的说明:
+所有进入事件队列里面的函数都是顺序执行的，比如10ms Timer Starts,Mouse Click Occurs,10ms Interval Starts等，先进入到队列里面的往往按顺序先执行。因此当10ms的Timer执行完毕以后，等待在队列里面的只有Mouse Click和10ms的Interval，而鼠标事件先被推入到事件队列，因此会被先执行。但是要注意:图上Mouse Click Callback并不是要等到10ms后才能执行，而是当调用栈空的时候会立即执行。如果在Mouse Click Callback执行的时候10ms Interval时间到了，也要求执行，此时10ms的Interval只有`排队等待`了，而如果Mouse Click Callback执行时间超过了10ms，那么10ms的Interval又要求执行了，那么此时必须注意，10ms Interval根本不会插入，而是会`直接丢掉`，因为事件队列中已经有一个回调函数等待执行了!在图中采用的是30ms的时候,10ms Interval在执行的时候，又要求插入一个新的定时器，这种情况和前面的有一点不同，因为**上次的定时器已经在执行了，因此事件队列中的这个setInterval回调其实已经被移出事件队列了，所以可以继续插入而不是直接drop**(原文你可以[点击这里](https://johnresig.com/blog/how-javascript-timers-work/#postcomment))，这也就意味着，如果此时任务队列为空，那么前一个setInterval回调函数执行后后一个插入的函数就会立即执行，于是所谓的指定间隔执行的**黄金规则**也就打破了。但是该文章是为了告诉我们:队列中最多有一个回调函数等待执行(执行的那个已经不在队列中，而是在调用栈中了)。下面是对setInterval的说明:
 
 <pre>
-如果你每次都将setInterval的回调函数推入队列，那么当在执行耗时代码结束后将会有大量的回调函数被同时执行，而他们之间的执行间隔将会非常短。因此，聪明的浏览器会判断当前队列中是否有setInterval的回调函数`没有执行完`，如果有，那么在它执行完毕之前不会再次插入。
+如果你每次都将setInterval的回调函数推入队列，那么当在执行耗时代码结束后将会有大量的回调函数被同时执行，而他们之间的执行间隔将会非常短。因此，聪明的浏览器会判断当前队列中是否有setInterval的回调函数没有执行完，如果有，那么在它执行完毕之前不会再次插入。
 </pre>
 
 - 2.setTimeout至少会延迟指定的时间
@@ -279,7 +279,7 @@ setInterval(function(){
   /* Some long block of code... */
 }, 10);
 ```
-咋一看两个代码功能是一致的，其实不是的。setTimeout会保证在前面一个回调执行后至少指定的时间才会执行后面的回调(可多不可少)。而setInterval是不管前面一个回调的具体执行时间的(同一个setInterval队列中最多1个等待执行的)。
+咋一看两个代码功能是一致的，其实不是的。setTimeout会保证在前面一个回调执行后至少指定的时间才会执行后面的回调(**可多不可少**)。而setInterval是不管前面一个回调的具体执行时间的(同一个setInterval队列中最多1个等待执行的)。
 
 - setTimeout定时器执行时间可能比预期的长
  如果一个定时器在执行的时候被阻塞了，那么它会继续等待`指定的时间`等待执行，因此它的实际执行时间可能比预期的要长。
@@ -1028,6 +1028,320 @@ target.addEventListener(type, listener[, options]);
 我们可以通过传递passive为true来明确告诉浏览器，事件处理程序不会调用preventDefault来阻止默认滑动行为。此时浏览器就能**快速生成事件(滚动事件)**，从而提升页面性能，而不用等待滚动事件处理完成后才触发。
 
 
+##### 11.[MessageChannel](http://www.zhangxinxu.com/wordpress/2012/02/html5-web-messaging-cross-document-messaging-channel-messaging/)通道通信
+
+消息通道提供了一个**直接，双向浏览上下文之间**的通信手段。跟跨文档通信一样，DOM不直接暴露。取而代之，管道每端为端口，数据从一个端口发送，另一个变成输入（反之亦然）。消息通道是有用的，**特别是跨多个起源的沟通**。请考虑以下情形：人人网上(http://renren.com)嵌入了一个第三方的游戏页面（通过iframe的形式，如“人人餐厅”），同时，这个第三方的游戏页面(http://game.com)又需要从另外一个通讯录网站(http://address.com)获取用户的通讯信息。咋办？
+
+也就是说通讯录站点要发送信息给游戏站点，根据跨文档通信，我们让父页面作为代理（也就是这里的人人网页面）。然而，这种做法意味着**通讯录站点需要有和人人网页面一样的信任级别**。人人网这个社交站点需要信任每一个请求，或者为我们过滤（应该指：一个一个指定）。但是，使用渠道通信(MessageChannel)，通讯录站点(http://address.com)和游戏站点(http://game.com)可以直接沟通。
+
+主页面的js代码如下:
+```js
+// 监听从右侧框架传来的信息
+window.addEventListener('message', function(evt) {
+    if (evt.origin == 'http://www.zhangxinxu.com') {
+        if ( evt.ports.length > 0 ) {
+            // 将端口转移到其他iframe文档
+            window.frames[0].postMessage('端口打开','http://www.zhangxinxu.com', evt.ports);
+        }
+    }    
+}, false);
+```
+
+左侧iframe的内容如下:
+```js
+var eleForm = document.querySelector("form"), port;
+eleForm.onsubmit = function() {
+    var message = document.querySelector("input[type='text']").value;
+    if (port === undefined) {
+        alert('信息发送失败，目前没有可用端口！');
+    } else {
+        port.postMessage(message);
+    }
+    return false;    
+};
+window.addEventListener('DOMContentLoaded', function(e) {
+    window.addEventListener('message', function(evt) {
+        // 扩大端口范围，该iframe接受到port后保存下来用于和其他iframe通信
+        if (evt.origin == 'http://www.zhangxinxu.com') {
+            port = evt.ports[0];
+        } else {
+            alert(evt.origin +'这厮我不认识哈！');
+        }    
+    }, false);
+    window.parent.postMessage('发送页加载完毕', 'http://www.zhangxinxu.com');
+} ,false);
+```
+
+而右侧iframe的代码如下:
+```js
+var eleBox = document.querySelector("#message");
+var messageHandle = function(e) {
+    eleBox.innerHTML = '接受到的信息是：' + e.data;
+};
+window.addEventListener('DOMContentLoaded', function() {
+    if (window.MessageChannel) {
+        // 创建一个新的 MessageChannel 对象
+        var mc = new MessageChannel();
+        // 给父级发送一个端口,这个端口会通过父级转发给其他的iframe
+        // 进而实现两个iframe之间的直接通信
+        window.parent.postMessage('显示页加载完毕','http://www.zhangxinxu.com',[mc.port1]);
+        // 接受从其他iframe通过port1发送过来的消息，显示发送的信息
+        mc.port2.addEventListener('message', messageHandle, false);
+        mc.port2.start();
+    } else {
+        eleBox.innerHTML = '搞咩乃赛，您的浏览器不支持通道通信。';    
+    }
+}, false);
+```
+而其与postMessage的区别如下(来自于[stackoverflow](https://stackoverflow.com/questions/37539941/stuck-in-postmessage-and-messagechannel)):
+
+<pre>
+MessageChannel is basically a 2-way communication pipe. Think of it as an alternative to window.postMessage / window.onmessage - but a somewhat easier and more configurable.
+</pre>
+
+#### 12.nodejs中process.nextTick如何实现在浏览器中
+Nodejs中有一个process.nextTick方法用于在下次事件循环空闲的时候指定某个函数。浏览器端一般都用setTimeout(0)去实现该功能，但是setTimeout(0)并不会立即执行函数，而是依然会等待一定时间。即所谓的setTimeout的4ms延迟。而这可能会导致一定的性能问题。[作者](http://www.nonblocking.io/2011/06/windownexttick.html)使用了在worker，iframe,当前window中postMessag的方法来模拟尽快执行一个函数,最后得到结论:**在当前window中postMessage是模拟process.nextTick的最佳方法**。每一种方式的代码实现如下:
+```js
+var echoSetTimeout = (function() {
+    return function(msg, cb) {
+      setTimeout(cb, 0);
+    }
+  })();
+ /**
+  * https://www.cnblogs.com/zoho/archive/2012/05/27/2520468.html
+  * 利用 W3C 草案中的 Blob，我们有了新的方法来保存本地文件
+  *
+  * echoWorker(payload.shortString, function resolve() {
+  *  deferred.resolve();
+  * });
+  */
+  var echoWorker = (function() {
+    var code = 'onmessage = function(e) { postMessage(e.data) };';
+    var blobBuilder = window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder;
+    if(!blobBuilder) {
+      return echoSetTimeout;
+      // 直接返回setTimeout(0)
+    }
+    var bb = new (blobBuilder)();
+    bb.append(code);
+    var blobURL = (window.URL || window.webkitURL || window.mozURL).createObjectURL(bb.getBlob());
+    // 得到blockURL类型并创建worker对象
+    var worker = new Worker(blobURL);
+    // 主页面调用worker.postMessage通知worker，并通过worker.onmessage监听worker发送过来的数据
+    return function(msg, cb) {
+      worker.onmessage = cb;
+      worker.postMessage(msg);
+    };
+  })();
+
+  /**
+   * iframe设置postMessage方式，给iframe传递一个消息并在主页面监听window.onmessage事件
+   *
+   * 调用方式如下:
+   *
+   * echoIFramePostMessage(payload.shortString, function resolve() {
+   *  deferred.resolve();
+   * });
+   */
+  var echoIFramePostMessage = (function() {
+    var iframe = document.createElement('iframe');
+    window.onload = function() {
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      iframe.contentDocument.write('<html><head><script>onmessage = function(e) { e.source.postMessage(e.data, \'*\') };<'+'/script><'+'/head><'+'/html>');
+    };
+    return function(msg, cb) {
+      window.onmessage = cb;
+      iframe.contentWindow.postMessage(msg, '*');
+    };
+  })();
+  /**
+   * postMessage方式，在当前window上绑定即可
+   */
+  var echoPostMessage = (function() {
+    return function(msg, cb) {
+      async = false;
+      window.onmessage = cb;
+      window.postMessage(msg, '*');
+      async = true;
+    };
+  })();
+  var payload = {
+    shortString: 'test',
+    simple: {
+      foo: "bar",
+      arr: []
+    }
+  };
+```
+
+#### 13.浏览器中process.nextTick兼容
+下面是[Q](https://github.com/kriskowal/q/blob/v1/q.js#L101)这个库实现的process.nextTick，感觉有很多干货、该方法用于在下一次事件循环的时候尽快执行某一个任务:
+```js
+// Use the fastest possible means to execute a task in a future turn
+// of the event loop.
+var nextTick =(function () {
+    // linked list of tasks (single, with head node)
+    var head = {task: void 0, next: null};
+    var tail = head;
+    var flushing = false;
+    var requestTick = void 0;
+    var isNodeJS = false;
+    // queue for late tasks, used by unhandled rejection tracking
+    var laterQueue = [];
+    function flush() {
+        var task, domain;
+        while (head.next) {
+            head = head.next;
+            task = head.task;
+            // task表示当前任务,next表示下一个任务
+            head.task = void 0;
+            domain = head.domain;
+            if (domain) {
+                head.domain = void 0;
+                domain.enter();
+                // 设置活动态的domain
+            }
+            // head.task和head.domain都会被重置为空
+            runSingle(task, domain);
+            // 拿着task和head.domain执行runSingle方法
+        }
+        // 执行指定的对象
+        while (laterQueue.length) {
+            task = laterQueue.pop();
+            runSingle(task);
+        }
+        flushing = false;
+    }
+    // runs a single function in the async queue
+    // 在异步队列里面执行单个函数
+    function runSingle(task, domain) {
+        try {
+            task();
+            // 直接执行某一个task
+        } catch (e) {
+            if (isNodeJS) {
+                // In node, uncaught exceptions are considered fatal errors.
+                // Re-throw them synchronously to interrupt flushing!
+                // 在Node中，uncaught exceptions是致命错误，同步抛出这个错误，防止继续调用flush方法
+                // Ensure continuation if the uncaught exception is suppressed
+                // listening "uncaughtException" events (as domains does).
+                // Continue in next event to avoid tick recursion.
+                if (domain) {
+                    domain.exit();
+                }
+                setTimeout(flush, 0);
+                if (domain) {
+                    domain.enter();
+                }
+                throw e;
+            } else {
+                // In browsers, uncaught exceptions are not fatal.
+                // Re-throw them asynchronously to avoid slow-downs.
+                // 在浏览器中，uncaught exceptions不是致命的，可以异步抛出这个错误
+                setTimeout(function () {
+                    throw e;
+                }, 0);
+            }
+        }
+        if (domain) {
+            domain.exit();
+        }
+    }
+    nextTick = function (task) {
+        // tail重新设置它的next值
+        tail = tail.next = {
+            task: task,
+            // 需要执行的task任务
+            domain: isNodeJS && process.domain,
+            // 当前活动态的domain，用于捕捉异常
+            next: null
+        };
+         // 如果不处于flushing状态，调用requestTick，其实就是最新的方式调用flush方法
+        if (!flushing) {
+            flushing = true;
+            requestTick();
+        }
+    };
+    if (typeof process === "object" &&
+        process.toString() === "[object process]" && process.nextTick) {
+        // 保证Q是真实的运行在Node环境中的，而且是存在process.nextTick方法的，下面是查找非真实的Node环境:
+        //(1)Mocha的测试:process全局变量是不存在nextTick的
+        //(2)Browserify测试:通过setTimeout的方式实现了一个process.nextTick,此时setImmediate要早于setTimeout
+        //   同时Browserify的`process.toString()`是`[object Object]`而真实的Node环境中输出的是`[object process]`
+        // * Browserify - exposes a `process.nexTick` function that uses
+        isNodeJS = true;
+        // 是在Nodejs执行环境中
+        requestTick = function () {
+            process.nextTick(flush);
+        };
+    } else if (typeof setImmediate === "function") {
+        // In IE10, Node.js 0.9+, or https://github.com/NobleJS/setImmediate
+        // 通过MessageChannel,postMessage,onreadystatechange使得脚本比setTimeout(0)更加高效的执行
+        // In a manner that is typically more efficient and consumes less power than the usual setTimeout(..., 0) pattern
+        if (typeof window !== "undefined") {
+            requestTick = setImmediate.bind(window, flush);
+        } else {
+            requestTick = function () {
+                setImmediate(flush);
+            };
+        }
+    } else if (typeof MessageChannel !== "undefined") {
+        // 测试结果是在在当前页面postMessage的函数最快执行(比iframe等都快)
+        // http://www.nonblocking.io/2011/06/windownexttick.html
+        // https://jsperf.com/postmessage
+        var channel = new MessageChannel();
+        // At least Safari Version 6.0.5 (8536.30.1) intermittently(间歇性的) cannot create
+        // working message ports the first time a page loads.
+        // 监听onmessage并初次调用flush方法
+        channel.port1.onmessage = function () {
+            requestTick = requestPortTick;
+            channel.port1.onmessage = flush;
+            flush();
+        };
+        var requestPortTick = function () {
+            // Opera requires us to provide a message payload, regardless of
+            // whether we use it.
+            // Opera要求我们首次调用postMessage方法并提供一个参数，不管我们是否使用它
+            channel.port2.postMessage(0);
+        };
+        requestTick = function () {
+            setTimeout(flush, 0);
+            // setTimeout(0)期间channel.port1.onmessage可能已经触发，此时requestTick已经被重置为空
+            //  channel.port1.onmessage = flush调用flush方法
+            requestPortTick();
+        };
+    } else {
+        // old browsers
+        // 老版本的浏览器直接调用setTimeout(0)执行代码
+        requestTick = function () {
+            setTimeout(flush, 0);
+        };
+    }
+    // runs a task after all other tasks have been run
+    // this is useful for unhandled rejection tracking that needs to happen
+    // after all `then`d tasks have been run.
+    // 当所有的task已经执行完毕后再执行该task，其常用于追踪unhandled rejection，这些unhandled rejection
+    // 当所有的then指定的microtask执行完毕以后调用
+    nextTick.runAfter = function (task) {
+        laterQueue.push(task);
+        if (!flushing) {
+            flushing = true;
+            requestTick();
+        }
+    };
+    // nextTick的runAfter方法模拟microtask
+    return nextTick;
+})();
+```
+关于domain模块的使用你可以[查看这里](../others/nodejs-QA/node-core/domain.md)
+
+
+
+
+
+
+
 
 
 参考资料:
@@ -1074,3 +1388,11 @@ target.addEventListener(type, listener[, options]);
 [层叠上下文 Stacking Context](http://web.jobbole.com/83409/)
 
 [移动端Web界面滚动性能优化: Passive event listeners](http://blog.csdn.net/shenlei19911210/article/details/70198771)
+
+[HTML5 postMessage iframe跨域web通信简介](http://www.zhangxinxu.com/wordpress/2012/02/html5-web-messaging-cross-document-messaging-channel-messaging/)
+
+[Messing with MessageChannel](https://blog.humphd.org/messing-with-messagechannel/)
+
+[NonBlocking.io - Malte Ubl's Asynchronous Identity Disorder](http://www.nonblocking.io/2011/06/windownexttick.html)
+
+[setImmediate.js](https://github.com/YuzuJS/setImmediate)
