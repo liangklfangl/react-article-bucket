@@ -54,7 +54,7 @@ while(true){
 ```
 #### 2.浏览器的事件循环深入详解（Event Loop）？
 ##### 2.1 浏览器事件循环详解
-一个事件循环有一个或者多个任务队列（task queues）。任务队列是task的有序列表，这些task是以下工作的对应算法：`Events(比如下面的例子中的click事件的触发就是Task)`，Parsing，Callbacks，Using a resource，Reacting to DOM manipulation。
+一个事件循环有一个或者多个任务队列（task queues）。任务队列是task的有序列表，这些task是以下工作的对应算法：`Events(比如下面的例子中的click事件的触发就是Task)`，Parsing，Callbacks，Using a resource，Reacting to DOM manipulation,setImmediate(setImmediate.js), MessageChannel,window.postMessage，setTimeout,setInterval[等等](https://segmentfault.com/a/1190000008589736)。
 
 每一个任务都来自一个特定的`任务源`（task source）。所有来自一个特定任务源并且属于特定事件循环的任务，通常必须被加入到同一个任务队列中，但是来自不同任务源的任务可能会放在不同的任务队列中。
 

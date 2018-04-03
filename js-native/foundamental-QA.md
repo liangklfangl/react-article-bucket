@@ -1336,11 +1336,75 @@ var nextTick =(function () {
 ```
 关于domain模块的使用你可以[查看这里](../others/nodejs-QA/node-core/domain.md)
 
-#### 15.postMessage与macrotask
+#### 15.Vue中的nextTick实现
+首先我们看看Vue中的[nextTick](https://segmentfault.com/a/1190000008589736)实现:
+```js
+export const nextTick = (function () {
+  var callbacks = []
+  var pending = false
+  var timerFunc
+  function nextTickHandler () {
+    pending = false
+    // 之所以要slice复制一份出来是因为有的cb执行过程中又会往callbacks中加入内容
+    // 比如$nextTick的回调函数里又有$nextTick
+    // 这些是应该放入到下一个轮次的nextTick去执行的,
+    // 所以拷贝一份当前的,遍历执行完当前的即可,避免无休止的执行下去
+    var copies = callbacks.slice(0)
+    callbacks = []
+    for (var i = 0; i < copies.length; i++) {
+      copies[i]()
+    }
+  }
+  /* istanbul ignore if */
+  // ios9.3以上的WebView的MutationObserver有bug，
+  //所以在hasMutationObserverBug中存放了是否是这种情况
+  if (typeof MutationObserver !== 'undefined' && !hasMutationObserverBug) {
+    var counter = 1
+    // 创建一个MutationObserver,observer监听到dom改动之后后执行回调nextTickHandler
+    var observer = new MutationObserver(nextTickHandler)
+    var textNode = document.createTextNode(counter)
+    // 调用MutationObserver的接口,观测文本节点的字符内容
+    observer.observe(textNode, {
+      characterData: true
+    })
+    // 每次执行timerFunc都会让文本节点的内容在0/1之间切换,
+    // 不用true/false可能是有的浏览器对于文本节点设置内容为true/false有bug？
+    // 切换之后将新值赋值到那个我们MutationObserver观测的文本节点上去
+    timerFunc = function () {
+      counter = (counter + 1) % 2
+      textNode.data = counter
+    }
+  } else {
+    // webpack attempts to inject a shim for setImmediate
+    // if it is used as a global, so we have to work around that to
+    // avoid bundling unnecessary code.
+    // webpack默认会在代码中插入setImmediate的垫片
+    // 没有MutationObserver就优先用setImmediate，不行再用setTimeout
+    const context = inBrowser
+      ? window
+      : typeof global !== 'undefined' ? global : {}
+    timerFunc = context.setImmediate || setTimeout
+  }
+  return function (cb, ctx) {
+    var func = ctx
+      ? function () { cb.call(ctx) }
+      : cb
+    callbacks.push(func)
+    // 如果pending为true, 就其实表明本轮事件循环中已经执行过timerFunc(nextTickHandler, 0)
+    if (pending) return
+    pending = true
+    //如果没有MutationObserver就用setImmediate方法 
+    timerFunc(nextTickHandler, 0)
+  }
+})()
+```
+我不是想要MO(MutationObserver)来帮我真正监听DOM更改，我只是想要一个异步API，用来在当前的同步代码执行完毕后，执行我想执行的异步回调。**timerFunc(nextTickHandler, 0)**相当于直接执行timerFunc进而修改了DOM节点，MutationObserver监听到了以后就会执行特定的回调。
 
+之所以要使用nextTick，是因为用户的代码当中是可能多次修改数据的，而每次修改都会同步通知到所有订阅该数据的watcher，而立马执行将数据写到DOM上是肯定不行的，那就只是把watcher加入数组。等到当前task执行完毕，**所有的同步代码已经完成**，那么这一轮次的数据修改就已经结束了，这个时候我可以安安心心的去将对监听到依赖变动的watcher完成数据真正写入到DOM上的操作，这样即使你在之前的task里改了一个watcher的依赖100次，我最终只会计算一次value、改DOM一次。一方面省去了不必要的DOM修改，另一方面将DOM操作聚集，可以提升DOM Render效率。
 
+那么为什么不适用Macrotask呢?如果nextTick使用的是microtask，那么在task执行完毕之后就会立即执行所有microtask，那么flushBatcherQueue（真正修改DOM）便得以在此时立即完成，而后，当前轮次的microtask全部清理完成时，执行UI rendering，把重排重绘等操作真正更新到DOM上。
 
-
+如果nextTick使用的是task，那么会在当前的task和所有microtask执行完毕之后才在**以后的某一次task执行过程中处理flushBatcherQueue**，那个时候才真正执行各个指令的修改DOM操作，但那时为时已晚，错过了多次触发重绘、渲染UI的时机。而且浏览器内部为了更快的响应用户UI，内部可能是有多个task queue的。
 
 
 
@@ -1398,3 +1462,7 @@ var nextTick =(function () {
 [NonBlocking.io - Malte Ubl's Asynchronous Identity Disorder](http://www.nonblocking.io/2011/06/windownexttick.html)
 
 [setImmediate.js](https://github.com/YuzuJS/setImmediate)
+
+[Vue源码详解之nextTick：MutationObserver只是浮云，microtask才是核心！](https://segmentfault.com/a/1190000008589736)
+
+[Vue.js 升级踩坑小记 ](https://www.imooc.com/article/21499)
