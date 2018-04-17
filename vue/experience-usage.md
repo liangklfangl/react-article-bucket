@@ -200,3 +200,62 @@ methods:{
 }
 ```
 这样不需要使用localStorage就可以直接完成页面后退的功能了，而不用判断上一次的路由来源。只要操作的时候修改URL，然后从URL中读取参数并查询，没有参数的话直接传入**-1表示直接进入而不是浏览器后退**。当然上面的重复代码应该提取到公共的函数，此处不再赘述。关于replace的用法你可以[参考这个文档](https://router.vuejs.org/zh-cn/essentials/navigation.html)。
+
+#### 3.Vue中使用布尔值控制显示与隐藏
+```js
+// 默认cfg.disableAlgorithm为true
+<el-checkbox label="2" :disabled="cfg.disableAlgorithm">算法实时投放<\/el-checkbox>
+```
+下面是对变量进行监听:
+```js
+watch: {
+      'cfg.freq': function(cur, prev) {
+          if (cur == 1) {
+              this.cfg.disableAlgorithm = true;
+          } else {
+              this.cfg.disableAlgorithm = false;
+          }
+      }
+  }
+```
+主要在于使用:disable，而不能是disabled="cfg.disableAlgorithm",因为**后者是字符串了**。
+
+#### 4.Vue-cli中proxy代理不生效
+修改build/dev-server.js，添加如下代码:
+```js
+var proxyMiddleware = require("http-proxy-middleware");
+var devMiddleware = require("webpack-dev-middleware")(compiler, {
+  publicPath: webpackConfig.output.publicPath,
+  quiet: true
+});
+var hotMiddleware = require("webpack-hot-middleware")(compiler, {
+  log: () => {}
+});
+// handle fallback for HTML5 history API
+app.use(require("connect-history-api-fallback")());
+app.use(
+  "/",
+  proxyMiddleware(["/baoluo/**", "/hotkeywords/**"], {
+    // target: "http://30.55.144.240:7001",
+    // target: "http://10.101.16.16:80/",
+    target:"http://test.heyi.test",
+    changeOrigin: true
+  })
+);
+// 是不是代理服务器10.101.16.16
+// 在devMiddeleware,hotMiddleware之前
+// serve webpack bundle output
+app.use(devMiddleware);
+// enable hot-reload and state-preserving
+// compilation error display
+app.use(hotMiddleware);
+```
+而且http-proxy-middleware必须在webpack-hot-middleware和webpack-dev-middleware之前。这一点是测试的时候验证的，至少在我的情况下是这样的。而对于代理的http-proxy-middleware第一个参数可以是一个数组的。之所以会想到上面的方式是因为修改proxyTable并没有生效:
+```js
+proxyTable: {
+  '/hotkeywords/query': {
+    target: 'http://30.55.144.240:7001/',
+    changeOrigin: true
+  }
+},
+```
