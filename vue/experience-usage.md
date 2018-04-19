@@ -259,3 +259,100 @@ proxyTable: {
   }
 },
 ```
+
+#### 4.el-table默认选中之toggleRowSelection方法
+```js
+// 下面的toggleRowSelection必须通过$nextTick方法
+this.$nextTick(function() {
+  this.configureRowSelections(itemList);
+});
+// itemLists为所有的表格元素
+configureRowSelections(itemList) {
+  const ids = [45, 116];
+  const preSelections = itemList.filter((el, idx) => {
+      return ids.indexOf(el.id) != -1
+  });
+  //逐个调用
+  preSelections.forEach(el => {
+    this.$refs.scgAddTable.toggleRowSelection(el, true);
+  })
+},
+```
+从上面可以知道，toggleRowSelection必须**逐个调用**才行。
+
+#### 5.vue中的三目运算符
+在template中可以这么写:
+```html
+<i @click="archive(scope.row.id,scope.row.favorite)" :class="scope.row.favorite ? 'iconfont icon-star1' : 'iconfont icon-star'"><\/i>
+ <el-checkbox :value="!cfg.num ? false :true" style="margin-right:20px">配置</el-checkbox>
+```
+
+#### 6.el-tab获取到当前切换到的tab的id
+比如下面的值:
+```html
+ <el-tabs @tab-click="selectTab" v-model="selectedTab">
+      <el-tab-pane id="1" label="我收藏的" name="1"></el-tab-pane>
+      <el-tab-pane id="2" label="我添加的" name="2"></el-tab-pane>
+      <el-tab-pane id="0" label="全部" name="0"></el-tab-pane>
+  </el-tabs>
+```
+在@tab-click回调函数中可以如下处理:
+```js
+ selectTab: function(vu, evt) {
+      const { id } = vu.$el;
+      this.selectedTab = id;
+      this.$nextTick(function() {
+          this.onSearch();
+      });
+  },
+```
+即通过**vu.$el.id**获取到当前切换到tab页面!
+
+#### 7.vue的回调函数传入参数
+比如template可以如下方式书写:
+```html
+  <el-button type="primary" @click="showVideo(false)">添加</el-button>
+```
+这样showVideo函数中就可以获取到传递过去的值，这和React是不一样的，React的回调函数是不能直接通过showVideo()这种方式注册的，因为**它相当于直接调用**。
+
+#### 8.el-table需要格式化数据，比如日期
+```html
+ <template slot-scope="scope">
+      <p>
+          <span>{{ formatter(scope.row.gmtCreate)}}</span>
+          <br />
+          <span>{{formatter(scope.row.gmtModified)}}</span>
+      </p>
+  </template>
+```
+通过在methods里面定义一个函数formatter，这样可以通过**moment**来对时间进行格式化了!!!
+
+#### 9.vue中的{{}}符号可以写出运算
+比如下面的代码:
+```html
+ <template slot-scope="scope">
+    <p>
+        <span style="font-weight:bold">{{scope.row.used||0}}</span> /
+        <span style="font-weight:bold">{{scope.row.total||0 - scope.row.used||0}}</span>
+    </p>
+</template>
+```
+这样当scope.row.used或者scope.row.total为null等的时候就会显示0.
+
+#### 10.vue的回调函数中直接修改this中的值
+```html
+ <span slot="footer" class="dialog-footer">
+      <el-button @click="dialogVisible = false">取 消</el-button>
+      <el-button type="primary" @click="submitScgCfg">确 定</el-button>
+  </span>
+```
+比如上面的@click回调函数就直接设置**dialogVisible = false**。
+
+#### 11.vue模板中设置disable的值
+```html
+ <el-radio-group v-model="cfg.audit">
+      <el-radio :label="1" :disabled="!cfg.isAudit">自动过审</el-radio>
+      <el-radio :label="0">提交待审</el-radio>
+  </el-radio-group>
+```
+这样当cfg.isAudit的值为false的时候，自动过审选项将不能选择。

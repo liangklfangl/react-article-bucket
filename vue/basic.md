@@ -1461,7 +1461,73 @@ mixin中methods的sayHello被组件的sayHello覆盖了，而mounted**生命周�
 #### 27.Vue中$attr,$props
 attrs指的是那些没有被声明为props的属性，所以在渲染函数中还需要添加props参数。
 
+#### 28.Vue的css的scoped
+##### 28.1 子组件的根元素
+子组件的根元素使用scoped后，父组件的样式将不会渗透到子组件中。不过一个子组件的根节点会**同时受其父组件有作用域的CSS和子组件有作用域的CSS的影响**。这样设计是为了让父组件可以从布局的角度出发，调整其子组件根元素的样式。这里给出一个例子:
+```html
+<el-dialog title="请选择要导入的视频类型SCG" :visible.sync="dialogVisible" width="100%" :before-close="scgHandleClose"/>
+<!-- 我的页面使用了el-dialog -->
+```
+同时我希望修改el-dialog的宽度:
+```html
+<style lang='less' scoped>
+#new_tab_bl .el-dialog--small {
+    width: 70%;
+}
+</style>
+```
+因为我使用了scoped，所以按理来说el-dialog组件不会受到我页面的影响，但是我们看看DOM结构:
 
+![](./images/scope.png)
+
+此时我的页面的最外层的元素的id为new_tab_bl，而el-dialog的最外层元素也被添加了属性**data-v-ecefc6ca**，这就是上面说的**子组件的根节点同时受其父组件有作用域的CSS和子组件有作用域的CSS的影响**。所以el-dialog的最外层的class其实会被编译为:
+```css
+.el-dialog__wrapper[data-v-ecefc6ca]{
+}
+```
+而如果你仔细观察，你会发现，当前页面所有的自定义元素(除了子组件以外)都会被添加data-v-ecefc6ca这个值。我好奇的看了上面的css编译后的值:
+```css
+#new_tab_bl .el-dialog--small[data-v-ecefc6ca] {
+  width: 70%;
+  border: 2px solid red;
+}
+```
+我们这里的层级选择器，最后作用到的元素为.el-dialog--small[data-v-ecefc6ca]，而这个元素根本不存在，所以不会生效(因为被加上了**data-v-ecefc6ca**)!然而，如果写出这样的代码(子级元素的最外层元素)是可以影响到子级元素的:
+```css
+#new_tab_bl{
+  /*直接作用于父级元素*/
+    .el-dialog__wrapper{
+        border:2px solid blue;
+    }
+}
+```
+
+
+##### 28.2 深度作用选择器
+如果你希望scoped样式中的一个选择器能够作用得“更深”，例如影响子组件，你可以使用 >>> 操作符：
+```html
+<style scoped>
+.a >>> .b {}
+</style>
+```
+上述代码将会编译成：
+```css
+.a[data-v-f3f3eg9] .b { }
+```
+有些像Sass之类的预处理器无法正确解析>>>。这种情况下你可以使用/deep/操作符取而代之——这是一个 >>> 的别名，同样可以正常工作。
+
+##### 28.3 动态生成的内容
+通过v-html创建的DOM内容不受作用域内的样式影响，但是你仍然可以通过深度作用选择器来为他们设置样式。
+```html
+<div v-html="html"></div>
+```
+v-html指令用于更新元素的innerHTML 。注意：内容按普通HTML插入 - 不会作为Vue模板进行编译 。如果试图使用v-html组合模板，可以重新考虑是否通过使用组件来替代。
+
+
+##### 28.4 还有一些要留意
+CSS作用域不能代替class。考虑到浏览器渲染各种CSS选择器的方式，当p{ color: red } **设置了作用域时(即与特性选择器组合使用时)会慢很多倍**。如果你使用class或者id取而代之，比如 .example { color: red }，**性能影响就会消除**。你可以在这块[试验田中](https://stevesouders.com/efws/css-selectors/csscreate.php)测试它们的不同。
+
+在递归组件中小心使用后代选择器! 对选择器.a .b 中的CSS 规则来说，如果匹配 .a 的元素包含一个递归子组件，则所有的子组件中的 .b 都将被这个规则匹配。
 
 
 参考资料:
@@ -1481,3 +1547,5 @@ attrs指的是那些没有被声明为props的属性，所以在渲染函数中�
 [Vue中的mixins思考](https://juejin.im/entry/595ba0ebf265da6c30652036)
 
 [在Vue.js中使用Mixin —— CSS-Tricks](http://zcfy.cc/article/using-mixins-in-vue-js-css-tricks-3257.html)
+
+[有作用域的 CSS](https://vue-loader.vuejs.org/zh-cn/features/scoped-css.html)
