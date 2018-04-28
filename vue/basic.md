@@ -1530,6 +1530,12 @@ CSS作用域不能代替class。考虑到浏览器渲染各种CSS选择器的方
 在递归组件中小心使用后代选择器! 对选择器.a .b 中的CSS 规则来说，如果匹配 .a 的元素包含一个递归子组件，则所有的子组件中的 .b 都将被这个规则匹配。
 
 
+#### 29.el-icon展示不出来
+记得要加上font-size才行:
+```html
+ <i style="width:10px;height:10px;border:1px solid red;font-size:12px" class="el-icon-question"></i>
+```
+
 参考资料:
 
 [Vue.js 定义组件模板的七种方式](https://www.w3cplus.com/vue/seven-ways-to-define-a-component-template-by-vuejs.html)

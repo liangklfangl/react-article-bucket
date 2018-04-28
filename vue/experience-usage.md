@@ -356,3 +356,57 @@ configureRowSelections(itemList) {
   </el-radio-group>
 ```
 这样当cfg.isAudit的值为false的时候，自动过审选项将不能选择。
+
+#### 12.vue中设置互斥的el-checkbox组/按钮组
+比如下面的图:
+![](./images/exclude.png)
+
+假如我选择了"突发全量(值为1)"就不能选择前面的任意一个checkbox，此时我的代码逻辑如下:
+```js
+data:function(){
+  return {
+     hasOne: false,
+     // 表示是否选中了值为1的checkbox,因为有两种情况需要区分
+     // 情况1:先选中了前面，然后选择的1
+     // 情况2:先选中了1，后选中的前面的
+     cfg:[
+         {typeOption:[]}
+      ]
+  }
+}
+```
+在created里面默认设置:
+```js
+ created:function(){
+  this.hasOne = typeOption.indexOf('1') != -1
+ }
+```
+
+```js
+optimalChange: function(val, fuck) {
+    // 含有突发全量
+    if (!!~val.indexOf(1)) {
+        this.cfg[0].typeOption = [1];
+        // 如果前一次没有1,那么这次选中了1的时候要把值设置为1
+        if (this.hasOne) {
+            //如果前一次已经选择过了1，那么这次的选择要清空1
+            this.cfg[0].typeOption = val.filter(el => {
+                return el != 1;
+            })
+        }
+        this.hasOne = true;
+    } else {
+        this.hasOne = false;
+        this.cfg[0].typeOption = val;
+    }
+}
+```
+下面是vue的template:
+```html
+ <el-checkbox-group @change="optimalChange" v-model="cfg[0].typeOption">
+    <span class="text"> 优化选项:</span>
+    <el-checkbox :label="4">日活保护</el-checkbox>
+    <el-checkbox :label="2">低活保护</el-checkbox>
+    <el-checkbox :label="1">突发全量</el-checkbox>
+</el-checkbox-group>
+```

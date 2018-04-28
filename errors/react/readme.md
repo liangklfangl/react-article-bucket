@@ -152,3 +152,17 @@ Trigger.render(): A valid React element (or null) must be returned. You may have
 
 **开发者必须在js中import本地安装的React,ReactDOM,然后我自己使用expose-loader并挂载到window上，这样全局的React,ReactDOM就一定是你本地的版本。Everything is Done!**
 
+##### 5.为DOM赋值
+比如下面的错误:
+<pre>
+ERROR in ./src/page/iron-man-lottery2/index.js
+Module build failed: SyntaxError: /Users/qinliang.ql/Desktop/year-card-lottery/src/page/iron-man-lottery2/index.js: Assigning to rvalue (1562:10)
+         if(isCorrect){
+          //  猜对了
+          document.getElementById(`vote_${el}`)= `url(${correct})`;
+         }else{
+          // 猜错了
+          document.getElementById(`vote_${el}`)= `url(${uncorrect})`;
+    at Parser.pp.raise (/Users/qinliang.ql/Desktop/year-card-lottery/node_modules/_babylon@5.8.38@babylon/lib/parser/location.js:24:13)
+</pre>
+很显然这里的错误原因是我**直接给DOM赋值了**!
