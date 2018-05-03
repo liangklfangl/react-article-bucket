@@ -383,23 +383,29 @@ data:function(){
 ```
 
 ```js
-optimalChange: function(val, fuck) {
-    // 含有突发全量
-    if (!!~val.indexOf(1)) {
-        this.cfg[0].typeOption = [1];
-        // 如果前一次没有1,那么这次选中了1的时候要把值设置为1
-        if (this.hasOne) {
-            //如果前一次已经选择过了1，那么这次的选择要清空1
-            this.cfg[0].typeOption = val.filter(el => {
-                return el != 1;
-            })
-        }
-        this.hasOne = true;
-    } else {
-        this.hasOne = false;
-        this.cfg[0].typeOption = val;
-    }
-}
+optimalChange: function(val) {
+  // 含有突发全量
+  if (!!~val.indexOf(1)) {
+      this.cfg[0].typeOption = [1];
+      if (this.hasOne) {
+          // 已经选择过了突发全量了
+          this.cfg[0].typeOption = val.filter(el => {
+              return el != 1;
+          })
+          this.hasOne = false;
+      } else {
+          if (this.cfg[0].typeOption.indexOf(1) == -1) {
+              this.cfg[0].typeOption.push(1);
+          }
+          // 前一次没有1，那么插入1
+          this.hasOne = true;
+      }
+  } else {
+      this.hasOne = false;
+      this.cfg[0].typeOption = val;
+  }
+  console.log('设置后为===', this.cfg[0].typeOption);
+  }
 ```
 下面是vue的template:
 ```html
@@ -410,3 +416,88 @@ optimalChange: function(val, fuck) {
     <el-checkbox :label="1">突发全量</el-checkbox>
 </el-checkbox-group>
 ```
+
+#### 13.[emoji-picker](https://github.com/OneSignal/emoji-picker)屏蔽某一个表情
+上次从服务端接受一个前端项目，遇到类型为relax的emoji在编辑的时候不能正常显示，找过了很多方法最后也没有查到具体的问题。最后采用了一个极端暴力的方法:将这个emoji去掉,即修改他的load方法:
+```js
+// 每次切换面板都会重新load一次
+EmojiMenu.prototype.load = function(category) {
+    var html = [];
+    var options = $.emojiarea.icons;
+    var path = $.emojiarea.assetsPath;
+    var self = this;
+    if (path.length && path.charAt(path.length - 1) !== "/") {
+      path += "/";
+    }
+    var updateItems = function() {
+      self.$items.html(html.join(""));
+    };
+    if (category > 0) {
+      for (var key in options) {
+        // 这里做了处理，如果是:relaxed的emoji直接隐藏掉
+        // category>0表示不是经常使用的面板
+        var is = key == ":relaxed:" ? true : false;
+        if (options.hasOwnProperty(key) && options[key][0] === category - 1) {
+          if (is) {
+            html.push(
+              '<a style="display:none" href="javascript:void(0)" title="' +
+                util.htmlEntities(key) +
+                '">' +
+                EmojiArea.createIcon(options[key], true) +
+                '<span class="label">' +
+                util.htmlEntities(key) +
+                "</span></a>"
+            );
+          } else {
+            html.push(
+              '<a href="javascript:void(0)" title="' +
+                util.htmlEntities(key) +
+                '">' +
+                EmojiArea.createIcon(options[key], true) +
+                '<span class="label">' +
+                util.htmlEntities(key) +
+                "</span></a>"
+            );
+          }
+        }
+      }
+      updateItems();
+    } else {
+      ConfigStorage.get("emojis_recent", function(curEmojis) {
+        curEmojis = curEmojis || defaultRecentEmojis || [];
+        var key, i;
+        for (i = 0; i < curEmojis.length; i++) {
+         // 这里做了处理，如果是:relaxed的emoji直接隐藏掉
+          var is = util.htmlEntities(key) == ":relaxed:";
+          key = curEmojis[i];
+          if (options[key]) {
+            if (is) {
+              html.push(
+                '<a href="javascript:void(0)" title="' +
+                  util.htmlEntities(key) +
+                  '">' +
+                  EmojiArea.createIcon(options[key], true) +
+                  '<span class="label">' +
+                  util.htmlEntities(key) +
+                  "</span></a>"
+              );
+            } else {
+              html.push(
+                '<a href="javascript:void(0)"  title="' +
+                  util.htmlEntities(key) +
+                  '">' +
+                  EmojiArea.createIcon(options[key], true) +
+                  '<span class="label">' +
+                  util.htmlEntities(key) +
+                  "</span></a>"
+              );
+            }
+          }
+        }
+        updateItems();
+      });
+    }
+  };
+```
+修改后在"经常使用/emoji"面板都不会有relax的emoji了!
+

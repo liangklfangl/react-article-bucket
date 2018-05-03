@@ -104,14 +104,14 @@ ReactDOM.render(
   <Select labelInValue defaultValue={{ key: 'lucy' }} style={{ width: 120 }} onChange={handleChange}>
     <Option value="jack">Jack (100)</Option>
     <Option value="lucy">Lucy (101)</Option>
-  </Select>
+  <\/Select>
 , mountNode);
 ```
 此时每一个Option的value为我们需要的值，最终会作为`key`传入到onChange方法中。而Option中的文本会被原样传入到onChange方法作为label。所以onChange方法拿到的是key和label，而key为最终需要传递给服务端的数据。比如我的例子(需要传id到服务端):
 ```js
  <Option key={index}  name={data.positionTag + ""} value={data.id+""}>
      {data.positionTag}
-</Option>
+<\/Option>
 ```
 此时上传到上级组件的key就是我们需要的资源位id。下面是一个正常的设置(可以搜索，属性之间可能会干扰，下面的例子如果指定了mode='combox'会异常的):
 ```js
@@ -126,7 +126,7 @@ ReactDOM.render(
       onSearch={this.handleResourcePositionChange}
     >
       {this.state.options}
-    </Select>
+    <\/Select>
     )}
 >
 ```
@@ -151,7 +151,7 @@ export function generateRandomKey() {
 //下面是组件的一个字段
 {getFieldDecorator("exposureType", {
     initialValue: 0
-  })(<SingleAll key={generateRandomKey()} {...descriptorForm} />)}
+  })(<SingleAll key={generateRandomKey()} {...descriptorForm} \/>)}
 ```
 如果这个组件被多次渲染，虽然每次的key都是变化的，但是组件提交数据的时候一直拿着的是第一个key对应的React组件数据。而且你还要知道，虽然组件每次被重新渲染的时候defaultValue都是不一样的，但是实际的值`永远`是第一次的defaultValue的值。这就是组件存在多次render时候出现的defaultValue的`僵尸值`,比如下面的例子：
 ```js
@@ -216,7 +216,7 @@ const options = dataList.map((data, index) => {
     //(2)otherInfo表示我们需要传递到onSelect方法中的值
     <Option key={index} otherInfo={value}>
       {data.positionTag}
-   </Option>
+   <\/Option>
 ```
 
 ### antd组件resetFields将字段设置为initialValue
@@ -288,7 +288,7 @@ Warning: flattenChildren(...): Encountered two children with the same key, `.$un
         })}
       </Select>
     )}
-  </Col>
+  <\/Col>
 ```
 有可能的原因是:getFieldDecorator造成的问题
 
@@ -308,7 +308,7 @@ Warning: flattenChildren(...): Encountered two children with the same key, `.$un
 ### antd的二级表格无法滚动
 下面是expandRow的设置，必须设置了style和width才行，否则无法正常滚动。
 ```js
- constructor(props) {
+constructor(props) {
     super(props);
     this.clientWidth = "1200px";
   }
@@ -335,7 +335,7 @@ Warning: flattenChildren(...): Encountered two children with the same key, `.$un
         scroll={{ x: this.clientWidth }}
         dataSource={positionExposureList}
         pagination={false}
-      />
+      \/>
     );
   };
 ```
@@ -345,3 +345,44 @@ Warning: flattenChildren(...): Encountered two children with the same key, `.$un
 2.建议指定 scroll.x 为大于表格宽度的固定值或百分比。注意，且非固定列宽度之和不要超过scroll.x。
 </pre>
 
+
+### antd所有字段通过getFieldDecorator修饰的问题
+如果所有的表单字段都通过getFieldDecorator修饰过，那么当你一个字段改变需要重置某一个值的时候可以调用setFieldsValue:
+```js
+this.props.form.setFieldsValue({
+    showName: values.showName,
+    showCode: values.showCode,
+    showId: values.showId
+  });
+```
+但是,如果有一个自定义的组件通过getFieldDecorator修饰过，那么这个方法是无效的。于是我们可以采用重新设置一个key的方式来完成原有数据的清除，并结合EventEmitter来完成:
+```js
+const EventEmitter = {
+  events: {},
+  addListener(type, callback) {
+    if(this.events === undefined){
+      this.events = {}
+    }
+    !this.events[type] && (this.events[type] = []);
+    this.events[type].push(callback);
+  },
+  removeListener(type) {
+    this.events[type] && delete this.events;
+  },
+  trigger(type, data) {
+    if(!this.events[type]) {
+      return false;
+    }
+    this.events[type].forEach(func => {
+      func(data);
+    });
+  }
+};
+export default EventEmitter;
+```
+当某个字段改变后，触发一个事件，同时自定义组件能够接受到这个事件并重新设置一个key，进而完成原有数据的清除操作:
+```js
+<Select key={this.state.key} {...selectProps}>
+  {options}
+</Select>
+```
