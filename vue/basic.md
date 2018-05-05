@@ -1536,6 +1536,92 @@ CSS作用域不能代替class。考虑到浏览器渲染各种CSS选择器的方
  <i style="width:10px;height:10px;border:1px solid red;font-size:12px" class="el-icon-question"></i>
 ```
 
+#### 30.Vue中的事件修饰符
+比如上面例子的代码(可以通过ref设置值):
+```html
+<input class="newuser-input" type="text" @keydown.enter.prevent='addUser' ref='newuser' placeholder="New user..."></input>
+```
+于是决定仔细查看下[vue中的事件修饰符](https://cn.vuejs.org/v2/guide/events.html#%E4%BA%8B%E4%BB%B6%E4%BF%AE%E9%A5%B0%E7%AC%A6)。
+
+在事件处理程序中调用event.preventDefault() 或 event.stopPropagation() 是非常常见的需求。尽管我们可以在方法中轻松实现这点，但更好的方式是：**方法只有纯粹的数据逻辑，而不是去处理DOM 事件细节**。
+
+为了解决这个问题，Vue.js为v-on提供了事件修饰符。之前提过，修饰符是由**点开头的指令后缀**来表示的。
+
+<pre>
+.stop
+.prevent
+.capture
+.self
+.once
+</pre>
+
+```html
+<!-- 阻止单击事件继续传播 -->
+<a v-on:click.stop="doThis"></a>
+
+<!-- 提交事件不再重载页面 -->
+<form v-on:submit.prevent="onSubmit"></form>
+
+<!-- 修饰符可以串联 -->
+<a v-on:click.stop.prevent="doThat"></a>
+
+<!-- 只有修饰符 -->
+<form v-on:submit.prevent></form>
+
+<!-- 添加事件监听器时使用事件捕获模式 -->
+<!-- 即元素自身触发的事件先在此处处理，然后才交由内部元素进行处理 -->
+<div v-on:click.capture="doThis">...</div>
+
+<!-- 只当在 event.target是当前元素自身时触发处理函数 -->
+<!-- 即事件不是从内部元素触发的 -->
+<div v-on:click.self="doThat">...</div>
+```
+**注意**:使用修饰符时，**顺序很重要**;相应的代码会以同样的顺序产生。因此，用 v-on:click.prevent.self 会阻止所有的点击，而v-on:click.self.prevent只会阻止对元素自身的点击。下面我们对[两者做下区别](https://www.oschina.net/question/1785591_2273843):
+```html
+ <div @click="alert(1)">
+    <a href="/#" @click.prevent.self="alert(2)">
+      <div @click="alert(3)"></div>
+    </a>
+  </div>
+```
+点击内层div，会弹出3,1。不但阻止了alert(2)，**还阻止了a的默认跳转**。因为点击的时候会**先prevent**，阻止默认事件，阻止了跳转;然后判断是否是self，因为点击到的是内层div，所以不是self，阻止了alert(2)。而如果是下面的代码:
+```html
+<div @click="alert(1)">
+  <a href="/#" @click.self.prevent="alert(2)">
+    <div @click="alert(3)"></div>
+  </a>
+</div>
+```
+点击内层div，会弹出3,1,跳转到/#。只阻止了alert(2)。因为会先判断self，点击到内层div，不是self，所以不会执行click事件，就不会执行alert(2)。但是因为不是self,所以self.prevent无效 ，所以可以跳转。
+
+Vue还对addEventListener中的passive选项提供了[.passive 修饰符](../js-native/foundamental-QA.md)。
+```html
+<!-- 滚动事件的默认行为 (即滚动行为) 将会立即触发 -->
+<!-- 而不会等待 `onScroll` 完成  -->
+<!-- 这其中包含 `event.preventDefault()` 的情况 -->
+<div v-on:scroll.passive="onScroll">...</div>
+```
+这个.passive 修饰符尤其能够提升移动端的性能。
+
+**注意**:不要把.passive和.prevent一起使用，因为.prevent将会被忽略，同时浏览器可能会向你展示一个警告。请记住，.passive 会告诉浏览器你不想阻止事件的默认行为。
+
+#### 31.Vue中[.sync修饰符](https://cn.vuejs.org/v2/guide/components-custom-events.html#sync-%E4%BF%AE%E9%A5%B0%E7%AC%A6)
+.sync修饰符所提供的功能:**当一个子组件改变了一个prop的值时，这个变化也会同步到父组件中所绑定的值**。也就是说我们可以直接在需要传的prop后面加上.sync修饰符。
+```html
+<certificate-input :p_model.sync='pname'>
+</certificate-input>
+```
+它其实将会被扩展为如下的形式:
+```html
+<!-- p_model绑定的就是pname，@upate修改的也就是pname的值 -->
+<certificate-input  :p_model="pname" @update:p_model="val => pname= val"></certificate-input>
+```
+而在子组件中将会通过如下方式进行调用:
+```js
+this.$emit('update:p_model', val);
+```
+该例子可以[点击这里](https://www.jianshu.com/p/bf3bc4a9cd0d)。
+
 参考资料:
 
 [Vue.js 定义组件模板的七种方式](https://www.w3cplus.com/vue/seven-ways-to-define-a-component-template-by-vuejs.html)

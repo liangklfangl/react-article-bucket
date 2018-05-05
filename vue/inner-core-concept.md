@@ -189,8 +189,91 @@ export default {
 ```
 。不过这里展示的是基本的用法，如果要深入了解Vue高阶组件原理可以[点击](http://hcysun.me/2018/01/05/%E6%8E%A2%E7%B4%A2Vue%E9%AB%98%E9%98%B6%E7%BB%84%E4%BB%B6/)这里，该文章详细的说明了Vue组件的基本用法。
 
+#### 4.$attrs与$props作用
+#### 4.1 $attrs与$props作用
+过去我们在vue的父子组件传值的时候，我们先需要在**子组件上用props注册一些属性**：
+```html
+<template>
+    <div>
+        props:{{name}},{{age}} 或者 {{$props['name']}},{{$props['age']}}
+    </div>
+</template>
+```
+下面是js代码:
+```js
+export default{
+    props: ['name','age']
+}
+```
+然后父组件调用的时候当属性来传值:
+```html
+<child name="rick" :age="18"></child>
+```
+如果给child传**props没有注册的属性，我们就要用$attrs来取了**
+```html
+<child name="rick" :age="18" gender="male"></child>
+```
+下面是在子组件中获取props的值的两种方式，一种是使用$props，而另一种使用的是$attr(**子组件未声明**):
+```html
+<template>
+    <div>
+        props:{{name}},{{age}} 或者 {{$props['name']}},{{$props['age']}} 
+        <br>
+        attrs: {{$attrs['gender']}}  在$attrs里面只会有props没有注册的属性
+    </div>
+</template>
+```
+下面是js代码:
+```js
+export default{
+    props: ['name','age']
+}
+```
+当然这个$attrs是vue2.4才推出的，为了简化父组件和孙组件的传值。
 
+#### 4.2 $attrs简化父子组件传值
+下面是具体的组件设置代码:
+```js
+Vue.component('grand-child',{
+   props: [],
+   template:'<div>This is grand-child component!</div>'
+}); 
+Vue.component('child',{
+   props: ["gender"],
+  //可以获取到父组件通过v-bind="$attrs"绑定的值
+   mounted:function(){
+    console.log('组件挂载可以获取gender的值为',this.gender);
+  console.log('组件挂载可以获取this.$attrs的值为',this.$attrs);
+  console.log('组件挂载可以获取this.$props["gender"]的值为',this.$props['gender']);
+   },
+   template:'<div>This is child component!<grand-child/></div>'
+}); 
+//child组件里面使用了grand-child组件
+Vue.component('parent',{
+   props: [],
+   //parent组件使用的时候没有通过props设置应该传递的prop,但是可以通过$attrs获取
+   template:'<div>This is parent component!<br/><child v-bind="$attrs"/></div>'
+});
+//在实例化Vue之前要注册其他组件，从而在template里面可以使用其他组件
+new Vue({
+  el: '#app',
+  data: {
+    message: 'Hello Vue.js!'
+  }
+})
+```
+而template的代码如下:
+```html
+<div id="app">
+  <p>{{ message }}</p>
+  <parent gender="男" age="26"/>
+</div>
+```
+**注意**:在new Vue之前parent,child,grand-child都已经注册完成,因此可以在template里面直接使用这几个组件。上面例子的运行结果如下:
 
+![](./images/$attrs.png)
+
+parent组件传入了gender,age两个props，然后直接通过**v-bind="$attrs"**传递给child组件，而child组件声明了gender作为props,所以它可以直接获取到parent组件的值。源码可以[点击这里](./images/$attrs.vue)，而更多关于$attrs相关知识可以[点击这里](https://github.com/liangklfangl/react-article-bucket/blob/master/vue/inner-core-concept.md#32-%E5%AE%9E%E7%8E%B0vue%E9%AB%98%E9%98%B6%E7%BB%84%E4%BB%B6)。
 
 
 

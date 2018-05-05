@@ -501,3 +501,218 @@ EmojiMenu.prototype.load = function(category) {
 ```
 修改后在"经常使用/emoji"面板都不会有relax的emoji了!
 
+#### 14.使用[vue-treeselect](https://vue-treeselect.js.org/)实现tree-select单选逻辑
+```js
+data:function(){
+  return {
+    msgTypeEnum: [{
+                id: "1000",
+                label: 'pp',
+                children: [{
+                    id: "1000:4",
+                    label: 'xx'
+                }, {
+                    id: "1000:2",
+                    label: 'yy'
+                }, {
+                    id: "1000:1",
+                    label: 'ttt'
+                }]
+            }, {
+                id: "1001",
+                label: 'rrr',
+                children: [{
+                    id: "1001:4",
+                    label: 'ff'
+                }, {
+                    id: "1001:2",
+                    label: 'gg'
+                }, {
+                    id: "1001:1",
+                    label: 'ee'
+                }]
+            }, {
+                id: "1002",
+                label: 'gg',
+                children: [{
+                    id: "1002:2",
+                    label: 'uu'
+                }, {
+                    id: "1002:1",
+                    label: 'oo'
+                }]
+            }]
+  }
+}
+/**
+ * 取消选中某一个子级元素，如果是父级元素被取消选择，那么在msgTypeSelect中可以监听到，因为选中了另外一个
+ */
+msgTypeDeselect: function(value) {
+    const { id, label, children } = value;
+    const idx = this.searchTreeParams.indexOf(id);
+    const [msgType, typeOption] = id.split(':');
+    // 取消msgType和typeOption
+    // console.log('取消选中的值以及下标为', value, idx);
+    if (idx != -1) {
+        this.searchTreeParams.splice(idx, 1);
+    }
+    console.log('取消选中后的searchTreeParams==', this.searchTreeParams);
+},
+
+/**
+ * 取消选中某一个子级元素，如果是父级元素被取消选择，那么在msgTypeSelect中可以监听到，因为选中了另外一个
+ */
+msgTypeDeselect: function(value) {
+    const { id, label, children } = value;
+    const idx = this.searchTreeParams.indexOf(id);
+    const [msgType, typeOption] = id.split(':');
+    // 取消msgType和typeOption
+    const searchTreeParams = this.searchTreeParams;
+    if (idx != -1) {
+        this.searchTreeParams.splice(idx, 1);
+        // 如果你要取消选择的这个在数组里面，那么直接删除掉即可
+        console.log('searchTreeParams====', searchTreeParams);
+    }
+    console.log('取消选中后的searchTreeParams==', this.searchTreeParams);
+},
+
+/**
+ * 选中某一个
+ *  
+ */
+msgTypeSelect: function(cur) {
+const { id, label, children } = cur;
+        if (!children) {
+            //没有children表示是子级元素
+            const [msgType = '', typeOption = []] = id && id.split(':');
+            this.searchTreeParams = this.searchTreeParams.filter(el => {
+                const dot = el.indexOf(':');
+                if (dot != -1) {
+                    const [localMsgType, localOption] = el.split(':');
+                    if (localMsgType == msgType) {
+                        return true;
+                    }
+                } 
+                return false;
+            });
+            this.searchTreeParams.push(id);
+        } else {
+            // 选中的这个有子级
+            const childrenItems = this.msgTypeEnum.filter(el => {
+                return el.id == id;
+            })[0].children.reduce((prev, cur) => {
+                return prev.concat(cur.id);
+            }, []);
+            this.searchTreeParams = childrenItems;
+        }
+        console.log('选中后的searchTreeParams===', this.searchTreeParams);
+}
+```
+下面是vue的template的逻辑:
+```html
+ <treeselect style="width:370px;height:36px;" :limit="3" @select="msgTypeSelect" @deselect="msgTypeDeselect" placeholder="请选择消息类型" :openOnClick="true" :multiple="true" :options="msgTypeEnum" :value="searchTreeParams">
+ </treeselect>
+```
+最后的效果就是，tree-select的**最外层是单选的，而里面的子级选项是多选**的!
+
+#### 15.在radio-group切换之前弹出确认框
+在radio-group切换之前我们希望弹出确认框，用户**点击了确认后才真实切换，点击了取消后不会切换**。一开始使用的是v-model,最后发现v-model会立即导致值的变化从而无法在值变化之前进行拦截确认。最后修改为v-bind:
+```html
+ <el-radio-group @input="mockSendChange($event,arguments)" v-bind:value="mockSend" size="mini" style="position:relative;top:-10px;">
+      <el-radio :label="1">是</el-radio>
+      <el-radio :label="0">否</el-radio>
+  </el-radio-group>
+```
+下面是方法的代码:
+```js
+mockSendChange: function(value, arg) {
+  const h = this.$createElement;
+  // 切换到是的时候提示
+  if (value) {
+      this.$msgbox({
+          title: '消息',
+          message: h('p', null, [
+              h('span', null, ' '),
+              h('i', { style: 'color: red' }, '模拟发送不会真实发送，用于测试同学模拟全量发送')
+          ]),
+          showCancelButton: true,
+          showClose:false,
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          beforeClose: (action, instance, done) => {
+              if (action === 'confirm') {
+                  this.mockSend = value;
+                  // 点击确定设置为指定的值
+                  setTimeout(() => {
+                      done();
+                  })
+              } else {
+                  // 点击取消保持原来的值不变
+                  done();
+              }
+          }
+      }).then(action => {
+      });
+  } else {
+    // 切换到"否""不做提示
+    this.mockSend = value;
+  }
+}
+```
+这个例子有三点需要注意，第一点是使用了radio-group的**@input而不是[@change](https://github.com/ElemeFE/element/issues/3181)**事件:
+```js
+@input="mockSendChange($event,arguments)"
+```
+第二点使用$event可以传递参数,第三点是使用v-bind而不是v-model。
+
+#### 16.删除前二次确认的vue实现
+我们可以开发下面的组件:
+```js
+import Vue from "vue";
+Vue.component("confirmation-modal", {
+  // template: "#modal",
+  // 这种指定id的例子是如何使用的，必须在index.html中书写
+  props: ["open", "user"],
+  template: `
+      <div class="modal">
+          <div class="modal-window">
+              <p>你确定要删除
+                  <strong style="color:red">{{ user.name }}</strong> ?</p>
+              <div class="actions">
+                  <button class="cancel" @click="onCancel">取消</button>
+                  <button class="confirm" @click="onConfirm">确认</button>
+              </div>
+          </div>
+      </div>`,
+  methods: {
+      // confirmation-modal就是template渲染后的内容，点击取消或者确认的时候
+      // emit特定的事件
+      onConfirm() {
+          this.$emit("confirm");
+      },
+      onCancel() {
+          this.$emit("cancel");
+      }
+  }
+});
+```
+然后在template中按照如下方式来使用:
+```html
+<template>
+  <div id="app" v-cloak>
+      <!-- @keydown.enter.prevent用于阻止默认时间 -->
+      <input class="newuser-input" type="text" @keydown.enter.prevent='addUser' ref='newuser' placeholder="New user...">
+      <!-- 每一个用户点击的时候触发delete -->
+      <ul class="users">
+          <li v-for='u in users' :key='u.id' mode="out-in">{{u.name}}
+              <button class="deleteBtn" @click="confirmDelete(u)">x</button>
+          </li>
+      </ul>
+      <!-- confirmation-modal接受一个user和open参数，同时接受的事件为confirm和cancel事件，组件内部通过emit触发 -->
+      <confirmation-modal :user="selectedUser" v-if='confirmModal' @confirm='deleteUser' @cancel="cancelDelete"></confirmation-modal>
+      <button v-if="this.users.length > 2" @click="shuffle">Shuffle</button>
+  </div>
+</template>
+```
+在confirmation-modal这个子组件中我们通过@confirm和@cancel注册了两个事件，这样在子组件中通过**emit就能触发父组件事件**。完整的代码可以[点击这里](./source/confirm.vue),而具体效果可以[点击这里](https://codepen.io/blokche/pen/eWMrdN)。
+
