@@ -563,18 +563,33 @@ msgTypeDeselect: function(value) {
  * 取消选中某一个子级元素，如果是父级元素被取消选择，那么在msgTypeSelect中可以监听到，因为选中了另外一个
  */
 msgTypeDeselect: function(value) {
-    const { id, label, children } = value;
-    const idx = this.searchTreeParams.indexOf(id);
-    const [msgType, typeOption] = id.split(':');
-    // 取消msgType和typeOption
-    const searchTreeParams = this.searchTreeParams;
-    if (idx != -1) {
-        this.searchTreeParams.splice(idx, 1);
-        // 如果你要取消选择的这个在数组里面，那么直接删除掉即可
-        console.log('searchTreeParams====', searchTreeParams);
-    }
-    console.log('取消选中后的searchTreeParams==', this.searchTreeParams);
-},
+  const { id = "", label, children } = value;
+  const idx = this.searchTreeParams.indexOf(id);
+  const [msgType, typeOption] = id.split(':');
+  // 取消msgType和typeOption
+  const searchTreeParams = this.searchTreeParams;
+  const isLeaf = id.indexOf(":") != -1;
+  // 如果是叶子节点
+  
+  if (idx != -1 && isLeaf) {
+      this.searchTreeParams.splice(idx, 1);
+      // 如果你要取消选择的这个在数组里面，那么直接删除掉即可
+      console.log('searchTreeParams====', searchTreeParams);
+  } else {
+      // 是根节点，如1001,1002...要删除所有的根节点下的子节点
+      const childrenEls = this.msgTypeEnum.filter(el => {
+          return el.id == id;
+      })[0].children;
+
+      childrenEls.forEach(el=>{
+          const idx = this.searchTreeParams.indexOf(el.id);
+          if(idx!=-1){
+              this.searchTreeParams.splice(idx,1);
+          }
+      });
+  }
+  console.log('取消选中后的searchTreeParams==', this.searchTreeParams);
+}
 
 /**
  * 选中某一个
@@ -715,4 +730,20 @@ Vue.component("confirmation-modal", {
 </template>
 ```
 在confirmation-modal这个子组件中我们通过@confirm和@cancel注册了两个事件，这样在子组件中通过**emit就能触发父组件事件**。完整的代码可以[点击这里](./source/confirm.vue),而具体效果可以[点击这里](https://codepen.io/blokche/pen/eWMrdN)。
+
+#### 17.Vue为点击的按钮添加一个.active类
+比如下面是template的代码:
+```html
+ <div class="button_group item">
+  <el-button :class="selectedDTIdx==4 ? 'mega' : '' " @click="selectDT(4)">万象定向包</el-button>
+  <el-button :class="selectedDTIdx==2 ? 'mega' : '' " @click="selectDT(2)">上传UTDID号码包</el-button>
+  <el-button :class="selectedDTIdx==1 ? 'mega' : '' " @click="selectDT(1)">上传UID号码包</el-button>
+</div>
+```
+下面是selectDT的代码，主要是修改selectedDTIdx的值:
+```js
+selectDT: function(id) {
+  this.selectedDTIdx = id;
+}
+```
 

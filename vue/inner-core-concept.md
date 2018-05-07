@@ -243,8 +243,8 @@ Vue.component('child',{
   //可以获取到父组件通过v-bind="$attrs"绑定的值
    mounted:function(){
     console.log('组件挂载可以获取gender的值为',this.gender);
-  console.log('组件挂载可以获取this.$attrs的值为',this.$attrs);
-  console.log('组件挂载可以获取this.$props["gender"]的值为',this.$props['gender']);
+    console.log('组件挂载可以获取this.$attrs的值为',this.$attrs);
+    console.log('组件挂载可以获取this.$props["gender"]的值为',this.$props['gender']);
    },
    template:'<div>This is child component!<grand-child/></div>'
 }); 

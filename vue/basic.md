@@ -1622,6 +1622,70 @@ this.$emit('update:p_model', val);
 ```
 该例子可以[点击这里](https://www.jianshu.com/p/bf3bc4a9cd0d)。
 
+#### 32.Vue父子组件生命周期函数调用顺序
+该例子的完整代码[点击这里](./source/$parent.vue):
+```js
+Vue.component('child',{
+   props: ["age"],
+   beforeUpdate:function(){
+    console.log('子组件beforeUpdate被调用');
+   },
+   updated:function(){
+    console.log('子组件updated被调用');
+   },
+   mounted:function(){
+     console.log('子组件被挂载');
+   },
+   template:'<div>我是儿子,我父亲的年龄为<span style="color:red;font-weight:bold">{{age}}</span>!</div>'
+}); 
+
+Vue.component('parent',{
+   props: [],
+   mounted:function(){
+     console.log('父组件被挂载');
+   },
+   beforeUpdate:function(){
+    console.log('父组件beforeUpdate被调用');
+   },
+   updated:function(){
+    console.log('父组件updated被调用');
+   },
+   methods:{
+   //修改父组件的年龄
+     growOlder:function(){
+     this.age = this.age+1;
+   }
+   },
+   data:function(){
+     return {
+     age:48
+   }
+},
+template:`<div>我是父亲,我的年龄为<span style="color:red;font-weight:bold">{{age}}</span><br/><button @click="growOlder">又变老一岁</button><br/><child :age="age"/></div>`
+});
+new Vue({
+  el: '#app',
+  data: {
+    message: 'Hello Vue.js!'
+  }
+})
+```
+通过这个例子可以看到父子组件更新的顺序:
+
+![](./images/lifecycle.png)
+
+即:**子组件先挂载完成后父组件才挂载完毕,与父子组件的updated生命周期方法顺序一致。而beforeUpdate生命周期是父组件先调用然后子组件才调用**。
+
+#### 33.Vue中的this对象
+完整代码[点击这里](./source/this.vue)，下面是this内部的签名:
+
+![](./images/this.png)
+
+下面我们**主要对比下$slot与$slotScope**:
+
+https://gist.github.com/yyx990803/faebe22e8763f5b17572b35ed96f52fe
+https://cn.vuejs.org/v2/guide/components-slots.html
+
 参考资料:
 
 [Vue.js 定义组件模板的七种方式](https://www.w3cplus.com/vue/seven-ways-to-define-a-component-template-by-vuejs.html)
