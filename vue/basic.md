@@ -1681,16 +1681,162 @@ new Vue({
 
 ![](./images/this.png)
 
-下面我们**主要对比下$slot与$slotScope**:
+##### 33.1 对比$slot与$slotScope
+其实$slotScope扮演的是可复用的模板，这个模板可以接受传递过去的参数，而不是一个已经渲染好的元素。在子组件中，直接像普通prop语法一样在slot中使用即可:
+```js
+const Child = {
+  data () {
+    return { msg: 'hello from child' }
+  },
+  template: `
+    <div class="child">
+      <slot :text="msg"></slot>
+    </div>
+  `
+}
+```
+下面是父组件的代码,template的scope属性表明它是$slotScope的模板。而scope的值就是一个临时变量，其存储子级组件传给它的props对象:
+```js
+const Parent = {
+  components: { Child },
+  template: `
+    <div class="parent">
+      <child>
+        <template scope="props">
+          <span>hello from parent</span>
+          <span>{{ props.text }}</span>
+        </template>
+      </child>
+    </div>
+  `
+}
+```
+最终上面的组件将会渲染为如下的DOM结构:
+```html
+<div class="parent">
+  <div class="child">
+    <span>hello from parent</span>
+    <span>hello from child</span>
+  </div>
+</div>
+```
 
-https://gist.github.com/yyx990803/faebe22e8763f5b17572b35ed96f52fe
-https://cn.vuejs.org/v2/guide/components-slots.html
+##### 33.2 $slotScope的render方法表示
+上面的child方法用render方法的表示如下:
+```js
+const Child = {
+  data () {
+    return { msg: 'hello from child' }
+  },
+  render (h) {
+    return h('div', { class: 'child' }, [
+      // <slot :text="msg"></slot>
+      // 相当于上面的<slot/>指定
+      this.$scopedSlots.default({ text: this.msg })
+    ])
+  }
+}
+```
+而上面的Parent组件将会转化为如下:
+```js
+const Parent = {
+  render (h) {
+    return h('div', { class: 'parent' }, [
+      h(Child, {
+        // pass scopedSlots in the data object
+        // in the form of { name: props => VNode | Array<VNode> }
+        scopedSlots: {
+          // 这里的scopedSlots被命令为default即可
+          // scopedSlots其实质是一个函数
+          default: props => [
+            h('span', 'hello from parent'),
+            h('span', props.text)
+          ]
+        }
+      })
+    ])
+  }
+}
+```
+不管是那种方式:最后传递到子组件的都是一个模板,而至于模板最后被渲染为何种形式，全部是通过子组件自己传递的数据决定的!
+
+##### 33.3 $slotScope用于list组件
+可以对list中所有的元素**自定义组件渲染逻辑**:
+```html
+<ul>
+  <slot name="item"
+    v-for="item in items"
+    :text="item.text">
+    <!-- fallback content here -->
+    <!-- 打底渲染逻辑 -->
+  </slot>
+</ul>
+```
+list组件的模板如下:
+```html
+<my-awesome-list :items="items">
+  <!-- scoped slot can be named too -->
+  <!-- 父组件的scopeSlot -->
+  <template slot="item" scope="props">
+    <li class="my-fancy-item">{{ props.text }}</li>
+  </template>
+</my-awesome-list>
+```
+如果要将scopedSlot透传可以点击[这个文章](https://juejin.im/entry/590bec7fac502e006cdc99f1):
+```jsx
+render(h) {
+  let directives = [{
+      name: 'popper',
+      arg: 'selector',
+      modifiers: { click: true }
+  }];
+
+  return (
+      <div
+          class={{ 'v-select': true, 'is-open': this.isPopperShown, 'is-disabled': this.disabled }}>
+          <v-popper
+              ref="selector"
+              placement="bottom-start"
+              onVisibleChange={this.togglePopper}>
+              <v-select-list
+                  class="v-select__options"
+                  onChange={this.handleChange}
+                  multiple={this.multiple}
+                  value={this.currentValue}
+                  onInput={this.handleListInput}
+                  scopedSlots={{listItem: this.$scopedSlots.listItem}} >
+              </v-select-list>
+          </v-popper>
+          <div
+              class="v-select__header"
+              { ...{directives} }>
+              {
+                  this.currentIndex !== -1 && this.$scopedSlots.headItem ? this.$scopedSlots.headItem(this.current)
+                      : (<span>{this.currentText}</span>)
+              }
+              <v-icon
+                  class="v-select__header-arrow"
+                  name="v-arrow_dropdown">
+              </v-icon>
+          </div>
+      </div>)
+  }
+```
+(1)自身的scoped slot可以通过this.$scopedSlots对象获取，**默认就是default**，具名slot就是它的名字。本例为“listItem”；
+
+(2)如果不在标签上传递而是需要使用表达式传递，也可以通过this.$scopedSlots 对象。并且一个具体的**scoped slot对象其实就是一个函数**，其内部的scope可以在参数中传入。比如本例中的this.$scopedSlots.headItem(this.current)
+
+https://www.google.com.hk/search?q=vue%E4%B8%AD%E7%9A%84keep-alive&oq=vue%E4%B8%AD%E7%9A%84keep-alive&aqs=chrome..69i57j69i65j69i60l3j0.4250j0j4&sourceid=chrome&ie=UTF-8&gws_rd=cr,ssl
 
 参考资料:
 
 [Vue.js 定义组件模板的七种方式](https://www.w3cplus.com/vue/seven-ways-to-define-a-component-template-by-vuejs.html)
 
 [深入理解vue中的slot与slot-scope](https://segmentfault.com/a/1190000012996217)
+
+[scopedSlot官方文档](https://gist.github.com/yyx990803/faebe22e8763f5b17572b35ed96f52fe)
+
+[Vue组件开发实践之scopedSlot的传递](https://juejin.im/entry/590bec7fac502e006cdc99f1)
 
 [Vue中你不知道但却很实用的黑科技](https://div.io/topic/1880)
 

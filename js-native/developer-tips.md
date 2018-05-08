@@ -130,6 +130,23 @@ function getIframeWindow(iframeElement){
 ```
 当然上面的readFile也可以使用[readFileSync](https://nodejs.org/dist/latest-v9.x/docs/api/fs.html#fs_fs_readfilesync_path_options)来替换。
 
+#### 6.js通过download属性下载资源
+```js
+function download(filename, text) {
+  var element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+  element.setAttribute('download', filename);
+  element.style.display = 'none';
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+}
+// Start file download.
+download("hello.txt","This is the content of my file :)");
+```
+
+
+
 参考资料:
 
 [new Function()](https://davidwalsh.name/new-function)
@@ -141,3 +158,5 @@ function getIframeWindow(iframeElement){
 [Wait for User to Stop Typing, Using JavaScript](https://schier.co/blog/2014/12/08/wait-for-user-to-stop-typing-using-javascript.html)
 
 [Iframes, onload, and document.domain](https://www.nczonline.net/blog/2009/09/15/iframes-onload-and-documentdomain/)
+
+[How to create a file and generate a download with Javascript in the Browser (without a server)](https://ourcodeworld.com/articles/read/189/how-to-create-a-file-and-generate-a-download-with-javascript-in-the-browser-without-a-server)
