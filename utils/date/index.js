@@ -152,8 +152,10 @@ function moment2TimeStamp(timeStr,isMiniSecond=false){
 /**
  * 2表示今日
  * 3表示本周
+ * moment.locale('cs')设置时间格式为中国
  */
 function getTimeStamp(type){
+    moment.locale('cs');
     const date = new Date();
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -164,6 +166,9 @@ function getTimeStamp(type){
     const endWeek = moment()
       .endOf("week")
       .format("YYYY-MM-DD");
+       const startMonth = moment().startOf('month').format("YYYY-MM-DD");
+    const endMonth = moment().endOf("month")
+        .format("YYYY-MM-DD");
     if (type == 2) {
       //今日
       const startDateString = `${year}-${month}-${day} 00:00:00`;
@@ -178,6 +183,12 @@ function getTimeStamp(type){
         startDate: `${startWeek} 00:00:00`,
         endDate: `${endWeek} 23:59:59`
       };
+    }else if (type == 4) {
+        // 本月
+        return {
+            startDate: `${startMonth} 00:00:00`,
+            endDate: `${endMonth} 23:59:59`
+        };
     }
   };
 
