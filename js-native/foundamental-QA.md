@@ -1406,7 +1406,8 @@ export const nextTick = (function () {
 
 如果nextTick使用的是task，那么会在当前的task和所有microtask执行完毕之后才在**以后的某一次task执行过程中处理flushBatcherQueue**，那个时候才真正执行各个指令的修改DOM操作，但那时为时已晚，错过了多次触发重绘、渲染UI的时机。而且浏览器内部为了更快的响应用户UI，内部可能是有多个task queue的。
 
-
+#### 16.如何跳出Promise的then/catch方法直接停止
+https://github.com/xieranmaya/blog/issues/5
 
 
 
