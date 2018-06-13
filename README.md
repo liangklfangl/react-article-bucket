@@ -154,6 +154,8 @@
 
 [weex遇到的那些坑](./weex/error.md)
 
+[前端可视化部分](./visualize/readme.md)
+
 ##### 2.7 工具函数部分
 
 [日期相关的工具函数](./utils/date/readme.md)
