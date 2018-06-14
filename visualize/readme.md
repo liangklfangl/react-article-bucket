@@ -1,7 +1,7 @@
 ### 前言
 本部分主要牵涉到前端可视化的相关问题，如果有帮助，记得star，有问题欢迎issue。
 
-#### vue-highchart多条数据线实时刷新
+#### 1.vue-highchart多条数据线实时刷新
 ```js
 const lineCharts = this.$refs[key][0];
 //获取图表
@@ -20,11 +20,20 @@ const newCategory = JSON.parse(JSON.stringify(this.category));
 newCategory.push(dateNew);
 // 3.五条折线条每条线都动态更新(addPoint第三个参数为true表示自动移除第一个元素)
 // https://api.hcharts.cn/highcharts#Series.removePoint
-series[0].addPoint(acceptNew, true, true);
-series[1].addPoint(arriveNew, true, true);
-series[2].addPoint(clickNew, true, true);
-series[3].addPoint(cleanNew, true, true);
-series[4].addPoint(closeNew, true, true);
+// 最多10个点，否则移除
+if (series[0].points.length >= 10) {
+    series[0].addPoint(acceptNew, true, true);
+    series[1].addPoint(arriveNew, true, true);
+    series[2].addPoint(clickNew, true, true);
+    series[3].addPoint(cleanNew, true, true);
+    series[4].addPoint(closeNew, true, true);
+} else {
+    series[0].addPoint(acceptNew, true, false);
+    series[1].addPoint(arriveNew, true, false);
+    series[2].addPoint(clickNew, true, false);
+    series[3].addPoint(cleanNew, true, false);
+    series[4].addPoint(closeNew, true, false);
+}
 // 4.更新坐标轴
 const xAxis = lineCharts.chart.xAxis[0];
 xAxis.setCategories(newCategory);
@@ -83,8 +92,8 @@ acceptData: {
     }
 ```
 
-#### vue-highchart多条数据线实时刷新的结束问题
-一般都是使用setInterval来完成，在组件卸载的时候清除:
+#### 2.vue-highchart多条数据线实时刷新的结束问题
+一般都是使用setInterval来完成，在组件卸载的时候清除(**一定要清除，否则即使组件卸载定时器依然在执行**):
 ```js
  <el-dialog title="突发全量统计" :key="showStats" :visible.sync="showStats" width="90%">
     <stats-graph :msgId="statsId" />
@@ -96,7 +105,7 @@ beforeDestroy: function() {
 ```
 除了在组件卸载的时候要清除以外，建议在**3+次轮询没有新数据的情况下也要清除**，否则可能对内存占用有影响!
 
-#### vue-highchart更新横坐标问题
+#### 3.vue-highchart更新横坐标问题
 上面的例子每次都会把每条线的服务端的最新一条数据获取到并添加到曲线的最后，从而实现实时刷新。但是我遇到一个问题:"每次都需要把新的服务端的数据的横坐标push到一个数组中，**而且还不能移除**已经过时的那条数据的横坐标，于是导致这个数组如果在实时频率很高的情况下会非常大!"
 ```js
 this.category.push(dateNew);

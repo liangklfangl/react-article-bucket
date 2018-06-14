@@ -39,6 +39,8 @@
 
 [Redux相关](./redux/source/README.md)
 
+[Redux复用reducer](./redux/reducer-template/readme.md)
+
 [React浅层次拷贝](./react-copy/readme.md)
 
 [React的setState与immutable.js](./react-copy/readme.md)

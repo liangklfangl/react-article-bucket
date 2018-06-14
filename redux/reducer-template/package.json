@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "babel-plugin-import": "^1.8.0",
+    "react": "^16.4.1",
+    "react-dom": "^16.4.1",
+    "react-redux": "^5.0.7",
+    "redux": "^4.0.0",
+    "webpack": "^4.12.0"
+  },
+  "entry": {
+    "index": "./index.js"
+  },
+  "scripts": {
+    "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
+  }
+}
