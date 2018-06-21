@@ -192,6 +192,15 @@ function getTimeStamp(type){
     }
   };
 
+
+/**
+ *根据时间格式获取到moment
+ */
+function getMomentByString(timeString,FORMAT="YYYY-MM-DD HH:mm:ss"){
+  return moment(timeString, FORMAT);
+}
+
+
 module.exports = {
   counter,
   getDateByDay,
@@ -201,5 +210,6 @@ module.exports = {
   getCurrent: getCurrent,
   getTimeStamp,
   moment2TimeStamp,
-  moment2Str
+  moment2Str,
+  getMomentByString
 };

@@ -747,3 +747,10 @@ selectDT: function(id) {
 }
 ```
 
+#### 18.重置搜索条件
+```js
+ this.searchParams = this.$options.data().searchParams;
+ // 获取到的是初始的搜索默认值
+ // this.$data.searchParams
+```
+前者是获取默认值，而后者$data是获取当前的值

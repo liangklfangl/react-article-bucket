@@ -1256,6 +1256,40 @@ class Texst extends __WEBPACK_IMPORTED_MODULE_0_react___default.a.Component {
 即，localData只是作为组件Texst的局部变量而已，所以即使是子级组件或者同级组件都是无法访问的。你可以查看[这个例子](./global)，运行'npm run dev/npm run build'就可以看到效果。
 
 
+#### 16.React可以在setTimeout(0)里面获取clientWidth/clientHeight
+```js
+componentDidMount(){
+  setTimeout( ()=>{
+    let width = React.findDOMNode(this).clientWidth;
+    let height = React.findDOMNode(this).clientHeight;
+    AppActions.entityMounted(this.props.id, width, height);
+ });
+}
+```
+但是随即写了个例子:
+```js
+function hoc(wrappedComponent) {
+  return class Inner extends React.Component {
+    componentDidMount() {
+      console.log("元素fuck为:", $(".inner_wrapper"+this.props.prefix)[0]);
+    }
+    render() {
+      const clss = "inner_wrapper" + this.props.prefix;
+      return <div className={clss}>wrappedComponent</div>;
+    }
+  };
+}
+class Example extends React.Component {
+  render() {
+    return <div>我是Example</div>;
+  }
+}
+const Comt = hoc(Example);
+ReactDOM.render(<Comt prefix="prefix" />, document.getElementById("example"));
+```
+发现是可以访问的，所以下次遇到这个问题可以尝试setTimeout一下!
+
+
 
 参考资料：
 

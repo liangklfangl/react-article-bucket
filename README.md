@@ -162,6 +162,7 @@
 
 [日期相关的工具函数](./utils/date/readme.md)
 
+[字符串相关的工具函数](./utils/strings/readme.md)
 
 
 #### 3.运行说明

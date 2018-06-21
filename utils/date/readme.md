@@ -40,3 +40,6 @@ const counterDown = counter(
   
   将moment类型转化为string字符串
 
+- getMomentByString
+
+  根据特定的时间格式+特定时间，获取到moment对象

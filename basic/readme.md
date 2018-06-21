@@ -19,4 +19,4 @@ typeOption=4,2&msgType=1000&mockSend=0
 
 ![](./images/false.png)
 
-而且下面这种传递参数的方式可能会抛出错误:"For input string quote quote".
+而且下面这种传递参数的方式可能会抛出错误:"For input string quote quote"。一般出现这种情况是ajax将数组当做json处理了。
