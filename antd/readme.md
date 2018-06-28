@@ -943,8 +943,16 @@ export default class LocationIcon extends React.Component {
 但是要注意xmlns:xlink等属性需要替换为`xmlnsXlink`等驼峰属性。
 
 
-#### 16.visible为什么要redux控制
-否则页面不知道接口是否已经正常还是失败了，这样前端都会修改可见性的弹窗
+#### 16.antd获取鼠标属性
+比如onClick可以通过如下方式来获取metaKey等鼠标相关的信息:
+```js
+localProps.onClick = e => {
+   const { metaKey } = e;
+}
+```
+
+
+
 
 
 参考资料:

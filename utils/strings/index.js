@@ -180,3 +180,45 @@ export function decodeHTMLEntities(text) {
         return entities[entity] || match
     })
 }
+
+/**
+ * 判断两个对象是否相同
+ */
+export function isObjEqual(obj1, obj2) {
+  if (obj1 === obj2) {
+    return true
+  }
+  else {
+    const keys1 = Object.getOwnPropertyNames(obj1)
+    const keys2 = Object.getOwnPropertyNames(obj2)
+    if (keys1.length !== keys2.length) {
+      return false
+    }
+    for (const key of keys1) {
+      if (obj1[key] !== obj2[key]) {
+        return false
+      }
+    }
+    return true
+  }
+}
+
+export function isEmptyObject( obj ) {
+    var name;
+    for ( name in obj ) {
+        return false;
+    }
+    return true;
+}
+
+
+/**
+ * 默认升序排列
+ */
+export function compare(property,asc=true) {
+    return function(obj1, obj2) {
+        var value1 = obj1[property];
+        var value2 = obj2[property];
+        return asc ? value1 - value2 : value2 - value1;
+    }
+}

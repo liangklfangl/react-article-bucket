@@ -10,7 +10,7 @@
 
 获取URL中的特定查询字符串，第二个参数表示是否是单页应用。
 
-- compare(a,b)
+- compare(a,b)/isObjEqual
 
 判断两个对象的是否完全相同。
 
@@ -29,3 +29,15 @@
 - decodeHTMLEntities(string)
 
 对html实体反解码。
+
+- isEmptyObject
+  
+空对象实体。
+
+- uniqueBy
+
+用于通过某一个属性来去重。
+
+- compare(property,asc=true) 
+ 
+对象数组按照某一个字段排序。**用法为**:groupRule.sort(compare('priority'))

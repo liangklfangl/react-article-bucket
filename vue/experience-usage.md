@@ -570,7 +570,7 @@ msgTypeDeselect: function(value) {
   const searchTreeParams = this.searchTreeParams;
   const isLeaf = id.indexOf(":") != -1;
   // 如果是叶子节点
-  
+
   if (idx != -1 && isLeaf) {
       this.searchTreeParams.splice(idx, 1);
       // 如果你要取消选择的这个在数组里面，那么直接删除掉即可
@@ -593,7 +593,7 @@ msgTypeDeselect: function(value) {
 
 /**
  * 选中某一个
- *  
+ *
  */
 msgTypeSelect: function(cur) {
 const { id, label, children } = cur;
@@ -607,7 +607,7 @@ const { id, label, children } = cur;
                     if (localMsgType == msgType) {
                         return true;
                     }
-                } 
+                }
                 return false;
             });
             this.searchTreeParams.push(id);
@@ -754,3 +754,116 @@ selectDT: function(id) {
  // this.$data.searchParams
 ```
 前者是获取默认值，而后者$data是获取当前的值
+
+#### 19.vue的keep-alive不生效问题
+比如路由配置如下:
+```js
+{
+  path: "/datamanager/overview",
+  component: Home,
+  name: "home",
+  // Home组件
+  children: [
+    {
+      path: "/createNew",
+      name: "createNew",
+      component: PushCreateNew,
+      meta: {
+        keepAlive: true
+      }
+    }
+  ]
+}
+```
+很显然Home组件下可能会出现各种子级组件，所以我们Home组件的模板为:
+```html
+<template>
+    <div class="wrapper">
+        <v-head></v-head>
+        <v-sidebar></v-sidebar>
+        <div class="content">
+            <transition name="move" mode="out-in">
+                <keep-alive v-if="$route.meta.keepAlive">
+                    <router-view :key="routerPath"></router-view>
+                </keep-alive>
+                <router-view v-else :key="routerPath"></router-view>
+            </transition>
+        </div>
+    </div>
+</template>
+```
+很显然模板中也出现了keep-alive包裹的router-view，但是有一点需要注意的是**keep-alive必须在transition里层，而不能是处于transition外层**，否则不会生效。还有一点也要注意，即[keep-alive要求被切换的组件都要具有name](https://vuefe.cn/v2/guide/components-dynamic-async.html#dynamic-component-demo)，要么是使用组件的name选项，要么就是通过局部/全局注册。
+
+#### 20.el-table手动调用selection-change方法
+比如表格中某一个列要求设置为el-input，同时这个el-input失去焦点的时候要获取当前表格选中的所有的**选中数据**，此时可以通过如下方法:
+```jsx
+<el-table max-height="500" :data="listRulesData" ref="dialogListRules" @selection-change="handleSelectionChange">
+<el-table-column :render-header="renderHeader" width="120">
+    <template scope="scope">
+        <el-input-number :controls="false" v-model="scope.row.priority" @blur="dialogListRulesBlur" />
+        <el-popover placement="top-start" title="优先级提示" width="200" trigger="hover" content="备注: 优先级数字越小,优先级越高">
+            <i class="el-icon-question" slot="reference" style="margin-left:5px"></i>
+        </el-popover>
+    </template>
+</el-table-column>
+</el-table>
+```
+即在el-input失去焦点的时候获取它:
+```js
+dialogListRulesBlur: function(value) {
+      const $tableEl = this.$refs.dialogListRules;
+      const selections = $tableEl.selection;
+      //可以获取selection
+      this.handleSelectionChange(selections);
+  },
+ handleSelectionChange: function(selections) {
+    const groupRule = selections.reduce((prev, cur) => {
+        const { priority, ruleId } = cur;
+        return prev.concat({
+            priority: +priority,
+            ruleId: +ruleId
+        });
+    }, []);
+    this.cfg[1].groupRule = groupRule.sort(compare('priority'));
+}
+```
+
+#### 21.手动调用createElement创建element-ui的组件
+```js
+ renderHeader: function() {
+  const h = this.$createElement;
+  return h("el-popover", { trigger: "click", title: '优先级说明', content: "优先级数字越小,优先级越高", placement: "bottom", width: "200" }, [h('i', { class: "el-icon-question", slot: "reference" }, "优先级")])
+},
+```
+下面是vue的[官方$createElement说明](https://cn.vuejs.org/v2/guide/render-function.html#createElement-%E5%8F%82%E6%95%B0):
+```js
+createElement(
+  // {String | Object | Function}
+  // 一个 HTML 标签字符串，组件选项对象，或者
+  // 解析上述任何一种的一个 async 异步函数，必要参数。
+  'div',
+  // {Object}
+  // 一个包含模板相关属性的数据对象
+  // 这样，您可以在 template 中使用这些属性。可选参数。
+  {
+  },
+  // {String | Array}
+  // 子节点 (VNodes)，由 `createElement()` 构建而成，
+  // 或使用字符串来生成“文本节点”。可选参数。
+  [
+    '先写一些文字',
+    createElement('h1', '一则头条'),
+    createElement(MyComponent, {
+      props: {
+        someProp: 'foobar'
+      }
+    })
+  ]
+)
+```
+
+
+
+参考文献:
+
+[vue实现前进刷新，后退不刷新](https://juejin.im/post/5a69894a518825733b0f12f2)

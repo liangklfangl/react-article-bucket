@@ -310,6 +310,33 @@ a();
 ```
 对于publicPath不懂的请[查看](https://github.com/liangklfangl/webpack-dev-server)这里。这里的assetsPublicPath也差不多是同样的道理，即//www.baidu.com/bundle/1.0.22/对应的assetsRoot的目录。比如dist/static/css/app.css的文件就会被映射到//www.baidu.com/bundle/1.0.22/static/css/app.css这个真实的资源路径。
 
+#### 16.webpack配置出错
+<pre>
+./app/modules/utils/IO/index.js
+Module not found: Error: Can't resolve 'exports' in '/Users/qinliang.ql/Desktop/structor-usage/app/modules/utils/IO'
+BREAKING CHANGE: It's no longer allowed to omit the '-loader' suffix when using loaders.
+                 You need to specify 'exports-loader' instead of 'exports',
+                 see https://webpack.js.org/guides/migrating/#automatic-loader-module-name-extension-removed
+ @ ./app/modules/utils/IO/index.js 1:0-42
+ @ ./app/modules/utils/motifyLifecycle.js
+ @ ./app/modules/utils/hoc.js
+ @ ./app/modules/antd/index.js
+ @ ./.structor/app/components.js
+ @ ./.structor/src/commons/pageUtils.js
+ @ ./.structor/src/PageForDesk.js
+ @ ./.structor/src/default.js
+ @ multi react-hot-loader/patch eventsource-polyfill webpack-hot-middleware/client?path=/structor-dev/a&timeout=2000&overlay=false&noInfo=true ./.structor/src/default.js
+</pre>
+
+发现是webpack的plugins里面配置的内容如下:
+```js
+ new webpack.ProvidePlugin({
+      fetch: "exports?self.fetch!whatwg-fetch"
+    })
+```
+其实报错说的很明白，要求使用exports-loader，不能忽略-loader后缀!
+
+
 
 参考文献:
 

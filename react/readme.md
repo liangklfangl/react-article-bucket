@@ -1291,6 +1291,31 @@ ReactDOM.render(<Comt prefix="prefix" />, document.getElementById("example"));
 
 
 
+#### 17.React生命周期函数是否可以直接调用
+解答是:\"可以的\"!
+
+```js
+class Example extends React.Component{
+  componentDidMount(){
+    alert('componentDidMount click');
+  }
+  onClick=()=>{
+    this.componentDidMount();
+  }
+    render(){
+    return <div><button onClick={this.onClick}>点击我</button></div>
+  }
+}
+ReactDOM.render(
+  <Example/>,
+  document.getElementById('example')
+);
+```
+上面的alert会被调用两次，第一次是componentDidMount时候，即组件挂载的时候。而第二次是点击的时候手动调用的componentDidMount。但是我们不建议直接调用生命周期方法!
+
+
+
+
 参考资料：
 
 [七、React.findDOMNode()](https://www.kancloud.cn/kancloud/react/67582)
