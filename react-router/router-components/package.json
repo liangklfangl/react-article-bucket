@@ -1,22 +1,22 @@
 {
-  "name": "router-components",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
-  },
-  "author": "",
-  "entry": {
-    "index": "./index.js"
-  },
-  "license": "ISC",
-  "dependencies": {
-    "history": "^3.0.0",
-    "react": "^15.4.2",
-    "react-dom": "^15.4.2",
-    "react-router": "^3.0.0",
-    "webpack": "^2.2.1"
-  }
+    "name": "router-components",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "dev": "wcf --dev --devServer --htmlTemplate ./index.html"
+    },
+    "author": "",
+    "entry": {
+        "index": "./index.js"
+    },
+    "license": "ISC",
+    "dependencies": {
+        "history": "^3.0.0",
+        "react": "^15.4.2",
+        "react-dom": "^15.4.2",
+        "react-router": "^3.0.0",
+        "webpack": "^2.2.1"
+    }
 }

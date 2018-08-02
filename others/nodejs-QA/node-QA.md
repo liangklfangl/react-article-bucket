@@ -270,8 +270,8 @@ setTimeout(function timeout() {
   console.log('TIMEOUT FIRED');
 }, 0);
 ```
-上面代码中，setImmediate与setTimeout(fn,0)各自添加了一个回调函数A和timeout，都是在下一次Event Loop触发。那么，哪个回调函数先执行呢？**答案是不确定(node v6.9.5上已经验证为不确定)!!**。运行结果可能是1--TIMEOUT FIRED--2，也可能是TIMEOUT FIRED--1--2。
-令人困惑的是，Node.js文档中称，setImmediate指定的回调函数，总是排在setTimeout前面。实际上，这种情况只发生在递归调用的时候(**这也是阮一峰老师给的答案，但是我在node v6.9.5上得出的结果和他完全相反**)。
+上面代码中，setImmediate与setTimeout(fn,0)各自添加了一个回调函数A和timeout，都是在下一次Event Loop触发。那么，哪个回调函数先执行呢？**答案是不确定(node v6.9.5/v8.11.1上已经验证为不确定)!!**。运行结果可能是1--TIMEOUT FIRED--2，也可能是TIMEOUT FIRED--1--2。
+令人困惑的是，Node.js文档中称，setImmediate指定的回调函数，总是排在setTimeout前面。实际上，这种情况只发生在递归调用的时候(**这也是阮一峰老师给的答案，但是我在node v6.9.5/v8.11.1上得出的结果和他完全相反**)。
 ```js
 setImmediate(function (){
   setImmediate(function A() {
@@ -286,7 +286,19 @@ setImmediate(function (){
 // TIMEOUT FIRED
 // 2
 ```
-阮一峰老师说:上面的结果总是固定的，即"1,TIMEOUT FIRED,2"但是我得出的结果仍然是有可能为"TIMEOUT FIRED,1,2"!这也就是告诉我们**setImmediate与setTimeout(func,0)的关系是不确定的，而process.nextTick与setTimeout(func,0)前者执行时间要早于后者**。Node官网给出了setImmediate早于setTimeout(func,0)的情况:
+阮一峰老师说:上面的结果总是固定的，即"1,TIMEOUT FIRED,2"但是我得出的结果仍然是有可能为"TIMEOUT FIRED,1,2"!这也就是告诉我们**setImmediate与setTimeout(func,0)的关系是不确定的，而process.nextTick与setTimeout(func,0)前者执行时间要早于后者**。但是有一点比较蛋疼，那就是下面的代码输出结果却是确定的:
+```js
+setImmediate(function(){
+    console.log(1);
+},0);
+setTimeout(function(){
+    console.log(2);
+},0);
+console.log(9);
+//输出结果为固定的9,2,1，即setTimeout>setImmediate了(即setTimeout/setImmediate后面有console才行)
+//注意必须是和面，中间和前面都会导致输出不确定!!!!
+```
+Node官网给出了setImmediate早于setTimeout(func,0)的情况:
 ```js
 // timeout_vs_immediate.js
 const fs = require('fs');
@@ -320,7 +332,7 @@ setTimeout(function() {
 }, 0);
 console.log('正常执行11');
 ```
-作者运行了代码很多次，但是最终结果都是setTimeout早于setImmediate。此时我也不知道如何去解释它，只有按照官网的说法认为他们的关系是不确定的，只是运行的有限次数中，setTimeout早于setImmediate了。
+作者运行了代码很多次，但是最终结果都是setTimeout早于setImmediate。[此时我也不知道如何去解释它，只有按照官网的说法认为他们的关系是不确定的，只是运行的有限次数中，setTimeout早于setImmediate了](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/nodejs-basic-puzzle.md#11nodejs%E4%BA%8B%E4%BB%B6%E5%BE%AA%E7%8E%AF%E7%9A%84%E4%B8%80%E4%B8%AA%E4%BE%8B%E5%AD%90)。
 
 事实上，这正是Node.js v0.9.1版添加setImmediate方法的原因，否则像下面这样的递归调用process.nextTick，将会没完没了，主线程根本不会去读取"事件队列"！
 ```js
@@ -654,7 +666,7 @@ setTimeout()和setInterval() 与浏览器中API是一致的，分别用于单次
 2.非阻塞表示:如果结果不能立即返回，那么我们调用的API会通过返回一个错误码立即返回，然后不做其他任何处理。此时必须有相关的方法(select/poll)去查询当前的API调用是否真实完成了。
 3.异步表示API立即返回，然后在`后台`去完成这个真实请求，因此必须有相关的方法获取到结果并通知给调用者。
 </pre>
-所以，异步和阻塞的主要区别是:异步是等待通知，比如libuv通知V8引擎;而我们的非阻塞是主动轮询的过程!回答原文请[点击这里](https://stackoverflow.com/questions/2625493/asynchronous-vs-non-blocking)
+所以，异步和阻塞的主要区别是:异步是等待通知，比如libuv通知V8引擎;而我们的阻塞是主动轮询的过程!回答原文请[点击这里](https://stackoverflow.com/questions/2625493/asynchronous-vs-non-blocking)
 
 ![](./images/libuv.png)
 

@@ -19,7 +19,7 @@ setTimeout(function onTimeout(){
 },5000);
 console.log('Done');
 ```
-所以多次点击某一个有事件监听的元素的时候，如果该回调非常耗时，一定要注意。因为多次回调函数都会被推到Callback Queue中等待被放入调用栈中执行。而不会因为前一个回调还没有执行结束就取消后面插入的回调函数(注意[setInterval](https://github.com/liangklfangl/react-article-bucket/blob/master/js-native/foundamental-QA.md#3深入理解settimeout与setinterval)的特殊情况)。也正因为所有的回调是放在回调队列中等待执行的，所以setTimeout往往指定的是最小间隔时间，除非执行栈一直处于空闲状态:
+所以多次点击某一个有事件监听的元素的时候，如果该回调非常耗时，一定要注意。因为多次回调函数都会被推到Callback Queue中等待被放入调用栈中执行。而不会因为前一个回调还没有执行结束就取消后面插入的回调函数(注意[setInterval](https://github.com/liangklfangl/react-article-bucket/blob/master/js-native/foundamental-QA.md#3深入理解settimeout与setinterval)的特殊情况和下面的Mutation的特殊情况)。也正因为所有的回调是放在回调队列中等待执行的，所以setTimeout往往指定的是最小间隔时间，除非执行栈一直处于空闲状态:
 ```js
 //callback是需要等待的，所以1000是最小时间间隔
 setTimeout(function onTimeout(){
@@ -139,6 +139,9 @@ setTimeout(function() {
 new Promise(function(resolve) {
     console.log(1) 
     for (var i = 0; i < 10000; i++) {
+        //这里即使是没有i==9999也是一样的结果
+        //因为promise只会care第1次的resolve
+        //但是for循环会支持多次
         i == 9999 && resolve()
     }
     console.log(2)
@@ -179,6 +182,7 @@ function onClick() {
   outer.setAttribute('data-random', Math.random());
 }
 //outer和inner都监听click事件
+//处理函数会被放到事件队列里面，但是事件本身并非macrotask/microtask
 inner.addEventListener('click', onClick);
 outer.addEventListener('click', onClick);
 ```
@@ -327,7 +331,7 @@ console.log('Bye');
 ```js
 setTimeout(myCallback, 1000);
 ```
-并不表示`myCallback`将会在1000ms后执行，而是在1000ms后添加到事件循环队列。而事件循环队列可能有更早的回调已经被添加进去，因此此时的`myCallback`可能需要等待一段时间执行。而常见的`setTimeout(callback,0)`表示将回调函数推迟到Call Stack为空的时候执行。比如下面的例子:
+并不表示`myCallback`将会在1000ms后执行，**而是在1000ms后添加到事件循环队列**。而事件循环队列可能有更早的回调已经被添加进去，因此此时的`myCallback`可能需要等待一段时间执行。而常见的`setTimeout(callback,0)`表示**将回调函数推迟到Call Stack为空的时候执行**。比如下面的例子:
 ```js
 console.log('Hi');
 setTimeout(function() {
@@ -627,7 +631,7 @@ JS的执行环境在同一个时间只能执行一份代码，在执行其他代
 
 当我们讨论不要`阻塞事件循环`的时候，其实是在讨论不要在执行栈中放置耗时代码，这种情况下浏览器不能做它本来应该做的事情，比如创建一个流畅的UI界面。
 
-比如页面频繁滚动的时候，事件处理函数执行会出现卡顿。而一个好的方法就是使用防抖，比如间隔多少秒才执行等等。原文[点击这里](JavaScript's Call Stack, Callback Queue, and Event Loop)[http://cek.io/blog/2015/12/03/event-loop/] 阅读。
+比如页面频繁滚动的时候，事件处理函数执行会出现卡顿。而一个好的方法就是使用防抖，比如间隔多少秒才执行等等。原文[JavaScript's Call Stack, Callback Queue, and Event Loop](http://cek.io/blog/2015/12/03/event-loop/) 阅读。
 
 #### 10.JavaScript的内存管理
 ##### 10.1 栈内存与堆内存
@@ -641,7 +645,7 @@ JavaScript中的变量分为基本类型和引用类型。基本类型就是保�
 
 那么为什么会有栈内存和堆内存之分？
 
-通常与垃圾回收机制有关。为了使程序`运行时占用的内存最小`。当一个方法执行时，[每个方法都会建立自己的内存栈](https://glebbahmutov.com/blog/javascript-stack-size/)，在这个方法内定义的变量将会逐个放入这块栈内存里，随着方法的执行结束，这个方法的内存栈也将自然销毁了。因此，所有在方法中定义的变量都是放在栈内存中的(如果是对象，那么保存在堆中，然后`栈中中保存的是一个引用`)；当我们在程序中创建一个对象时，这个对象将被保存到运行时数据区中，以便`反复利用`（`因为对象的创建成本通常较大`），这个运行时数据区就是堆内存。堆内存中的对象不会随方法的结束而销毁，即使方法结束后，这个对象还可能被另一个引用变量所引用（方法的参数传递时很常见），则这个对象依然不会被销毁，只有当一个对象没有任何引用变量引用它时，系统的垃圾回收机制才会在核实的时候回收它。文字转载[JavaScript变量——栈内存or堆内存](http://blog.csdn.net/xdd19910505/article/details/41900693)
+通常与垃圾回收机制有关。为了使程序`运行时占用的内存最小`。当一个方法执行时，[每个方法都会建立自己的内存栈](https://glebbahmutov.com/blog/javascript-stack-size/)，在这个方法内定义的变量将会逐个放入这块栈内存里，随着方法的执行结束，这个方法的内存栈也将自然销毁了。因此，所有在方法中定义的变量都是放在栈内存中的(如果是对象，那么保存在堆中，然后`栈中中保存的是一个引用`)；当我们在程序中创建一个对象时，这个对象将被保存到运行时数据区中，以便`反复利用`（`因为对象的创建成本通常较大`），这个运行时数据区就是堆内存。堆内存中的对象不会随方法的结束而销毁，即使方法结束后，这个对象还可能被另一个引用变量所引用（方法的参数传递时很常见），则这个对象依然不会被销毁，只有当一个对象没有任何引用变量引用它时，系统的垃圾回收机制才会在合适的时候回收它。文字转载[JavaScript变量——栈内存or堆内存](http://blog.csdn.net/xdd19910505/article/details/41900693)
 
 同时，堆栈的区分能够让代码执行更加安全(stack is more protected)同时也更加快(不需要动态栈帧的垃圾回收，而只是创建新的栈帧)。比如下面的例子:
 ```js

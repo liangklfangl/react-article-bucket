@@ -951,7 +951,262 @@ localProps.onClick = e => {
 }
 ```
 
+#### 17.编辑时候搜索数据回填
+##### 17.1 不需要编辑的数据回填(onSearch+onSelect)
+```js
+/**
+  * 选中某一个用户
+  */
+ onEmpSelect=(value,options)=>{
+     const {children} = options.props || {};
+     this.selectedEmps.push({
+         empId:value,
+         lastName:children
+     });
+ }
+```
+每次搜索都将搜索已经选中的结果加入到一个全局变量中，这样下次直接将最近的搜索结果和已经选中的数据concat起来就可以了。
+```js
+ {getFieldDecorator('empIdsb', {
+   initialValue:[]
+   })(
+    <Select
+    onSearch={this.userSearch}
+    onSelect={this.onEmpSelect}
+    mode="multiple"
+    filterOption={false}
+    //不是将所有的数据都给我让我筛选，而是每次搜索一次重新渲染一次，导致前面的变成了ID
+    style={{ width: '316px' ,display:this.state.empIds==3 ? "inline-block" :'none'}}
+    placeholder="输入用户查询">
+    {
+        this.selectedEmps.concat(this.userList).map(el=>{
+            return <Option value={el.empId} key={el.empId}>{el.lastName}</Option>
+        })
+    }
+    </Select>
+   )}
+```
 
+##### 17.2 需要编辑的数据回填query
+(1)编辑的时候首先根据已经选中的id搜索一遍并放到变量里面,不需要放在state里面。
+
+(2)每次onSelect的时候继续往全局里面插入最新选中的数据。
+
+(3)keyword查询结果回来和全局变量进行合并
+
+##### 17.3 queryAll查询所有的数据
+弹窗出现的时候查询一次所有的数据
+```js
+ /**
+   * 资源位搜索
+   */
+  adsPosSearch=(value="")=>{
+    return Fetcher.queryAdsPos({name:value,status:1}).then(res=>{
+      const {success,message} = res;
+      if(success){
+        const deliveryPlan = this.state.deliveryPlan;
+        this.adsPos = res.data.data || [];
+        this.setState({
+          deliveryPlan
+        });
+      }else{
+        Modal.error({
+          title: "搜索接口异常",
+          content: `搜索接口异常 ${message ? message : ""}`
+        });
+      }
+    }).catch(e=>{
+      Modal.error({
+        title: "获取方案详情失败",
+        content: `获取方案详情失败`
+      });
+    });
+  }
+```
+jsx只需要如下书写即可:
+```js
+ {getFieldDecorator("mediaIds", {
+    initialValue: this.state.deliveryPlan.mediaIds || [],
+    rules: [
+      {
+        required: true,
+        message: "请选择广告位"
+      }
+    ]
+  })(<Select style={{width:'100%'}} 
+      mode="multiple"
+      optionLabelProp={"name"}
+      optionFilterProp={"name"}
+      showSearch={true}
+      >
+       {
+         this.adsPos.map(el=>{
+           const elStr = `[${el.id}]${el.name}_${el.size}_${el.imgCount}`;
+           return <Option size={el.size} key={el.id} name={elStr} value={el.id}>[{el.id}]{el.name}_{el.size}_{el.imgCount}</Option>
+         })
+       }
+</Select>)}
+```
+
+#### 18 getFieldDecorator复杂组件未实现componentWillReceiveProps
+```js
+  handleChange = ({ fileList }) => {
+    console.log('handleChange被调用啦');
+    let imgUrl = fileList[0] && fileList[0].response && fileList[0].response.data.path;
+    this.setState({
+      fileList,
+      imgUrl: imgUrl
+    });
+    const onChange = this.props.onChange;
+    if (onChange) {
+        onChange(imgUrl);
+      }
+  }
+```
+如果通过getFieldDecorator开发复杂组件的时候没有实现componentWillReceiveProps那么调用this.props.form.resetFieldsValue的时候是无法重置复杂组件数据的，所以可以提供一个上面类似的方法，在调用的使用直接如下:
+```js
+{getFieldDecorator('imgUrl', {
+    initialValue: data.imgUrl
+  })(
+    <UploadImg
+      action={window.g_IMG_UPLOAD_ACTION}
+      key={"UploadImg1"}
+      propKey={"UploadImg1"}
+      ref={(UploadImg1)=>{
+        this.UploadImg1 = UploadImg1;
+      }}
+      listType="picture-card"
+      style={{display:'inline-block'}}
+      onChange={this.handleChange1}
+    />
+)}
+```
+而在特定的情况下直接重置它:
+```js
+  _crop=()=>{
+    this.cropper.getCroppedCanvas({
+      width: this.final.width||this.state.crop.width,
+      height: this.final.height||this.state.crop.height,
+      // minWidth:  this.state.crop.width,
+      // minHeight: this.state.crop.height,
+      // maxWidth:  this.state.crop.width,
+      // maxHeight: this.state.crop.height,
+      fillColor: '#fff',
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: 'high',
+    }).toBlob((blob) => {
+      ajaxUploadFile(blob).then(res=>{
+        let cropAttributeIdx = this.state.cropAttribute.substr(-1);
+        if(isNaN(parseInt(cropAttributeIdx))){
+          cropAttributeIdx = '';
+        }
+        const {height,width,path} = res.data;
+        const crop = this.state.crop;
+        this.setState({
+          cropVisible:false,
+          [`img${cropAttributeIdx}`]: this.final.width + 'x' + this.final.height
+        });
+        this.props.form.setFieldsValue({
+          [`imgsize${cropAttributeIdx}`]: crop.width + 'x' + crop.height
+        });
+        const elEl = `UploadImg${cropAttributeIdx}`;
+        //下面是关键代码直接重置没有实现componentWillReceiveProos复杂组件的方式
+        this[`UploadImg${cropAttributeIdx ? cropAttributeIdx : '1'}`].resetFile(path);
+      });
+    });
+  }
+```
+
+#### 19.手动通过FormData上传文件
+```js
+function ajaxUploadFile(blob) {
+    return new Promise((resolve,reject)=>{
+        const formData = new FormData();
+        const idx = blob.type.indexOf('/');
+        let xmlhttp;
+        if (window.XMLHttpRequest) {
+            xmlhttp = new XMLHttpRequest();
+        }else {
+            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        formData.append("file", blob,blob.type.slice(idx+1));
+        // 必须为file字段
+        const xmlHttp = new XMLHttpRequest();
+        xmlHttp.onreadystatechange=function() {
+            if (xmlHttp.readyState==4) {
+                if (xmlHttp.status==200) {
+                    console.log("上传成功",xmlHttp.response,typeof xmlHttp.response);
+                    resolve(JSON.parse(xmlHttp.response));
+                }else {
+                    reject("文件保存失败");
+                    console.log("上传失败",xmlHttp.response);
+                }
+            }
+        }
+        xmlHttp.open("POST", "/platform/uploadImg.json");
+        xmlHttp.send(formData);
+       
+    });
+}
+module.exports = {
+    ajaxUploadFile
+}
+```
+下面是具体的使用:
+```js
+_crop=()=>{
+    this.cropper.getCroppedCanvas({
+      width: this.final.width||this.state.crop.width,
+      height: this.final.height||this.state.crop.height,
+      fillColor: '#fff',
+      imageSmoothingEnabled: false,
+      imageSmoothingQuality: 'high',
+    }).toBlob((blob) => {
+      // 关键代码文件上传
+      ajaxUploadFile(blob).then(res=>{
+        let cropAttributeIdx = this.state.cropAttribute.substr(-1);
+        if(isNaN(parseInt(cropAttributeIdx))){
+          cropAttributeIdx = '';
+        }
+        const {height,width,path} = res.data;
+        const crop = this.state.crop;
+        this.setState({
+          cropVisible:false,
+          [`img${cropAttributeIdx}`]: this.final.width + 'x' + this.final.height
+        });
+        this.props.form.setFieldsValue({
+          [`imgsize${cropAttributeIdx}`]: crop.width + 'x' + crop.height
+        });
+        const elEl = `UploadImg${cropAttributeIdx}`;
+        this[`UploadImg${cropAttributeIdx ? cropAttributeIdx : '1'}`].resetFile(path);
+      });
+    });
+  }
+```
+
+#### 20.页面有多个getFieldDecorator处理的同一个组件
+一个页面中有多个通过getFieldDecorator处理的同一个复杂组件的时候会导致componentWillReceiveProps会走多次，即使你只是在一个Upload上上传了图片而已。此时可以考虑使用上面的ref来解决调用它的实例方法
+
+虽然我没有监听componentWillReceiveProps，但是当值发生变化后比如调用this.props.form.onChange时候，重新设置了UploadImg的值，此时**依然会走**UploadImg的onChange方法:
+```js
+componentWillReceiveProps(nextProps){
+    console.log('nextProps====',`${nextProps.propKey}为${nextProps.value}`);
+    let value = nextProps.value || '';
+    value = ImgUtils.getFullUrl(value);
+    const fileList = value ? [{
+      uid: 0,
+      name: `图片`,
+      status: 'done',
+      url: value
+    }] : [];
+    this.setState({
+      previewVisible: false,
+      previewImage: '',
+      fileList: fileList,
+      imgUrl: value
+    });
+  }
+```
 
 
 

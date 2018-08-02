@@ -9,6 +9,11 @@ function escapeChars(str) {
     str = str.replace(/\|/g, '&brvbar;');
     return str;
 }
+// 驼峰转换下划线
+export function toLine(name) {
+  return name.replace(/([A-Z])/g,"_$1").toLowerCase();
+}
+
 
 /**
  * [encodeScript description]

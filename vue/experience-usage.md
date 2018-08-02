@@ -862,6 +862,11 @@ createElement(
 )
 ```
 
+#### 22.Vue传递给子组件的props变化了，但是没有重新渲染
+可以通过添加一个key来完成更新(这种情况常见于**复杂对象的情况**):
+```js
+  <drag-rule :key="cfg[1].groupRule.length" :lists="cfg[1].groupRule" />
+```
 
 
 参考文献:

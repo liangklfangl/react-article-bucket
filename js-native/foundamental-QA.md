@@ -272,6 +272,7 @@ console.log('result===',result)
 ```js
 setTimeout(function(){
   /* Some long block of code... */
+  /* 这里的函数不能是箭头函数 */
   setTimeout(arguments.callee, 10);
 }, 10);
  
