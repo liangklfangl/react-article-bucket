@@ -253,7 +253,56 @@ Error: No suitable component definition found.
 ```js
 SearchForm = Form.create()(SearchForm);
 ```
-你可以查看这个[issue](https://github.com/reactjs/react-docgen/issues/107)。当前前提是你的组件正常的被**export出去**了。
+你可以查看这个[issue](https://github.com/reactjs/react-docgen/issues/107)。当然前提是你的组件正常的被**export出去**了。后面我又遇到了这个问题，但是并不是我上面这种情况，其实际代码如下:
+```js
+const AuthResModal = (message) => {
+  if (message == "1") {
+    Modal.warning({
+      title: "无权限",
+      okType: "default",
+      okText: "取消",
+      content: (
+        <AuthButton
+          routerName={routerName}
+          currentEnvironment={currentEnvironment}
+          aut_address_map={aut_address_map}
+        />
+      )
+    });
+  } else {
+    Modal.warning({
+      title: message || "操作失败"
+    });
+  }
+};
+export default AuthResModal;
+```
+其原因在于这个组件没有导出任何jsx，可以修改为如下类型:
+```js
+const AuthResModal = (message) => {
+  if (message == "1") {
+    Modal.warning({
+      title: "无权限",
+      okType: "default",
+      okText: "取消",
+      content: (
+        <AuthButton
+          routerName={routerName}
+          currentEnvironment={currentEnvironment}
+          aut_address_map={aut_address_map}
+        />
+      )
+    });
+  } else {
+    Modal.warning({
+      title: message || "操作失败"
+    });
+  }
+  return <div></div>
+};
+export default AuthResModal;
+```
+你也可以参考这个[issue](https://github.com/reactjs/react-docgen/issues/107)。
 
 #### 6.react-docgen未能抽取出description
 他和React组件是用createClass还是extends React.Component方式来构建的没有关系，只要你是满足docBlock的注释就可以了。下面是docBlock注释的[解析文件](https://github.com/reactjs/react-docgen/blob/master/src/utils/docblock.js)内容:

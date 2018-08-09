@@ -1208,6 +1208,35 @@ componentWillReceiveProps(nextProps){
   }
 ```
 
+#### 21.开启时候显示输入框
+```js
+<FormItem {...formItemLayout} 
+  labelCol={{xs: { span: 5 },sm: { span: 5 }}}
+  style={{width:'650px',display:'inline-block'}}
+  label="唤端控制">
+    {getFieldDecorator("frequencyCallup", {
+      initialValue: !this.state.deliveryPlan.frequencyCallup ? 0 :1,
+      rules: [
+        {
+          required: false
+        }
+      ]
+    })(<RadioGroup>
+        <Radio value={0}>关闭</Radio>
+        <Radio value={1}>开启</Radio>
+      </RadioGroup>)}
+    {
+    !this.props.form.getFieldValue('frequencyCallup') ? null :      
+    <FormItem style={{width:'300px',display:'inline-block'}}>
+    {getFieldDecorator("frequencyCallup1", {
+      initialValue: this.state.deliveryPlan.frequencyCallup ? this.state.deliveryPlan.frequencyCallup :1,
+      rules: [{required: false}]
+      })(<InputNumber disabled={true} min={0} max={99} style={{width:'200px'}}/>)}
+  </FormItem>
+  }
+</FormItem>
+```
+你会看到FormItem里面嵌套了FormItem,同时两者都提供了getFieldDecorator来包裹，这是第一点。第二点，我们的输入框通过this.props.form.getFieldValue依赖于前一个选项的值，这样有一个好处，就是在编辑的时候只需要设置frequencyCallup的值后面的Input就能同时变化!
 
 
 参考资料:
