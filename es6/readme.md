@@ -1391,6 +1391,25 @@ var anotherRequest = new Request(myRequest,myInit);
 module.exports.default = module.exports;
 ```
 
+#### 7.import后无法立即获取到export的值
+```js
+import * as supportedSchemaObject from "../index";
+Object.keys(supportedSchemaObject).forEach(key => {
+  const cnpt = supportedSchemaObject[key];
+  Schema2Form.extend(key, cnpt);
+});
+```
+上面的代码无法正常获取到"../index.js"暴露的值并完成extend操作，可以采用如下方式完成:
+```js
+constructor(props) {
+    super(props);
+    Object.keys(supportedSchemaObject).forEach(key => {
+      const cnpt = supportedSchemaObject[key];
+      Schema2Form.extend(key, cnpt);
+    });
+  }
+```
+即在constructor里面完成extend。
 
 
 参考资料:

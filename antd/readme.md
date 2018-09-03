@@ -1239,6 +1239,32 @@ componentWillReceiveProps(nextProps){
 你会看到FormItem里面嵌套了FormItem,同时两者都提供了getFieldDecorator来包裹，这是第一点。第二点，我们的输入框通过this.props.form.getFieldValue依赖于前一个选项的值，这样有一个好处，就是在编辑的时候只需要设置frequencyCallup的值后面的Input就能同时变化!
 
 
+#### 22.antd构建数组
+```js
+ this.props.form.validateFieldsAndScroll((err, values) => {
+      if (!err) {
+        const formData = {
+          // 提交时候获取数据
+          refers: values.refers ? values.refers.join(',') : ''
+        };
+  });
+ <FormItem key={k}>
+    {getFieldDecorator(`refers[${k}]`, {
+      initialValue: this.refersArr && this.refersArr[k]
+    })(<Input style={{ width: 400 }} disabled={!isEditing} />)}
+    {keys.length > 1 ? (
+      <Icon
+        className="dynamic-delete-button"
+        type="minus-circle-o"
+        disabled={keys.length === 1}
+        style={{ marginLeft: 5 }}
+        onClick={() => this.removeKeys(k)}
+      />
+    ) : null}
+  </FormItem>
+```
+
+
 参考资料:
 
 [淺析REACT之事件系統（二）](https://ddnews.me/world/rxbn08z5.html)

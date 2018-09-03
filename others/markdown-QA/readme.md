@@ -290,7 +290,26 @@ for (let j = 0; j < aTags.length; j++) {
 ```
 上面这种方式就是通过**操作DOM**来高亮特定的关键字。关键点在于字符串操作。
 
-
+#### 8.setValue或者getValue获取codeMirror的值
+```js
+const code =
+      typeof stringOrObjectSchema == "object"
+        ? serialize(stringOrObjectSchema, { space: 2 })
+        : stringOrObjectSchema;
+this.CodeMirror.codeMirror.setValue(code);
+// 设置值
+this.CodeMirror.codeMirror.getValue();
+// 获取值
+<CodeMirror
+  options={optionsMirror}
+  mode="text/typescript-jsx"
+  defaultValue={this.state.code}
+  ref={CodeMirror => {
+    this.CodeMirror = CodeMirror;
+  }}
+  onChange={this.onSchemaChange}
+\/>
+```
 
 参考资料:
 

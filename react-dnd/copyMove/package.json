@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "babel-plugin-import": "^1.8.0",
     "babel-preset-react": "^6.24.1"
   },
   "dependencies": {

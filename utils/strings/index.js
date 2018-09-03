@@ -15,6 +15,22 @@ export function toLine(name) {
 }
 
 
+//js判断变量真实数据类型
+export function type(obj){
+  var class2type = {};
+  var toString = class2type.toString;
+  var hasOwn = class2type.hasOwnProperty;
+  "Boolean Number String Function Array Date RegExp Object Error".split(" ").forEach(type=>{
+     class2type[ "[object " + type + "]" ] = type.toLowerCase();
+  });
+  if ( obj == null ) {
+    return obj + "";
+  }
+  return typeof obj === "object" || typeof obj === "function" ?
+  class2type[ toString.call(obj) ] || "object" :
+  typeof obj;
+}
+
 /**
  * [encodeScript description]
  * @return {[type]} [description]

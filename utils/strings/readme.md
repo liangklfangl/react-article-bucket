@@ -41,3 +41,7 @@
 - compare(property,asc=true) 
  
 对象数组按照某一个字段排序。**用法为**:groupRule.sort(compare('priority'))
+
+- type(obj)
+  
+ 判断一个变量的真实数据类型，与jQuery的type方法一致
