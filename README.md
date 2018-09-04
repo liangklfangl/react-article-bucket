@@ -4,7 +4,7 @@
 
 同时，我不仅仅会将精力放在React,Vue上，因为框架的东西总有一天会被更好的框架替换掉，所以我会更多的把精力放在原生JS的技术细节上。比如[浏览器高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/browser-QA.md),[nodejs高级知识点](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/node-QA.md),[egg常见问题](https://github.com/liangklfangl/react-article-bucket/blob/master/others/nodejs-QA/egg-QA.md),[js基础知识详解](./js-native/foundamental-QA.md),[高性能动画设计的一些优化思路总结](http://blog.csdn.net/liangklfang/article/details/51730556),[遇到的那些必须弄清楚的关于高性能动画的知识点](http://blog.csdn.net/liangklfang/article/details/51773257),[关于硬件加速哪些优秀的资源总结](http://blog.csdn.net/liangklfang/article/details/52074738)等等。这些文章能够记录我在js学习道路上的成长，也能够为后来学习js的同学提供一些借鉴和思路。通过这些文章的总结，以及结合自己的思考，把这些开发思路真正带到日常的代码编写中。希望自己有一天也能成为技术大牛，哈哈哈。欢迎star,也欢迎issue!
 
-文中的很多内容来自于网络，但是会加上自己对于这部分内容的思考，难免会有不正确的地方，后续也会随着自己学习的深入来更新某些内容。所以如果你有任何问题，可以留言，我将不胜感激。当然，如果你也想来我司或者我们团队，欢迎将简历投给我，我的邮箱是liangklfangl@163.com，微信号为liangklfang，欢迎骚扰。也许我们会成为朋友👭!
+文中的很多内容来自于网络，但是会加上自己对于这部分内容的思考，难免会有不正确的地方，后续也会随着自己学习的深入来更新某些内容。所以如果你有任何问题，可以留言，我将不胜感激。**内推部分**请参考文末。
 
 #### 2.主要内容
 
@@ -173,9 +173,11 @@ npm install
 npm run dev
 ```
 
-#### 4.内推
+#### 4.阿里内推
+如果你也想来阿里或者我们团队，欢迎将简历投给我，邮箱是liangklfang@163.com，微信号为liangklfang，欢迎骚扰。也许我们会成为朋友👭! 请扫描下面二维码:
 
-![](./basic/images/qr.jpg)
+
+<img src="./basic/images/qr.jpg" width="300" height="340"/>
 
 内推请备注:"内推"。
 
