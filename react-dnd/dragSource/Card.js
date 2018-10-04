@@ -1,15 +1,16 @@
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
-import { findDOMNode } from 'react-dom';
-import { DragSource, DropTarget } from 'react-dnd';
-import ItemTypes from './ItemTypes';
+import React, { Component } from "react";
+import PropTypes from "prop-types";
+import { findDOMNode } from "react-dom";
+import { DragSource, DropTarget } from "react-dnd";
+import ItemTypes from "./ItemTypes";
 
 const style = {
-  border: '1px dashed gray',
-  padding: '0.5rem 1rem',
-  marginBottom: '.5rem',
-  backgroundColor: 'white',
-  cursor: 'move',
+  border: "1px dashed gray",
+  padding: "0 4px",
+  lineHeight: "25px",
+  marginBottom: ".5rem",
+  backgroundColor: "white",
+  cursor: "move"
 };
 
 /**
@@ -20,9 +21,9 @@ const cardSource = {
   beginDrag(props) {
     return {
       id: props.id,
-      index: props.index,
+      index: props.index
     };
-  },
+  }
 };
 
 /**
@@ -76,15 +77,15 @@ const cardTarget = {
     // to avoid expensive index searches.
     monitor.getItem().index = hoverIndex;
     //重新设置DragSource为hoverIndex
-  },
+  }
 };
 
 @DropTarget(ItemTypes.CARD, cardTarget, connect => ({
-  connectDropTarget: connect.dropTarget(),
+  connectDropTarget: connect.dropTarget()
 }))
 @DragSource(ItemTypes.CARD, cardSource, (connect, monitor) => ({
   connectDragSource: connect.dragSource(),
-  isDragging: monitor.isDragging(),
+  isDragging: monitor.isDragging()
 }))
 
 /**
@@ -99,17 +100,19 @@ export default class Card extends Component {
     isDragging: PropTypes.bool.isRequired,
     id: PropTypes.any.isRequired,
     text: PropTypes.string.isRequired,
-    moveCard: PropTypes.func.isRequired,
+    moveCard: PropTypes.func.isRequired
   };
 
   render() {
-    const { text, isDragging, connectDragSource, connectDropTarget } = this.props;
+    const {
+      text,
+      isDragging,
+      connectDragSource,
+      connectDropTarget
+    } = this.props;
     const opacity = isDragging ? 0 : 1;
-    //我们将我们的Card组件的内容同时通过connectDropTarget和connectDragSource包装
-    return connectDragSource(connectDropTarget(
-      <div style={{ ...style, opacity }}>
-        {text}
-      </div>,
-    ));
+    return connectDragSource(
+      connectDropTarget(<div style={{ ...style, opacity }}>{text}</div>)
+    );
   }
 }

@@ -42,4 +42,4 @@ const counterDown = counter(
 
 - getMomentByString
 
-  根据特定的时间格式+特定时间，获取到moment对象
+  根据特定的时间格f式+特定时间，获取到moment对象
