@@ -185,8 +185,51 @@ import { Row, Col } from 'rax-grid';
   top: 12;
 }
 ```
-rax中图片必须设置宽度和高度才行!
+rax中图片必须设置宽度和高度才行,包括icon和picture。
 
+### 11.rax中使用base64作为图片
+```js
+ <Image
+  style={[{ width: 12, height: 18 }, styles.img]}
+  source={{
+    uri:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAASCAYAAABvqT8MAAAABGdBTUEAALGPC/xhBQAAASpJREFUKBV9kj1SwzAQhXdFRUvLUHKHOAUXYYjdkNDwkw64ACRNyAwzTEIRJxyEzj4Dl4CSTstbycIjbCGPJe3u97RPHhM1Q0bZoeSD0xCnVqMFmWb7xPJOQm8QTlKw5p2AF/U3ts+IGfIXyYfjlAhAOwBekdglMkJsLnhbrduq30UCTcHSNeYn3faJOoKOyJgJl9Wr5nW4O/htO/OuXpLhKTJM1q6kGJ6Ham+HUJQiuyErC8RCTad/BSqMRETjXkuhg1tZvlSHl/Ec7EXFP4Hk2QjoBmkcbG5xt3nSkoNJNurew9VMz+u1FMGG73jnYRV0LOETnsFy6U5WuKwfFQwjsuRgsUlYRb8dIpj5nrfxyVEH93t/ygdsHJGHHwKQXKU4OZZicJkEmsIPZil2E0PFItUAAAAASUVORK5CYII="
+  }}
+/>
+```
+下图片可以使用这种base64的方式来减少http请求次数。
+
+### 12.rax中不支持背景图的解决方法
+```js
+<Div style={[this.props.style]}>
+    <Image
+      source={{
+        uri: "//gw.alicdn.com/tfs/TB1Yi.xjSzqK1RjSZPxXXc4tVXa-400-120.png"
+      }}
+      style={[
+        styles.cardContainer,
+        { position: "absolute", width: 400, height: 120 },
+        this.props.style
+        //接受外层的style可以作为它的宽度和高度，这样可以完全填充高度和宽度
+      ]}
+    />
+    <Div
+      style={[
+        styles.cardContainer,
+        this.props.style ? this.props.style : {}
+      ]}
+    >
+   <\/Div>
+<\/Div>
+```
+这样外层传入的this.props.style可以**同时作为外层容器**和除了Image以外的包裹容器，而Image本身作为了背景图。此处image本身采用的absolute处理即可。
+
+### 13.rax中自适应宽度的组件开发
+首先采用rax-grid将页面分成不同的区块,充分利用col的flex属性:
+```js
+import { Row, Col } from "rax-grid";
+```
+然后采用flex布局的时候不要想着用padding什么来填充宽度，而是充分利用flex布局来居中元素达到自适应的效果，这是基于设计稿一般都是对称的!
 
 
 
