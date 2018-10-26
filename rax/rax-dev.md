@@ -231,6 +231,57 @@ import { Row, Col } from "rax-grid";
 ```
 然后采用flex布局的时候不要想着用padding什么来填充宽度，而是充分利用flex布局来居中元素达到自适应的效果，这是基于设计稿一般都是对称的!
 
+### 14.rax中为button设置背景图(reload不刷新)
+其实还是和元素的定位有关系:
+```js
+reloadCurrentPage = () => {
+    location.reload(true);
+  };
+<View>
+  <Touchable style={styles.touchable}>
+    <Button
+      onPress={() => {
+        this.reloadCurrentPage();
+      }}
+      style={{
+        width: 50,
+        height: 50,
+        fontSize: 12,
+        position: "fixed",
+        border:'5px solid red',
+        borderRadius: "50",
+        right: 10,
+        top: 10
+      }}
+    >
+      <Image
+        style={{
+          width: 50,
+          height: 50,
+          backgroundColor:'red',
+          position: "absolute",
+          borderRadius: "50"
+        }}
+        fontFamily="iconfont"
+        source={{
+          uri:
+            "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=154029970
+            4443&di=1230f2d2f66846ae330665de152b3eae&imgtype=0&src=http%3A%2F%2Fcdns2.freepik.com%2Ffree-photo%2Floading-back-refresh_318-30171.jpg"
+        }}
+      />
+    </Button>
+  </Touchable>
+<\/View>
+```
+你会发现，如果将内部的Button > Image设置为position:fixed，那么就出现死活点击不到Button的情况，也就无法reload。但是将内部的position设置为absolute就没有问题了。所以还是**rax的position:fixed嵌套问题**!
+
+### 15.rax的box-shadow
+```css
+ .boxS{
+  box-shadow: 0px 2px 20px 0px #333333;
+ }
+```
+
 
 
 参考资料:

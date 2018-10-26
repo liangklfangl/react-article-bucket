@@ -1264,6 +1264,38 @@ componentWillReceiveProps(nextProps){
   </FormItem>
 ```
 
+#### 23.antd的select在单选和多选之间切换
+```js
+ <Select
+    maxTagCount={2}
+    mode={this.props.form.getFieldValue('channelType') != 3 ? 'multiple' : ''}
+    showSearch={this.props.form.getFieldValue('channelType') == 3}
+    labelInValue
+    filterOption={false}
+    onSearch={this.onSearchChannel}
+    onChange={this.setSelectedChannels}
+    placeholder={'请输入关键字搜索具体渠道'}
+    notFoundContent={'请重新输入关键字搜索'}
+  >
+    {this.state.channels.map(el => {
+      return (
+        <Option
+          key={el.channelId}
+          value={el.channelId}
+          channelId={el.channelId}
+          channelName={el.channelName}
+          channelAccount={el.channelAccount}
+        >
+          {`${el.channelName}_${el.id}_${el.channelAccount}_${el.promotionProduct
+            ? el.promotionProduct
+            : ''}`}
+        </Option>
+      );
+    })}
+  </Select>
+```
+主要是利用mode与showSearch来切换。
+
 
 参考资料:
 
