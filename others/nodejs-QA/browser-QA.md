@@ -346,7 +346,6 @@ Bye
 callback
 </pre>
 
-
 #### 4.JS引擎 vs 执行环境 vs Call Stack
 ##### 4.1 内存堆和调用栈
 我们的JS引擎包含两个部分:
