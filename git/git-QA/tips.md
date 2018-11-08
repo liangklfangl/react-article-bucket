@@ -101,3 +101,5 @@ git push
 [Removing files from a repository's history](https://help.github.com/articles/removing-files-from-a-repository-s-history/)
 
 [git-filter-branch命令](https://git-scm.com/docs/git-filter-branch)
+
+[git官网](https://git-scm.com/docs/git-add)
