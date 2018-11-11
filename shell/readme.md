@@ -184,3 +184,209 @@ const installPackages = function(pkgNames, workingDirPath) {
 };
 ```
 以上方法来自于[structor-commons](https://github.com/ipselon/structor-commons) 。
+
+##### 9.如何在nodejs中因为权限问题提升为sudo模式
+```js
+var os;
+os = require('os');
+exports.execute = function(command, callback) {
+  var commander;
+  if (os.platform() === 'win32') {
+    commander = require('./windows');
+  } else {
+    commander = require('./unix');
+  }
+  return commander.executeWithPrivileges(command, callback);
+};
+```
+具体你可以[点击这里](./president/president.js)。
+
+##### 10.nodejs中关于npm常见nodejs方法使用
+以下所有内容来自于[selfupdate](https://www.npmjs.com/package/selfupdate)模块。
+```js
+var async, npm, utils, _;
+npm = require('npm');
+async = require('async');
+_ = require('lodash-contrib');
+utils = require('./utils');
+/**
+ * 得到一个npm包的信息
+ */
+exports.getInfo = function(name, callback) {
+  // https://github.com/liangklfangl/react-article-bucket/tree/master/async-programing/async-js#43-asyncify%E7%94%A8%E4%BA%8Eparallel%E6%96%B9%E6%B3%95
+  return async.waterfall([
+    function(callback) {
+      var options;
+      options = {
+        loglevel: 'silent',
+        global: true
+      };
+      return npm.load(options, _.unary(callback));
+      // unary:Creates a function that accepts up to one argument, ignoring any additional arguments.
+    }, function(callback) {
+      //npm view命令
+      return npm.commands.view([name], true, callback);
+    }
+  ], callback);
+};
+/**
+ * 得到npm包的最新版本
+ */
+exports.getLatestVersion = function(name, callback) {
+  return exports.getInfo(name, function(error, data) {
+    var versions;
+    if (error != null) {
+      return callback(error);
+    }
+    versions = _.keys(data);
+    return callback(null, _.first(versions));
+  });
+};
+/**
+ * 判断某一个包是否在最新的V版本上
+ */
+exports.isUpdated = function(packageJSON, callback) {
+  return exports.getLatestVersion(packageJSON.name, function(error, latestVersion) {
+    if (error != null) {
+      return callback(error);
+    }
+    return callback(null, packageJSON.version === latestVersion);
+  });
+};
+/**
+ * 更新一个npm包
+ */
+exports.update = function(packageJSON, callback) {
+  return async.waterfall([
+    function(callback) {
+      var command;
+      command = utils.getUpdateCommand(packageJSON.name);
+      return utils.runCommand(command, callback);
+    }, function(stdout, stderr, callback) {
+      if (!_.isEmpty(stderr)) {
+        return callback(new Error(stderr));
+      }
+      return exports.getLatestVersion(packageJSON.name, callback);
+    }
+  ], callback);
+};
+```
+下面是utils模块提供的方法包括getUpdateCommand/runCommand:
+```js
+var child_process, president, _;
+president = require('president');
+_ = require('lodash-contrib');
+child_process = require('child_process');
+/**
+ * 得到更新的命令
+ */
+exports.getUpdateCommand = function(name) {
+  if (name == null) {
+    throw new Error('Missing package');
+  }
+  return "npm install --silent --global " + name;
+};
+/**
+ * 判断一个错误是否是权限相关的
+ */
+exports.isPermissionError = function(error) {
+  if (error == null) {
+    return false;
+  }
+  if (error.message == null) {
+    error.message = '';
+  }
+  return _.any([error.code === 3, error.errno === 3, error.code === 'EPERM', error.code === 'EACCES', error.code === 'ACCES', error.message.indexOf('EACCES') !== -1]);
+};
+/**
+ *  执行某一个cli命令，如果执行失败就提升为sudo权限
+ */
+exports.runCommand = function(command, callback) {
+  return child_process.exec(command, function(error, stdout, stderr) {
+    if (_.any([exports.isPermissionError(error), exports.isPermissionError(new Error(stderr))])) {
+      return president.execute(command, callback);
+    }
+    return callback(error, stdout, stderr);
+  });
+};
+```
+那么selfupdate模块如何使用呢?下面来自于[zan-proxy](https://github.com/youzan/zan-proxy/blob/master/src/bin/index.ts#L24):
+```js
+import childProcess from 'child_process';
+import { promisify } from 'es6-promisify';
+import { prompt } from 'inquirer';
+import ora from 'ora';
+// https://github.com/sindresorhus/ora
+import selfupdate from 'selfupdate';
+// 来自于上面分析的selfupdate
+const packageInfo = require('../../package');
+// 需要检查全局自动更新的package.json
+const update = promisify(selfupdate.update);
+const isUpdated = promisify(selfupdate.isUpdated);
+// update方法和isupdated方
+const exec = promisify(childProcess.exec);
+// promisify方法
+export default async () => {
+  const checkSpinner = ora('正在检查更新...').start();
+  const isLatest = await isUpdated(packageInfo);
+  checkSpinner.stop();
+  if (isLatest) {
+    console.log('当前已是最新版本');
+    return;
+  }
+  const ans = await prompt([
+    {
+      message: '检测到新版本，是否更新？',
+      name: 'shouldUpdate',
+      type: 'confirm',
+    },
+  ]);
+  // 用户输入
+  if (!ans.shouldUpdate) {
+    return;
+  }
+  const updateSpinner = ora('正在更新').start();
+  //开始更新
+  return update(packageInfo)
+    .catch(() => exec(`npm uninstall --global --silent ${packageInfo.name}`))
+    // 已经安装了删除掉，重新安装一遍~~
+    .then(() => exec(`npm install --global --silent ${packageInfo.name}`))
+    .then(() => {
+      updateSpinner.stop();
+      console.log(
+        `更新完成，请重新启动! 如出现命令丢失情况，请手动重新安装：npm install -g ${
+          packageInfo.name
+        }`,
+      );
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error('更新失败', error);
+      process.exit(1);
+    });
+};
+```
+
+##### 11.nodejs中阻塞当前进程等待用户输入[inquery.js](https://github.com/SBoudrias/Inquirer.js)
+```js
+ const ans = await prompt([
+    {
+      message: '检测到新版本，是否更新？',
+      name: 'shouldUpdate',
+      type: 'confirm',
+    },
+  ]);
+ // shouldUpdate表示用户是否选择了自动更新
+  if (!ans.shouldUpdate) {
+     return;
+  }
+```
+
+##### 12.npm模块的常见方法
+上面已经简单说了npm的基本使用方法，里面还包括的方法有:
+```js
+config: { loaded: false, get: [Object], set: [Object] },
+commands: {ac,}
+// commands里面包含所有的方法
+```
+建议自己require它并打印出来。

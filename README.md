@@ -111,6 +111,8 @@
 
 [npm，webpack学习中遇到的各种问题](http://blog.csdn.net/liangklfang/article/details/53229237)
 
+[cli开发常见问题与解决方法](./shell/readme.md)
+
 
 ##### 2.5 其他部分
 [操作系统基础知识](./computer-QA/network-QA.md)
