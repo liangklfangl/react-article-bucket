@@ -243,3 +243,12 @@ export function compare(property,asc=true) {
         return asc ? value1 - value2 : value2 - value1;
     }
 }
+
+
+/**
+ * 解码unicode
+ */
+export function decodeUnicode(str) {
+  str = str.replace(/\\/g, "%");
+  return unescape(str);
+}

@@ -45,3 +45,7 @@
 - type(obj)
   
  判断一个变量的真实数据类型，与jQuery的type方法一致
+
+ - decodeUnicode
+
+ 解码字符串中的unicode

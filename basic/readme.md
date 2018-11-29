@@ -20,3 +20,16 @@ typeOption=4,2&msgType=1000&mockSend=0
 ![](./images/false.png)
 
 而且下面这种传递参数的方式可能会抛出错误:"For input string quote quote"。一般出现这种情况是ajax将数组当做json处理了。
+
+#### 前端stringify的结果
+```js
+const field = [{"field":"id","fieldValues":[2,3,4]}]
+console.log(JSON.stringify(field));
+//[{"field":"id","fieldValues":[2,3,4]}]
+```
+所以你如果看到:
+```js
+[{"field":"id","fieldValues":[\"123\"]}]
+```
+这种数据结构，那肯定是你把后面的数组单独又stringify一次了。
+

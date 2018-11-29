@@ -397,3 +397,36 @@ Object2Relationship.propTypes = {
 };
 ```
 你可能怀疑是否这里的required不支持，我要告诉**你是支持的**,这个错误的最终原因就是**注释的格式**问题。
+
+#### 8.CLI命令报错
+类似于如下报错信息:
+```bash
+npm rebuild node-sass –force
+```
+一定要注意是那个CLI命令(bin)报错的然后在该目录下运行如下命令:
+```bash
+# 删除node_modules下的node-sass
+npm install node-sass -S
+npm rebuild node-sass --force
+```
+
+#### 9.将prettier用到浏览器端jsx格式化
+这个其实[官网](https://prettier.io/blog/2018/05/27/1.13.0.html)已经说得很清楚了，但是我这个人比较爱较真，也不完全知道下面这段代码的意思:
+```js
+<script src="https://unpkg.com/prettier@1.13.0/standalone.js"></script>
+<script src="https://unpkg.com/prettier@1.13.0/parser-babylon.js"></script>
+<script src="https://unpkg.com/prettier@1.13.0/parser-graphql.js"></script>
+<script type="text/javascript">
+var formatButton = document.querySelector("#format");
+var textInput = document.querySelector("#input");
+formatButton.addEventListener("click", function() {
+  var value = textInput.value;
+  textInput.value = prettier.format(value, {
+    parser: "babylon",
+    plugins: prettierPlugins
+  });
+});</script>
+```
+其中parser是babylon，而且plugins是prettierPlugins。babylon这个parser可以理解，因为上面已经单独引入了parser-babylon，而prettierPlugins我就以为是作者在写文档的时候忘了定义这个变量，所以一直找不到办法，各种goole无解，最后发现是我想多了。直接引入上面的三个js文件后发现输入这个变量已经挂载到了window上了:
+
+![](./images/babylon.png)

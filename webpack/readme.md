@@ -337,6 +337,10 @@ BREAKING CHANGE: It's no longer allowed to omit the '-loader' suffix when using 
 其实报错说的很明白，要求使用exports-loader，不能忽略-loader后缀!
 
 
+#### 17.Invalid Host header
+找了网上说的disableCheckHost配置也加上了，但是最后还是同样的问题，所以记录了下这个问题的解决方案:其实是在localhost:8080这个端口号启动了多个服务导致的，将这个端口后
+
+
 
 参考文献:
 
