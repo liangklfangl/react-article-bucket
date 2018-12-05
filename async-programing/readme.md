@@ -63,11 +63,11 @@ Promise 的最大问题是代码冗余，原来的任务被Promise 包装了一�
 
 ECMAScript 6 （简称 ES6 ）作为下一代 JavaScript 语言，将 JavaScript 异步编程带入了一个全新的阶段。关于异步编程可以查看下图：
 
-![](http://image.beekka.com/blog/2015/bg2015042403.png)
+![](./images/async.png)
 
 而下面这种连续的执行过程叫做同步的。
 
-![](http://image.beekka.com/blog/2015/bg2015042404.png)
+![](./iamges/sync.png)
 
 Generator 函数是协程在 ES6 的实现，`最大特点就是可以交出函数的执行权（即暂停执行）。Generator 函数可以暂停执行和恢复执行，这是它能封装异步任务的根本原因。除此之外，它还有两个特性，使它可以作为异步编程的完整解决方案：函数体内外的数据交换和错误处理机制。`
 next 方法返回值的 value 属性，是 Generator 函数向外输出数据；next 方法还可以接受参数，这是向 Generator 函数体内输入数据。如下例：

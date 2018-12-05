@@ -55,7 +55,7 @@ module.exports = Component;
 ```
 其查看AST的内容，返回<def>解析后的ObjectExpression以及class定义本身。
 
-**[findAllComponentDefinitions](https://github.com/reactjs/react-docgen/blob/master/src/resolver/findAllComponentDefinitions.js)**的作用类似，其查看所有的React.createClass调用和class定义，而不仅仅是导出的组件。比如:查看任意一个含有render方法的ObjectExpressions。
+** [findAllComponentDefinitions](https://github.com/reactjs/react-docgen/blob/master/src/resolver/findAllComponentDefinitions.js)** 的作用类似，其查看所有的React.createClass调用和class定义，而不仅仅是导出的组件。比如:查看任意一个含有render方法的ObjectExpressions。
 
 #### 2.3 handlers
 是一个函数数组，其签名为如下格式:
