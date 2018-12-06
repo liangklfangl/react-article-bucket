@@ -100,6 +100,43 @@ const Content = () => (
 
 
 
+#### 2.列表中所有Item依赖于接口全局变量
+比如有一个列表，列表中每一个组件的渲染都依赖于全局变量，而且这种全局变量的获取是依赖于接口的，此时可以通过如下方式解决:
+```js
+import React, { Component } from 'react';
+import EventProxy from "eventProxy";
+window.data = [];
+// js执行到这个位置的时候就请求，只会执行一次
+//全局的
+getVariables.then(data => {
+  window.data = data;
+  EventProxy.trigger('variableReceived', data);
+});
+
+class Item extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      // 赋值
+      data: window.data
+    };
+    if (window.data.length === 0) {
+      // 若还没请求，则添加监听来等待数据
+      EventProxy.on('variableReceived', data => {
+        this.setState({
+          data
+        });
+      });
+    }
+  }
+  render() {
+    return <div />;
+  }
+}
+export default Item;
+```
+
+
 
 
 参考资料:
