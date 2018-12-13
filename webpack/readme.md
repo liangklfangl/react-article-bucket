@@ -340,6 +340,45 @@ BREAKING CHANGE: It's no longer allowed to omit the '-loader' suffix when using 
 #### 17.Invalid Host header
 找了网上说的disableCheckHost配置也加上了，但是最后还是同样的问题，所以记录了下这个问题的解决方案:其实是在localhost:8080这个端口号启动了多个服务导致的，将这个端口后
 
+#### 18.extractTextWebpackPlugin问题
+<pre>
+Error: “extract-text-webpack-plugin” loader is used without the corresponding plugin,
+</pre>
+
+虽然在webpack中没有使用相应的plugin，比如:
+```js
+const productionConfig = {
+  devtool: 'cheap-module-source-map',
+  plugins: [HtmlWebpackPluginConfig, new ExtractTextPlugin("main.css"), productionPlugin]
+};
+```
+但是rules中依然有使用它:
+```js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: ExtractTextPlugin.extract({
+          fallback: "style-loader",
+          use: "css-loader"
+        })
+      }
+    ]
+  },
+  plugins: [
+    //你这里删除了，但是上面的rules中依然有 
+    new ExtractTextPlugin("styles.css"),
+  ]
+}
+```
+
+#### 19.babilli-webpack-plugin版本问题
+<pre>
+original.line and original.column are not numbers -- you probably meant to omit the original mapping
+</pre>
+
+解决方法:将package.json中”babili-webpack-plugin”: “^0.1.2”,换成”^0.1.1”。
 
 
 参考文献:
