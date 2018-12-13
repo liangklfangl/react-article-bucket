@@ -268,6 +268,158 @@ ReferenceError: unknown node of type "Literal" with constructor "Node"
     at Generator.printJoin (/Users/xxx/Desktop/hub-kit-cnt-ts/node_modules/_babel-generator@6.21.0@babel-generator/lib/printer.js:366:12)
 </pre> 
 
+#### 10.babel的cli打包typescript
+```js
+  "compile": "babel src --out-dir lib --extensions \".ts,.tsx\""
+```
+如果报错请确保相应的babel版本:
+```js
+"devDependencies": {
+    "@babel/cli": "^7.0.0-beta.32",
+    "@babel/core": "^7.0.0-beta.32",
+    "@babel/plugin-proposal-class-properties": "^7.0.0-beta.32",
+    "@babel/plugin-proposal-object-rest-spread": "^7.0.0-beta.32",
+    "@babel/preset-env": "^7.0.0-beta.32",
+    "@babel/preset-typescript": "^7.0.0-beta.32",
+    "typescript": "~2.7.1"
+}
+```
+
+#### 11.typescript打包报错
+<pre>
+/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:4457
+  throw err;
+  ^
+
+SyntaxError: Unexpected token, expected , (8:2)
+    at Parser.pp$5.raise (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:4454:13)
+    at Parser.pp.unexpected (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1761:8)
+    at Parser.pp.expect (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1749:33)
+    at Parser.pp$3.parseCallExpressionArguments (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3564:12)
+    at Parser.pp$3.parseSubscripts (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3533:31)
+    at Parser.pp$3.parseExprSubscripts (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3504:15)
+    at Parser.pp$3.parseMaybeUnary (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3474:19)
+    at Parser.pp$3.parseExprOps (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3404:19)
+    at Parser.pp$3.parseMaybeConditional (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3381:19)
+    at Parser.pp$3.parseMaybeAssign (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3344:19)
+    at Parser.pp$3.parseExpression (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3306:19)
+    at Parser.pp$1.parseStatement (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1906:19)
+    at Parser.pp$1.parseBlockBody (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:2268:21)
+    at Parser.parseBlockBody (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:4820:18)
+    at Parser.pp$1.parseTopLevel (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1778:8)
+    at Parser.parse (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1673:17)
+    at Object.parse (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:7305:37)
+    at parser (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/package/utils/transformer.js:7:18)
+    at transformer (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/package/utils/transformer.js:60:20)
+    at fs.readFile (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/package/utils/build.js:58:24)
+    at FSReqWrap.readFileAfterClose [as oncomplete] (fs.js:511:3)
+Unhandled rejection CommandError
+    at ChildProcess.spawnOnClose (/Users/xxx/.hub/package/core/@ali%2fhub/node_modules/_async-exec-cmd@2.0.2@async-exec-cmd/index.js:149:18)
+    at emitTwo (events.js:126:13)
+</pre>
+
+
+#### 12.antd版本导致的typescript报错
+<pre>
+Type '{ children: string; size: "small"; type: "primary"; }' is not assignable to type '(IntrinsicAttributes & IntrinsicClassAttributes<Button> & Pick<Readonly<{ children?: ReactNode; }> & Readonly<AnchorButtonProps> & Pick<InferPropsInner<Pick<{ type: any; shape: any; size: any; ... 4 more ...; icon: any; }, "loading" | ... 6 more ... | "htmlType">>, "htmlType">, "media" | ... 258 more ... | "htmlType...'.
+  Type '{ children: string; size: "small"; type: "primary"; }' is not assignable to type 'IntrinsicAttributes & IntrinsicClassAttributes<Button> & Pick<Readonly<{ children?: ReactNode; }> & Readonly<NativeButtonProps> & Pick<InferPropsInner<Pick<{ type: any; shape: any; size: any;htmlType: any; onClick: any; loading: any; className: any; icon: any; }, "loading" | ... 6 more ... | "htmlType">>, "htmlType...'.
+    Property 'htmlType' is missing in type '{ children: string; size: "small"; type: "primary"; }' but required in type 'Pick<Readonly<{ children?: ReactNode; }> & Readonly<NativeButtonProps> & Pick<InferPropsInner<Pick<{ type: any; shape: any; size: any; htmlType: any; onClick: any; loading: any; className: any; icon: any; }, "loading" | ... 6 more ... | "htmlType">>, "htmlType">, "disabled" | ... 262 more ... | "value">'.
+</pre>
+解决方法:我把antd\@3.9.x更新到antd\@3.11.2就可以了。同时注意ts-import-plugin的版本:
+```js
+ "ts-import-plugin": "^1.4.3",
+```
+
+#### 13.ts-import-plugin死活不生效
+首先保证你的版本和我的一致:
+```js
+ "antd":'3.11.2',
+ "ts-import-plugin": "^1.4.3",
+```
+在此基础上你可以直接去build看打包后的代码,假如你的源码为:
+```js
+import { Button } from "antd";
+```
+在打包后的代码中直接搜索ant-btn看是否存在，我惊奇的发现这个ant-btn是存在的，但是竟然是css-module化后的，所以解决我的问题就是关闭css-modules了。
+
+#### 14.babylon的版本不对
+<pre>
+/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:4457
+  throw err;
+  ^
+
+SyntaxError: Unexpected token, expected , (8:2)
+    at Parser.pp$5.raise (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:4454:13)
+    at Parser.pp.unexpected (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1761:8)
+    at Parser.pp.expect (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1749:33)
+    at Parser.pp$3.parseCallExpressionArguments (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3564:12)
+    at Parser.pp$3.parseSubscripts (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3533:31)
+    at Parser.pp$3.parseExprSubscripts (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3504:15)
+    at Parser.pp$3.parseMaybeUnary (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3474:19)
+    at Parser.pp$3.parseExprOps (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3404:19)
+    at Parser.pp$3.parseMaybeConditional (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3381:19)
+    at Parser.pp$3.parseMaybeAssign (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3344:19)
+    at Parser.pp$3.parseExpression (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:3306:19)
+    at Parser.pp$1.parseStatement (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1906:19)
+    at Parser.pp$1.parseBlockBody (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:2268:21)
+    at Parser.parseBlockBody (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:4820:18)
+    at Parser.pp$1.parseTopLevel (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1778:8)
+    at Parser.parse (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:1673:17)
+    at Object.parse (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/node_modules/_babylon@6.18.0@babylon/lib/index.js:7305:37)
+    at parser (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/package/utils/transformer.js:7:18)
+    at transformer (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/package/utils/transformer.js:60:20)
+    at fs.readFile (/Users/xxx/.hub/package/kit/@ali%2fhub-kit-cnt-ts/package/utils/build.js:58:24)
+    at FSReqWrap.readFileAfterClose [as oncomplete] (fs.js:511:3)
+</pre>
+解决:肯定是babylon的版本不对，v6.18.0不支持对该文件打包。升级babylon:
+```js
+  "babylon": "^7.0.0-beta.47",
+```
+
+#### 15.发布npm包某一个版本死活会被安装
+遇到一个类似问题:我指定了ts-import-plugin为特定的版本:
+```js
+"ts-import-plugin": "1.4.3",
+```
+但是npm install后老是会安装1.5.5版本，我的解决思路如下:
+
+(1)首先**tnpm ls ts-import-plugin**看看这个包的依赖关系。
+
+(2)确定你本地node_modules没有1.5.5这个版本，而且node_modules没有被发布到npm上。
+
+(3)全局搜索下你的项目ts-import-plugin，我就是发现项目下还有下面的配置，只是不在package.json中:
+
+```js
+"ts-import-plugin": "^1.4.3",
+```
+
+(4)哥，除了项目根目录下的node_modules你还有没有node_modules导致引用出错，因为这个node_modules会被发布到npm。
+
+
+#### 16.git不提交node_modules
+```js
+touch ~/.gitignore_global
+```
+然后输入:
+```js
+.DS_Store
+node_modules
+*/node_modules
+npm-debug.log
+*.swp
+.sw*
+.idea/*
+.editorconfig
+.jshintrc
+.eslintrc
+.travis.yml
+.sass-cache/
+mods/.sass-cache/
+.cache
+.vscode
+.packages
+```
+done,前提是上一次的node_modules已经被删除了。
 
 
 

@@ -386,3 +386,15 @@ export default EventEmitter;
   {options}
 </Select>
 ```
+
+### antd的postcss问题
+<pre>
+./node_modules/_antd@3.9.1@antd/dist/antd.css
+Module build failed: TypeError: Cannot read property 'postcss' of null
+    at <anonymous>
+</pre>
+因为我使用的less，所以必须导入的是less版本的antd:
+```css
+//不能是.css
+@import "~antd/dist/antd.less";
+```
