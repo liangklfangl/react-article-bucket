@@ -430,3 +430,120 @@ formatButton.addEventListener("click", function() {
 其中parser是babylon，而且plugins是prettierPlugins。babylon这个parser可以理解，因为上面已经单独引入了parser-babylon，而prettierPlugins我就以为是作者在写文档的时候忘了定义这个变量，所以一直找不到办法，各种goole无解，最后发现是我想多了。直接引入上面的三个js文件后发现输入这个变量已经挂载到了window上了:
 
 ![](./images/babylon.png)
+
+#### 10.npm install出错了
+<pre>
+[41/42] Installing nan@^2.1.0  CXX(target) Release/obj.target/contextify/src/contextify.o
+⠋ [41/42] Installing nan@^2.1.0../src/contextify.cc:131:56: warning: 'NewInstance' is deprecated [-Wdeprecated-declarations]
+        Local<Object> wrapper = Nan::New(constructor)->NewInstance();
+                                                       ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8.h:3851:3: note: 'NewInstance' has been explicitly marked deprecated here
+  V8_DEPRECATED("Use maybe version", Local<Object> NewInstance() const);
+  ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8config.h:321:29: note: expanded from macro 'V8_DEPRECATED'
+  declarator __attribute__((deprecated))
+                            ^
+../src/contextify.cc:150:16: error: no member named 'SetAccessCheckCallbacks' in 'v8::ObjectTemplate'
+        otmpl->SetAccessCheckCallbacks(GlobalPropertyNamedAccessCheck,
+        ~~~~~  ^
+../src/contextify.cc:182:51: warning: 'GetRealNamedProperty' is deprecated [-Wdeprecated-declarations]
+        Local<Value> rv = Nan::New(ctx->sandbox)->GetRealNamedProperty(property);
+                                                  ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8.h:3403:3: note: 'GetRealNamedProperty' has been explicitly marked deprecated here
+  V8_DEPRECATED("Use maybe version",
+  ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8config.h:321:29: note: expanded from macro 'V8_DEPRECATED'
+  declarator __attribute__((deprecated))
+                            ^
+../src/contextify.cc:209:38: warning: 'GetRealNamedProperty' is deprecated [-Wdeprecated-declarations]
+        if (!Nan::New(ctx->sandbox)->GetRealNamedProperty(property).IsEmpty() ||
+                                     ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8.h:3403:3: note: 'GetRealNamedProperty' has been explicitly marked deprecated here
+  V8_DEPRECATED("Use maybe version",
+  ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8config.h:321:29: note: expanded from macro 'V8_DEPRECATED'
+  declarator __attribute__((deprecated))
+                            ^
+../src/contextify.cc:210:42: warning: 'GetRealNamedProperty' is deprecated [-Wdeprecated-declarations]
+            !Nan::New(ctx->proxyGlobal)->GetRealNamedProperty(property).IsEmpty()) {
+                                         ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8.h:3403:3: note: 'GetRealNamedProperty' has been explicitly marked deprecated here
+  V8_DEPRECATED("Use maybe version",
+  ^
+/Users/qinliang.ql/.node-gyp/8.11.1/include/node/v8config.h:321:29: note: expanded from macro 'V8_DEPRECATED'
+  declarator __attribute__((deprecated))
+                            ^
+⠙ [41/42] Installing nan@^2.1.04 warnings and 1 error generated.
+make: *** [Release/obj.target/contextify/src/contextify.o] Error 1
+gyp ERR! build error
+gyp ERR! stack Error: `make` failed with exit code: 2
+gyp ERR! stack     at ChildProcess.onExit (/usr/local/lib/node_modules/tnpm/node_modules/node-gyp/lib/build.js:262:23)
+gyp ERR! stack     at emitTwo (events.js:126:13)
+gyp ERR! stack     at ChildProcess.emit (events.js:214:7)
+gyp ERR! stack     at Process.ChildProcess._handle.onexit (internal/child_process.js:198:12)
+gyp ERR! System Darwin 16.7.0
+gyp ERR! command "/usr/local/bin/node" "/usr/local/lib/node_modules/tnpm/node_modules/npminstall/node-gyp-bin/node-gyp.js" "rebuild"
+gyp ERR! cwd /Users/qinliang.ql/Desktop/polymerization/node_modules/_contextify@0.1.15@contextify
+gyp ERR! node -v v8.11.1
+gyp ERR! node-gyp -v v3.8.0
+gyp ERR! not ok
+✖ Install fail! Error: Run "sh -c node-gyp rebuild" error, exit code 1
+Error: Run "sh -c node-gyp rebuild" error, exit code 1
+    at ChildProcess.proc.on.code (/usr/local/lib/node_modules/tnpm/node_modules/runscript/index.js:74:21)
+    at emitTwo (events.js:126:13)
+    at ChildProcess.emit (events.js:214:7)
+    at maybeClose (internal/child_process.js:925:16)
+    at Process.ChildProcess._handle.onexit (internal/child_process.js:209:5)
+npminstall version: 3.15.0
+npminstall args: /usr/local/bin/node /usr/
+</pre>
+
+这个错误搞死了个人，最后看到了下面这句才知道contextify@0.1.15被安装了。
+<pre>
+/Users/qinliang.ql/Desktop/polymerization/node_modules/_contextify@0.1.15@contextify
+</pre>
+
+可是我package.json里面明显指定了安装contextify@1.0..0，为啥这个包会被安装呢？先不管它，直接二分法注释package.json再执行install,最后找到了:
+
+```js
+ "mermaid": "0.5.1"
+```
+
+[mermaid](https://github.com/knsv/mermaid)具体不展开，直接在github上找到这个0.5.1的tag，然后查看package.json内容:
+
+```js
+"dependencies": {
+    "chalk": "^0.5.1",
+    "d3": "~3.4.13",
+    "dagre-d3": "~0.4.8",
+    "he": "^0.5.0",
+    "minimist": "^1.1.0",
+    "mkdirp": "^0.5.0",
+    "moment": "^2.9.0",
+    "semver": "^4.1.1",
+    "which": "^1.0.8"
+  },
+```
+
+擦，竟然是d3，而且还有[类似的问题](https://stackoverflow.com/questions/27410558/installing-d3-using-npm-causes-contextify-errors)被提出。直接到d3@3.4.13这个tag下查看package.json:
+
+```js
+"dependencies": {
+    "jsdom": "0.5.7"
+  },
+```
+
+擦，原来是jsdom@0.5.7导致的。但是因为github上没有这个0.5.7的tag，所以我直接找了个项目安装这个版本，查看了他的package.json,一切都恍然大悟:
+
+```js
+ "dependencies": {
+    "htmlparser": "1.x",
+    "nwmatcher": "~1.3.1",
+    "request": "2.x",
+    "cssom": "~0.2.5",
+    "cssstyle": "~0.2.3",
+    "contextify": "~0.1.5"
+  }
+```
+
+原来引用关系是这样的: mermaid -> d3 ->jsdom ->contextify@0.1.5。所以我直接在项目中删除了mermaid，当然你也可以升级它。最新版本已经是8.0.0了。

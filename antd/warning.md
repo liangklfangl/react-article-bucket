@@ -398,3 +398,27 @@ Module build failed: TypeError: Cannot read property 'postcss' of null
 //不能是.css
 @import "~antd/dist/antd.less";
 ```
+
+### antd的报错
+<pre>
+antd报错 cannot read property filter of undefined
+Uncaught TypeError: Cannot read property 'filter' of undefined
+at Object.getRules (VM1037 antd.js:33985)
+at VM1037 antd.js:34090
+at Array.forEach ()
+at Object.validateFieldsInternal (VM1037 antd.js:34077)
+at Object.onCollectValidate (VM1037 antd.js:33873)
+at Object.fireChange (VM1037 antd.js:81196)
+at Object.onMenuSelect (VM1037 antd.js:80779)
+at Object.onSelect (VM1037 antd.js:76930)
+at Object.onClick (VM1037 antd.js:77180)
+at Object.r (VM1035 react-dom.min.js:14)
+</pre>
+使用如下版本解决:
+
+```js
+"react": "^15.5.4",
+"react-dom": "^15.5.4",
+"antd": "^2.13.8"
+```
+同时去掉getFieldDecorator的rules验证即可。

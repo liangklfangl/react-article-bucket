@@ -43,3 +43,11 @@ const counterDown = counter(
 - getMomentByString
 
   根据特定的时间格f式+特定时间，获取到moment对象
+
+- getDateDiff
+
+   得到两个日期之间相差的天数。
+
+- getMaxParallels
+
+   得到数组中根据日期区间得到的最大重叠次数。

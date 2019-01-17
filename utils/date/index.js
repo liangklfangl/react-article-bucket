@@ -201,15 +201,61 @@ function getMomentByString(timeString,FORMAT="YYYY-MM-DD HH:mm:ss"){
 }
 
 
+  /**
+   * 计算两个时间之间的日期
+   * @startDate : YYYY-MM-DD
+   * @endDate : YYYY-MM-DD
+   */
+  function getDateDiff (startDate, endDate) {
+    if (!startDate) {
+      return 0;
+    }
+    const startTime = new Date(Date.parse(startDate.replace(/-/g, '/'))).getTime();
+    const endTime = new Date(Date.parse(endDate.replace(/-/g, '/'))).getTime();
+    const dates = Math.abs(startTime - endTime) / (1000 * 60 * 60 * 24);
+    return dates + 1;
+  };
+
+
+/**
+   * 得到最大的并行数量
+   * [{startDate,endDate},{startDate,endDate}]
+   */
+  function getMaxParallels (data) {
+    const parallelMap = {};
+    for (let t = 0; t < data.length; t++) {
+      const { startDay, endDay } = data[t];
+      const dayGap = this.getDateDiff(moment(startDay).format('YYYY-MM-DD'), moment(endDay).format('YYYY-MM-DD'));
+      for (let i = 0; i < dayGap; i++) {
+        const yearDay = moment(startDay, 'YYYY-MM-DD')
+          .add(i, 'days')
+          .format('YYYY-MM-DD');
+        if (parallelMap[`${yearDay}`]) {
+          parallelMap[`${yearDay}`] = parallelMap[`${yearDay}`] + 1;
+        } else {
+          parallelMap[`${yearDay}`] = 1;
+        }
+      }
+    }
+    const values = [2];
+    Object.keys(parallelMap).forEach(key => {
+      values.push(parallelMap[key]);
+    });
+    const maxParallelNum = Math.max.apply(Math, values);
+    return maxParallelNum;
+  };
+
 module.exports = {
   counter,
   getDateByDay,
   isBetweenTime,
+  getMaxParallels,
   isBefore,
   isAfter,
   getCurrent: getCurrent,
   getTimeStamp,
   moment2TimeStamp,
   moment2Str,
+  getDateDiff,
   getMomentByString
 };
