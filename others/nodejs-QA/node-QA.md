@@ -910,6 +910,18 @@ bar/index.node
 如果在所有目录中，都无法找到bar对应的文件或目录，就抛出一个错误。
 
 
+#### 18.如何侵入nodejs原生的require
+比如在某一个模板加载之前或者之后插入自己的一段代码,我也是在看了jsdoc后才知道的:
+```js
+  require = require("requizzle")({
+    requirePaths: {
+      before: [path.join(__dirname, "lib")],
+      after: [path.join(__dirname, "node_modules")]
+    },
+    infect: true
+  });
+```
+当然更深入的使用和原理可以查看[requizzle](https://github.com/hegemonic/requizzle)。
 
 
 

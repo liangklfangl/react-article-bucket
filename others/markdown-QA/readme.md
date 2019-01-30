@@ -311,6 +311,25 @@ this.CodeMirror.codeMirror.getValue();
 \/>
 ```
 
+
+#### 9.codemirror报错
+<pre>
+SilverDemo.js:228 Uncaught TypeError: CodeMirror.fromTextArea is not a function
+    at SilverDemo.componentDidMount (SilverDemo.js:228)
+    at commitLifeCycles (react-dom.development.js:16227)
+    at commitAllLifeCycles (react-dom.development.js:17592)
+    at HTMLUnknownElement.callCallback (react-dom.development.js:149)
+    at Object.invokeGuardedCallbackDev (react-dom.development.js:199)
+    at invokeGuardedCallback (react-dom.development.js:256)
+    at commitRoot (react-dom.development.js:17788)
+    at completeRoot (react-dom.development.js:19240)
+    at performWorkOnRoot (react-dom.development.js:19169)
+    at performWork (react-dom.development.js:19077)
+</pre>
+最后发现我一开始引入的5.2.0，但是后面又引入了6.0.1版本，直接删除后者就好了。
+
+
+
 参考资料:
 
 [如何看待尝试标准化并取代 Markdown 的 CommonMark ？](https://www.zhihu.com/question/25417178/answer/30765483)
