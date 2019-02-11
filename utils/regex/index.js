@@ -12,3 +12,9 @@ export const decodePercent = /%["'](\S*?)%["']/g;
 export const jsxFuncRegex  =  /(([^{}]*)return[\s]*)(<([a-z]+)([^<]+)?>[\s\S]*?<\/\4>)([\s\S])*?(?=})/g;
 // 如果一个函数返回了jsx，那么将这个函数的函数体匹配出来
 // 参考./mock/jsxRegex.js
+
+//去除url前面的https:、http:前缀
+export const extripHttps = /^http(s?):/g;
+
+//去掉../../等前面的前缀
+export const extrip = /[.]*\//g;
