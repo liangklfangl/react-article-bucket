@@ -390,3 +390,9 @@ commands: {ac,}
 // commands里面包含所有的方法
 ```
 建议自己require它并打印出来。
+
+##### 13.babel打包的时候拷贝非js文件
+遇到一个常见的问题:在babel打包的时候需要考虑less/scss等文件，此时可以直接使用如下的命令即可:
+```js
+rimraf lib && babel src --out-dir lib --copy-files
+```

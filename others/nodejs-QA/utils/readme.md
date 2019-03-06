@@ -42,6 +42,9 @@ exports.defineTags = function(dictionary, tagDefinitions) {
       onTagged: function(doclet, tag) {
         doclet.name = doclet.name + "_complexed";
         doclet.scope = "complex";
+        // doclet.meta = doclet.meta || {};
+        // doclet.meta.filename = value.filename || "";
+        // doclet.meta.lineno = value.lineno || "";
       }
     })
     .synonym("cplx");

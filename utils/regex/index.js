@@ -2,6 +2,8 @@
  * 所有regex测试平台:https://regex101.com/
  */
 export const multilineComment = /\/\*([\S\s]*?)\*\//g;
+//jsdoc多行注释
+export const multiCommentJSDoc =   /\/\*\*[\s\S]+?\*\//g;
 // 多行注释，参考:https://github.com/sindresorhus/comment-regex/blob/master/index.js
 export const blankLine = /\n(\n)*( )*(\n)*\n/g;
 // 命中空行

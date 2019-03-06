@@ -1313,6 +1313,24 @@ ReactDOM.render(
 ```
 上面的alert会被调用两次，第一次是componentDidMount时候，即组件挂载的时候。而第二次是点击的时候手动调用的componentDidMount。但是我们不建议直接调用生命周期方法!
 
+#### 18.直接定位跳转到某一个锚点
+假如应用是基于browserHistory的，可以通过如下方式来完成:
+```js
+scrollToAnchor() {
+    let anchorName = this.props.location.hash;
+    if (anchorName) {
+        anchorName = anchorName.replace("#","");
+        let anchorElement = document.getElementById(anchorName);
+        if(anchorElement) { anchorElement.scrollIntoView(); }
+    }
+}
+```
+
+#### 19.componentWillReceiveProps真的是只有props变化才触发的吗
+其实使用React-Router后hash跳转会触发componentWillReceiveProps的，一个常见的问题就是[TOC](https://github.com/tscanlin/tocbot)问题。解决方法可以[参考这个文章](https://k8w.io/post/35)。但是我是通过排除方法来完成的，比如:点击了某些元素后，设置一个全局标志，此时在componentWillReceiveProps中做处理即可。
+
+
+
 
 
 

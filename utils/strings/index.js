@@ -46,13 +46,22 @@ export function encodeScript(str){
 /**
  * { item_description }
  */
-export function getQueryString = (name,isSpa) => {
-    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
-    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
-      results = regex.exec(isSpa ? location.hash :window.location.search.substr(1));
-    return results == null ? "" : decodeURIComponent(results[1]);
-  };
-
+export function getQueryString() {
+  const href = window.location.href;
+  if (href.indexOf('?') === -1) {
+    return {};
+  }
+  const search = href.substring(href.indexOf('?') + 1);
+  const searchObj = {};
+  const parms = search.split('&');
+  for (let i = 0; i < parms.length; i++) {
+    const temp = parms[i].split('=');
+    if (temp[0] && temp[1]) {
+      searchObj[temp[0]] = temp[1];
+    }
+  }
+  return searchObj;
+}
 /**
  * { function_description }
  *
