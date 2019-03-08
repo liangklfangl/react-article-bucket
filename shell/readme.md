@@ -396,3 +396,24 @@ commands: {ac,}
 ```js
 rimraf lib && babel src --out-dir lib --copy-files
 ```
+
+##### 14.git分支排序
+```js
+const semver = require('semver')
+var gits = [
+  "daily/0.0.10",
+  "daily/0.0.11",
+  "daily/0.0.12",
+  "daily/0.0.13",
+  "daily/0.0.2",
+  "daily/0.0.5",
+  "daily/0.0.6",
+  "daily/0.0.7",
+  "daily/0.0.8"
+]
+const sorted = gits.sort(function(a, b) {
+    var lt = semver.coerce(a);
+    var gl = semver.coerce(b);
+    return semver.gt(lt, gl);
+})
+```

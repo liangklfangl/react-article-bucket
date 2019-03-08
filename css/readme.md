@@ -107,7 +107,7 @@ UED出图的时候一般要么是640的，要么是750的两种。如果是640�
 但是这种情况下border会继承，所以需要在嵌套的元素里面设置border:0。
 
 
-问题3:css3实现图片在容器中自动缩放居中
+问题4:css3实现图片在容器中自动缩放居中
 ```css
   .auto__resize--image {
     width: 400px;
@@ -120,7 +120,7 @@ UED出图的时候一般要么是640的，要么是750的两种。如果是640�
   }
 ```
 
-问题4:列表li前面添加三角形
+问题5:列表li前面添加三角形
 ```css
 ul {
     margin: 0.75em 0;
@@ -148,6 +148,56 @@ DOM为:
    <li>Vestibulum auctor dapibus neque.</li>
 </ul>
 ```
+
+问题6：左右两列等高布局加中间分割线
+左侧:
+```css
+@basex: 144;
+@base:168;
+// 右侧内容
+.main-content {
+    position: relative;
+    float: left;
+    padding: unit(24 / @base, rem) unit(40 / @base, rem) unit(120 / @base, rem);
+    border-left: unit(1 / @basex, rem) solid rgb(236, 241, 243);
+    width: calc(~'100vw - 1.7142857142857142rem');
+    // 288/@base的rem
+  }
+  // 左侧sider-bar
+  .main-sider {
+    float: left;
+    width: unit(288 / @base, rem);
+    margin-left: unit(-287 / @base, rem);
+    margin-right: unit(-2 / @base, rem);
+    padding-top: unit(18 / @basex, rem);
+    position: relative;
+    .main--sider__ul {
+      padding-bottom: unit(20 / @basex, rem);
+    }
+  }
+  // 父级容器
+  .main-container {
+    width: 100%;
+    border-left: unit(288 / @base, rem) solid white;
+    pre,
+    code {
+      background-color: #f9f9f9;
+      padding: unit(16 / @base, rem);
+    }
+  }
+    // 父级容器
+  .main-container:after {
+    content: '';
+    display: block;
+    clear: both;
+  }
+```
+
+
+
+
+
+
 
 参考资料:
 
