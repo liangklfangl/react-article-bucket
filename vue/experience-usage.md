@@ -868,6 +868,34 @@ createElement(
   <drag-rule :key="cfg[1].groupRule.length" :lists="cfg[1].groupRule" />
 ```
 
+#### 23.el-tab下使用自定义组件问题
+```js
+ <el-tabs v-model="editableTabsValue2" type="card" closable @tab-remove="removeTab" @tab-click="onTabClick">
+    <el-tab-pane v-for="(item, index) in editableTabs2" :key="item.name+'__pane'" :label="item.title" :name="item.name">
+        <mtr-tab :key="'mtr-tab__'+item.name" :cntKey="item.name" :materialData="materialData" :localStoreMtr="localStoreMtr" :ref="'refMaterial'+item.name" v-show="editableTabsValue2==item.name" />
+    </el-tab-pane>
+</el-tabs>
+```
+el-tabs在每一次循环的时候mtr-tab组件都会被挂载，也就是说:"el-tabs不等待该tab呈现的时候才挂载"(是否可通过[lazy](http://element-cn.eleme.io/#/zh-CN/component/tabs)处理暂未研究)，这对于数据初始化很重要。
+
+#### 24.el-tab下通过ref获取动态产生的自定义组件
+```js
+ this.$on('getInnerValue', function() {
+    for (let loop = 0, len = this.editableTabs2.length; loop < len; loop++) {
+        const name = this.editableTabs2[loop].name;
+        // v-for中是个数组，注意上一点23的mtr-tab组件的ref生成逻辑
+        // 这里不能通过this.$refs[`refMaterial${name}`].$emit('getInnerValue')获取
+        this.$refs[`refMaterial${name}`][0].$emit('getInnerValue');
+    }
+    this.localStoreMaterial(this.materialMap);
+})
+```
+需要通过this.$refs[`refMaterial${name}`][0]获取产生的自定义组件句柄。
+
+
+
+
+
 
 参考文献:
 
