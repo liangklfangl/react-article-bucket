@@ -1,0 +1,93 @@
+
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CSS卡片反转展示效果</title>
+  <script type="text/javascript" src="https://demo.demohuo.top/jquery/22/2281/demo/js/jquery.min.js"></script>
+<style type="text/css">
+
+
+.element-card {
+  position:relative;
+  width:100px;
+  height:130px;
+  transform-style:preserve-3d;
+  margin:5px;
+  cursor:pointer;
+}
+
+/**
+ * 背面默认转了180度，open的时候转回来
+**/
+.element-card.open {
+  width:200px;
+  height:260px;
+  -webkit-transform:rotatey(-180deg) translatex(0px) translatey(0px);
+  transform:rotatey(-180deg) translatex(0px) translatey(0px);
+}
+/**
+ * 正面
+**/
+.element-card .front-facing {
+  -webkit-transform:rotateY(0deg) translateZ(2px);
+  transform:rotateY(0deg) translateZ(2px);
+  position:absolute;
+  top:0;
+  left:0;
+  bottom:0;
+  right:0;
+  background-color:#ecf0f1;
+  border:2px white solid;
+  border-radius:5px;
+}
+
+/**
+ * 背面
+**/
+.element-card .back-facing {
+  -webkit-transform:rotateY(180deg) translateZ(0px);
+  transform:rotateY(180deg) translateZ(0px);
+  display:flex;
+  flex-direction:column;
+  flex-wrap:nowrap;
+  justify-content:center;
+  align-items:center;
+  position:absolute;
+  top:0;
+  left:0;
+  bottom:0;
+  right:0;
+  background-color:#ecf0f1;
+  border:2px white solid;
+  border-radius:5px;
+  padding:20px;
+  text-align:center;
+  overflow:hidden;
+}
+
+    </style>
+
+</head>
+<body>
+  <div class="element-card">
+    <div class="front-facing">
+       铜矿
+    </div>
+    <div class="back-facing">
+      <p>纯铜是柔软的金属，表面刚切开时为红橙色带金属光泽，单质呈紫红色。延展性好，导热性和导电性高，因此在电缆和电气、电子元件是最常用的材料，也可用作建筑材料，可以组成众多种合金。</p>
+    </div>
+  </div>
+</body>
+<script>
+$(document).ready(function() {
+    $('.element-card').on('click', function() {
+        if ($(this).hasClass('open')) {
+            $(this).removeClass('open');
+        } else {
+            $('.element-card').removeClass('open');
+            $(this).addClass('open');
+        }
+    });
+});
+</script>
+</html>

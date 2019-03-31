@@ -193,7 +193,9 @@ DOM为:
   }
 ```
 
+问题7:CSS如何获取所有兄弟元素
 
+可以参考[这个文章](https://discourse.wicg.io/t/all-siblings-selector/1156)
 
 
 

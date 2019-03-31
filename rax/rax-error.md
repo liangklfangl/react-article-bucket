@@ -25,3 +25,26 @@ ERROR in ./rax/components/universalcallup.js
    const { interactionType, displayType, prize } = this.state;
    const { interactionType } = this.props;
 ```
+
+### 2.组件渲染异常
+<pre>
+ Error: Invalid component type: [object Object]. (keys: )
+value
+</pre>
+
+组件写了这样的代码:
+```js
+render(<App />);
+```
+其实应该是:
+```js
+export default App;
+```
+
+### 3.flex-direction:row在rax中不居中
+看是否是自定义组件，如果是建议在外层包裹一层Div，这个Div进行flex布局:
+```js
+<Div>
+  <MySelfCnpt/>
+<\/Div>
+```

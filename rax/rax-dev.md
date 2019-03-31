@@ -282,6 +282,159 @@ reloadCurrentPage = () => {
  }
 ```
 
+### 16.rax的xslider设置间距问题
+```js
+/**
+ * 卡券距离只能通过scale完成
+ */
+  getCardTransitionSpec = () => {
+    return {
+      props: [
+        {
+          property: "transform.scale",
+          inputRange: [0, 1],
+          outputRange: [0.9, 1]
+        }
+      ]
+    };
+  };
+```
+
+
+### 17.rax的样式和H5差别太大
+一般都是因为width/height没有设置导致的，比如设置了下面的百分比给父级元素:
+```js
+width:100%;
+height:100%;
+```
+而样式在rax中不会被继承。
+
+### 18.rax的文字重复渲染
+```js
+ <Text style={[styles.gatherText]}>已收集:</Text>
+ <Text style={[styles.gatherProcess]}>{this.generateProgress()}</Text>
+```
+上面代码一开始用span标签的时候就会出现该问题，文字标签请用Text。
+
+### 19.rax设置遮罩zIndex不覆盖的问题
+遮罩如果和后面的内容不是父子关系(有时候为了能够通过rax单独隐藏遮罩层，不能作为子级元素，否则父级opacity设置为0，子级都看不见了)，那么两个兄弟元素的position必须相同才能达到后者覆盖前者(zIndex不支持)。比如两个都是fixed,relative,absolute。其实这和以Image作为背景图片是同样的道理，比如下面的例子:
+```js
+ <View style={[styles.card, style]} className="cardFrontFace">
+    <Image
+      source={{
+        uri: cardBgFace
+      }}
+      style={[
+        { position: "absolute" },
+        this.props.style
+      ]}
+    />
+    <Div
+      style={[
+        this.props.style ? this.props.style : {},
+        styles.content,
+        style
+      ]}
+    >
+    </Div>
+<\/View>
+```
+其中Image和Div必须都是absolute才能达到覆盖效果；
+
+### 20.rax卡片居中效果
+```js
+ <Slider
+  ref="slider"
+  loop={true}
+  autoPlay={false}
+  startGap={125}
+  endGap={125}
+  cardSize={500}
+  cardTransitionSpec={this.getCardTransitionSpec}
+>
+  {colors.map((color, i) => {
+    return (
+      <Slider.Panel style={[styles.item, { backgroundColor: color }]}>
+        <Slider.PanView style={styles.panView}>
+          <Text style={[styles.txt, { color: "blue" }]}>{i}</Text>
+        </Slider.PanView>
+      <\/Slider.Panel>
+    );
+  })}
+<\/Slider>
+```
+其实是依赖于cardSize和startGap，endGap来计算的，总共的宽度为viewPort=750。
+
+### 21.rax的scale效果不生效
+```js
+ BindingX.bind({
+      eventType: "timing",
+      exitExpression: {
+        origin: "t>8000"
+      },
+      props: [
+        {
+          element: box1,
+          property: "transform.translateY",
+          expression: {
+            origin: "easeOutQuint(t, 0-150, 150, 8000)"
+          }
+        },
+        {
+          element: box1,
+          property: "transform.scale",
+          expression: {
+            // origin: "cubicBezier(t, 1, 0-1, 8000, 0.18, 0.51, 1, -0.27)"
+            origin:"easeOutBack(t,1, 0-1, 8000)"
+            //easingFunction(t, begin, changeBy, duration)
+          }
+        }
+      ]
+    });
+```
+注意API是如下格式:
+```js
+easingFunction(t, begin, changeBy, duration)
+```
+一开始写成了:
+```js
+easeOutBack(t,1, 0, 8000)
+```
+导致没有缩小的效果，使用贝塞尔曲线也是同样的道理。
+
+### 22.BindingX动画问题
+动画表达式中的t是有精确度的，不是step=1的变化,t还可能是负数。
+```js
+Binding.bind(
+    {
+      eventType: "timing",
+      exitExpression: {
+        origin: `t>10`
+      },
+      props: [
+        {
+          element: this.getEl(this.unstartCardRefs[0]),
+          property: "transform.scale",
+          expression: {
+            // 这里的事件t是有精确度的，不是step=1的变化,t还可能是负数
+            // 发现promise.all后面不是每次都执行
+            origin: `t>10 || t<0 ? 0 :1 - abs(t/10)`
+          }
+        }
+      ]
+    },
+    state => {
+      console.log("动画状态==", state);
+    }
+  );
+```
+
+### 23.Rax中setState是同步的
+```js
+this.setState(state,()=>{});
+//你会发现后面的callback是不会被执行的
+```
+
 
 
 参考资料:
